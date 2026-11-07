@@ -1,0 +1,20 @@
+{
+  "port": 8080,
+  "storages": [
+    {
+      "id": "main",
+      "name": "기본 저장소",
+      "path": "$HOME/MiniNAS_Storage"
+    },
+    {
+      "id": "downloads",
+      "name": "다운로드 폴더",
+      "path": "$HOME/Downloads"
+    },
+    {
+      "id": "movies",
+      "name": "동영상 보관함",
+      "path": "$HOME/Movies"
+    }
+  ]
+}

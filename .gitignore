@@ -1,0 +1,29 @@
+# Dependencies
+frontend/node_modules/
+
+# Build artifacts
+frontend/dist/
+backend/dist/
+release/
+*.tar.gz
+mininas-intel-mac
+mininas-local
+backend/mininas-*
+
+# User configuration & local tools
+config.json
+*.local.json
+tools/
+.mininas_cache/
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+.vscode/
+.idea/
+
+# Logs
+*.log
+*.log.*
