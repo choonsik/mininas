@@ -292,6 +292,39 @@ export const NetflixView: React.FC<NetflixViewProps> = ({
     }
   }, [videoItems]);
 
+  // Keyboard navigation for video cards in Netflix View (ArrowLeft / ArrowRight / Enter)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
+        return;
+      }
+
+      if (videoItems.length === 0) return;
+
+      const currentIdx = featuredItem 
+        ? videoItems.findIndex(v => v.path === featuredItem.path)
+        : 0;
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const nextIdx = (currentIdx + 1) % videoItems.length;
+        setFeaturedItem(videoItems[nextIdx]);
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prevIdx = (currentIdx - 1 + videoItems.length) % videoItems.length;
+        setFeaturedItem(videoItems[prevIdx]);
+      } else if (e.key === 'Enter') {
+        if (featuredItem) {
+          e.preventDefault();
+          onOpenMedia(featuredItem);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [videoItems, featuredItem, onOpenMedia]);
+
   // Breadcrumbs
   const pathParts = currentPath.split('/').filter(Boolean);
   const breadcrumbs: BreadcrumbItem[] = [
@@ -346,6 +379,9 @@ export const NetflixView: React.FC<NetflixViewProps> = ({
 
         {/* Right: Exit to Standard Explorer Button */}
         <div className="flex items-center gap-3">
+          <span className="text-[11px] text-neutral-400 font-mono hidden lg:inline bg-neutral-900 border border-neutral-800 px-2 py-1 rounded">
+            단축키: ← / → 탐색 · Enter 재생
+          </span>
           <span className="text-xs text-neutral-400 font-mono hidden md:inline">
             총 {videoItems.length}편의 동영상
           </span>

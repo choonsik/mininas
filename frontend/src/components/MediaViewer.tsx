@@ -138,7 +138,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
     };
   }, [item, storageId]);
 
-  // Keyboard navigation listener
+  // Keyboard navigation listener (Capture phase to guarantee consistent navigation across all media)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is inside an input or textarea
@@ -147,31 +147,33 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
       }
 
       if (e.key === 'Escape') {
+        e.preventDefault();
         onClose();
         return;
       }
 
-      // PageUp/PageDown always navigates
-      if (e.key === 'PageUp' || (e.shiftKey && e.key === 'ArrowLeft') || e.key === '[') {
+      // Consistent navigation across ALL media types (video, image, audio, text)
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp' || e.key === '[') {
         e.preventDefault();
+        e.stopPropagation();
         handlePrev();
-      } else if (e.key === 'PageDown' || (e.shiftKey && e.key === 'ArrowRight') || e.key === ']') {
+      } else if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ']') {
         e.preventDefault();
+        e.stopPropagation();
         handleNext();
-      } else if (item?.mediaType !== 'video') {
-        // Plain ArrowLeft / ArrowRight for non-video files
-        if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          handlePrev();
-        } else if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          handleNext();
+      } else if (e.key === ' ' && item?.mediaType === 'video' && videoRef.current) {
+        // Spacebar toggles Play / Pause for video
+        e.preventDefault();
+        if (videoRef.current.paused) {
+          videoRef.current.play();
+        } else {
+          videoRef.current.pause();
         }
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [handlePrev, handleNext, onClose, item]);
 
   // Synchronize subtitle track mode when selectedSubtitleUrl changes or video loads
@@ -662,11 +664,11 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
         </div>
         <div className="flex items-center gap-4">
           {playlist.length > 1 && (
-            <span className="hidden sm:inline text-gray-500">
-              단축키: 이전 (<kbd className="px-1 py-0.5 bg-white/10 rounded">Shift+←</kbd> 또는 <kbd className="px-1 py-0.5 bg-white/10 rounded">[</kbd>) / 다음 (<kbd className="px-1 py-0.5 bg-white/10 rounded">Shift+→</kbd> 또는 <kbd className="px-1 py-0.5 bg-white/10 rounded">]</kbd>)
+            <span className="hidden sm:inline text-gray-400">
+              단축키: 이전 (<kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono text-gray-200">←</kbd>) / 다음 (<kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono text-gray-200">→</kbd>) / 재생 (<kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono text-gray-200">Space</kbd>)
             </span>
           )}
-          <span>닫기: <kbd className="px-1 py-0.5 bg-white/10 rounded">ESC</kbd></span>
+          <span>닫기: <kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono text-gray-200">ESC</kbd></span>
         </div>
       </div>
 
