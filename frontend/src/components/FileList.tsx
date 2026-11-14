@@ -50,7 +50,9 @@ interface FileListProps {
   clipboard: ClipboardItem | null;
   onCopySelected: () => void;
   onCutSelected: () => void;
+  onOpenMoveModal: () => void;
   onPaste: () => void;
+  onCancelClipboard: () => void;
   onCopyItem: (item: FileItem) => void;
   onCutItem: (item: FileItem) => void;
   onItemContextMenu: (e: React.MouseEvent, item: FileItem) => void;
@@ -83,7 +85,9 @@ export const FileList: React.FC<FileListProps> = ({
   clipboard,
   onCopySelected,
   onCutSelected,
+  onOpenMoveModal,
   onPaste,
+  onCancelClipboard,
   onCopyItem,
   onCutItem,
   onItemContextMenu,
@@ -180,6 +184,15 @@ export const FileList: React.FC<FileListProps> = ({
               </span>
 
               <button
+                onClick={onOpenMoveModal}
+                className="flex items-center gap-1 text-xs bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black px-2.5 py-1 rounded font-medium transition"
+                title="선택한 항목을 특정 폴더로 이동"
+              >
+                <Scissors className="w-3.5 h-3.5" />
+                폴더로 이동...
+              </button>
+
+              <button
                 onClick={onCopySelected}
                 className="flex items-center gap-1 text-xs bg-[#242436] hover:bg-[#32324a] text-gray-200 px-2.5 py-1 rounded font-medium transition"
                 title="선택 항목 복사"
@@ -194,7 +207,7 @@ export const FileList: React.FC<FileListProps> = ({
                 title="선택 항목 잘라내기 (이동)"
               >
                 <Scissors className="w-3.5 h-3.5 text-amber-400" />
-                이동
+                잘라내기
               </button>
 
               <button
@@ -229,14 +242,26 @@ export const FileList: React.FC<FileListProps> = ({
           ) : (
             <div className="flex items-center gap-2">
               {clipboard && (
-                <button
-                  onClick={onPaste}
-                  className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg font-medium shadow-sm transition animate-pulse"
-                  title={`${clipboard.paths.length}개 항목 붙여넣기`}
-                >
-                  <Clipboard className="w-3.5 h-3.5" />
-                  붙여넣기 ({clipboard.paths.length})
-                </button>
+                <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-lg animate-fadeIn">
+                  <span className="text-[11px] text-amber-300 font-medium px-1">
+                    {clipboard.action === 'cut' ? '✂️ 이동 대기' : '📋 복사 대기'}: {clipboard.paths.length}개
+                  </span>
+                  <button
+                    onClick={onPaste}
+                    className="flex items-center gap-1 text-xs bg-amber-500 hover:bg-amber-400 text-black px-2.5 py-1 rounded font-bold shadow-sm transition"
+                    title={`${clipboard.paths.length}개 항목 붙여넣기`}
+                  >
+                    <Clipboard className="w-3.5 h-3.5" />
+                    붙여넣기
+                  </button>
+                  <button
+                    onClick={onCancelClipboard}
+                    className="text-xs text-gray-400 hover:text-white px-1.5 py-1 rounded transition"
+                    title="이동/복사 취소 (ESC)"
+                  >
+                    취소 (ESC)
+                  </button>
+                </div>
               )}
 
               <button

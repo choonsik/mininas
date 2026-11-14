@@ -8,10 +8,11 @@ import { UploadModal } from './components/UploadModal';
 import { NewFolderModal } from './components/NewFolderModal';
 import { RenameModal } from './components/RenameModal';
 import { FileDetailsModal } from './components/FileDetailsModal';
+import { MoveModal } from './components/MoveModal';
 import { ContextMenu } from './components/ContextMenu';
 import { FileItem, SystemStats, StorageInfo, SortField, SortOrder, ClipboardItem } from './types';
 import { api } from './api';
-import { UploadCloud, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { UploadCloud, CheckCircle, AlertCircle, X, Clipboard, ArrowRight } from 'lucide-react';
 
 export const App: React.FC = () => {
   // Storage state
@@ -54,6 +55,8 @@ export const App: React.FC = () => {
   const [isNewFolderOpen, setIsNewFolderOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<FileItem | null>(null);
   const [detailItem, setDetailItem] = useState<FileItem | null>(null);
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+  const [moveSourcePaths, setMoveSourcePaths] = useState<string[]>([]);
 
   // Context Menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -280,11 +283,47 @@ export const App: React.FC = () => {
       storageId: activeStorageId,
       storageName: activeStorage?.name || '저장소',
     });
-    showToast(`${paths.length}개 항목이 잘라내기되었습니다. 이동할 폴더에서 붙여넣으세요.`, 'info');
+    showToast(`${paths.length}개 항목이 잘라내기되었습니다. 이동할 폴더에서 붙여넣거나 ESC로 취소하세요.`, 'info');
+  };
+
+  const handleCancelClipboard = () => {
+    setClipboard(null);
+    showToast('클립보드 작업이 취소되었습니다.', 'info');
+  };
+
+  const handleOpenMoveModal = (paths?: string[]) => {
+    const targets = paths && paths.length > 0 ? paths : Array.from(selectedPaths);
+    if (targets.length === 0) {
+      showToast('이동할 항목을 먼저 선택해주세요.', 'error');
+      return;
+    }
+    setMoveSourcePaths(targets);
+    setIsMoveModalOpen(true);
+  };
+
+  const handleMoveSuccess = (targetDir: string, movedCount: number) => {
+    showToast(`${movedCount}개 항목이 '${targetDir}'(으)로 이동되었습니다.`, 'success');
+    setSelectedPaths(new Set());
+    setClipboard(null);
+    loadFiles(currentPath, activeStorageId);
+    loadStorages();
   };
 
   const handlePaste = async () => {
     if (!clipboard || clipboard.paths.length === 0) return;
+
+    // Check if moving to the same directory
+    if (clipboard.action === 'cut' && clipboard.storageId === activeStorageId) {
+      const allInSameDir = clipboard.paths.every(p => {
+        const parent = p.substring(0, p.lastIndexOf('/')) || '/';
+        return parent === currentPath;
+      });
+      if (allInSameDir) {
+        showToast('출발 폴더와 대상 폴더가 동일합니다.', 'error');
+        return;
+      }
+    }
+
     try {
       if (clipboard.action === 'copy') {
         const res = await api.copyItems(clipboard.paths, currentPath, clipboard.storageId, activeStorageId);
@@ -417,6 +456,17 @@ export const App: React.FC = () => {
 
       const isCmdOrCtrl = e.metaKey || e.ctrlKey;
 
+      if (e.key === 'Escape') {
+        if (clipboard) {
+          e.preventDefault();
+          handleCancelClipboard();
+        } else if (selectedPaths.size > 0) {
+          e.preventDefault();
+          setSelectedPaths(new Set());
+        }
+        return;
+      }
+
       if (isCmdOrCtrl && e.key === 'c' && selectedPaths.size > 0) {
         e.preventDefault();
         handleCopyItems(Array.from(selectedPaths));
@@ -544,6 +594,7 @@ export const App: React.FC = () => {
             onDeleteSingle={handleDeleteSingle}
             onCopySingle={(item) => handleCopyItems([item.path])}
             onCutSingle={(item) => handleCutItems([item.path])}
+            onMoveSingle={(item) => handleOpenMoveModal([item.path])}
             onContextMenu={handleItemContextMenu}
           />
         ) : (
@@ -568,7 +619,9 @@ export const App: React.FC = () => {
             clipboard={clipboard}
             onCopySelected={() => handleCopyItems(Array.from(selectedPaths))}
             onCutSelected={() => handleCutItems(Array.from(selectedPaths))}
+            onOpenMoveModal={() => handleOpenMoveModal()}
             onPaste={handlePaste}
+            onCancelClipboard={handleCancelClipboard}
             onCopyItem={(item) => handleCopyItems([item.path])}
             onCutItem={(item) => handleCutItems([item.path])}
             onItemContextMenu={handleItemContextMenu}
@@ -581,6 +634,40 @@ export const App: React.FC = () => {
           />
         )}
       </div>
+
+      {/* Active Floating Clipboard Bar (Always visible when Cut / Copy is active) */}
+      {clipboard && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 bg-[#1e1e2d]/95 border border-amber-500/50 text-amber-200 px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 text-xs animate-slideDown backdrop-blur-md">
+          <div className="flex items-center gap-2 font-semibold">
+            <span className="p-1 rounded-lg bg-amber-500/20 text-amber-400">
+              {clipboard.action === 'cut' ? <ArrowRight className="w-4 h-4" /> : <Clipboard className="w-4 h-4" />}
+            </span>
+            <span>
+              {clipboard.action === 'cut' ? '이동(잘라내기) 대기 중' : '복사 대기 중'}:{' '}
+              <strong className="text-white">{clipboard.paths.length}개 항목</strong>
+            </span>
+          </div>
+
+          <div className="h-4 w-px bg-white/10" />
+
+          <button
+            onClick={handlePaste}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl transition active:scale-95 shadow-md shadow-amber-500/20"
+            title="현재 열린 폴더로 이동/복사"
+          >
+            현재 폴더로 {clipboard.action === 'cut' ? '이동' : '복사'}
+          </button>
+
+          <button
+            onClick={handleCancelClipboard}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-[#28283a] hover:bg-[#34344d] text-gray-300 hover:text-white rounded-xl transition"
+            title="클립보드 작업 취소 (ESC)"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>취소 (ESC)</span>
+          </button>
+        </div>
+      )}
 
       {/* Global Drag & Drop Overlay */}
       {isDraggingOver && (
@@ -646,7 +733,9 @@ export const App: React.FC = () => {
           }}
           onCopy={(item) => handleCopyItems([item.path])}
           onCut={(item) => handleCutItems([item.path])}
+          onMoveTo={(item) => handleOpenMoveModal([item.path])}
           onPaste={handlePaste}
+          onCancelClipboard={handleCancelClipboard}
           onRename={(item) => setRenameTarget(item)}
           onDelete={handleDeleteSingle}
           onDetails={(item) => setDetailItem(item)}
@@ -655,6 +744,16 @@ export const App: React.FC = () => {
           onRefresh={() => loadFiles(currentPath, activeStorageId)}
         />
       )}
+
+      {/* Move Folder Modal */}
+      <MoveModal
+        isOpen={isMoveModalOpen}
+        onClose={() => setIsMoveModalOpen(false)}
+        sourcePaths={moveSourcePaths}
+        currentStorageId={activeStorageId}
+        currentStorageName={activeStorage?.name || '저장소'}
+        onMoveSuccess={handleMoveSuccess}
+      />
 
       {/* File Details Modal */}
       <FileDetailsModal

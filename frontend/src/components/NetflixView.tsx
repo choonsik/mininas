@@ -36,6 +36,7 @@ interface NetflixViewProps {
   onDeleteSingle: (item: FileItem) => void;
   onCopySingle: (item: FileItem) => void;
   onCutSingle: (item: FileItem) => void;
+  onMoveSingle?: (item: FileItem) => void;
   onContextMenu: (e: React.MouseEvent, item: FileItem) => void;
 }
 
@@ -76,6 +77,7 @@ const VideoCard: React.FC<{
   onDelete: () => void;
   onCopy: () => void;
   onCut: () => void;
+  onMove?: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }> = ({
   item,
@@ -88,6 +90,7 @@ const VideoCard: React.FC<{
   onDelete,
   onCopy,
   onCut,
+  onMove,
   onContextMenu,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -223,6 +226,14 @@ const VideoCard: React.FC<{
                 >
                   <Copy className="w-3.5 h-3.5" /> 복사
                 </button>
+                {onMove && (
+                  <button
+                    onClick={() => { setMenuOpen(false); onMove(); }}
+                    className="w-full px-3 py-1.5 text-left text-amber-400 hover:bg-neutral-700 flex items-center gap-2"
+                  >
+                    <Scissors className="w-3.5 h-3.5" /> 폴더로 이동...
+                  </button>
+                )}
                 <button
                   onClick={() => { setMenuOpen(false); onCut(); }}
                   className="w-full px-3 py-1.5 text-left text-neutral-200 hover:bg-neutral-700 flex items-center gap-2"
@@ -258,6 +269,7 @@ export const NetflixView: React.FC<NetflixViewProps> = ({
   onDeleteSingle,
   onCopySingle,
   onCutSingle,
+  onMoveSingle,
   onContextMenu,
 }) => {
   // Split items into videos, folders, and other files
@@ -547,6 +559,7 @@ export const NetflixView: React.FC<NetflixViewProps> = ({
                   onDelete={() => onDeleteSingle(item)}
                   onCopy={() => onCopySingle(item)}
                   onCut={() => onCutSingle(item)}
+                  onMove={() => onMoveSingle?.(item)}
                   onContextMenu={(e) => onContextMenu(e, item)}
                 />
               ))}

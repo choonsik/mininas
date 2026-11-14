@@ -29,7 +29,9 @@ interface ContextMenuProps {
   onDownload: (item: FileItem) => void;
   onCopy: (item: FileItem) => void;
   onCut: (item: FileItem) => void;
+  onMoveTo?: (item: FileItem) => void;
   onPaste: () => void;
+  onCancelClipboard?: () => void;
   onRename: (item: FileItem) => void;
   onDelete: (item: FileItem) => void;
   onDetails: (item: FileItem) => void;
@@ -47,7 +49,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onDownload,
   onCopy,
   onCut,
+  onMoveTo,
   onPaste,
+  onCancelClipboard,
   onRename,
   onDelete,
   onDetails,
@@ -120,6 +124,25 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
           <div className="h-px bg-[#262638] my-1" />
 
+          {onMoveTo && (
+            <button
+              onClick={() => { onClose(); onMoveTo(targetItem); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] text-amber-400 transition"
+            >
+              <Scissors className="w-3.5 h-3.5" />
+              <span>폴더로 이동...</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => { onClose(); onCut(targetItem); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] transition"
+          >
+            <Scissors className="w-3.5 h-3.5 text-gray-400" />
+            <span className="flex-1">잘라내기</span>
+            <span className="text-[10px] text-gray-500 font-mono">⌘X</span>
+          </button>
+
           <button
             onClick={() => { onClose(); onCopy(targetItem); }}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] transition"
@@ -129,24 +152,26 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             <span className="text-[10px] text-gray-500 font-mono">⌘C</span>
           </button>
 
-          <button
-            onClick={() => { onClose(); onCut(targetItem); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] transition"
-          >
-            <Scissors className="w-3.5 h-3.5 text-gray-400" />
-            <span className="flex-1">잘라내기 (이동)</span>
-            <span className="text-[10px] text-gray-500 font-mono">⌘X</span>
-          </button>
-
           {clipboard && (
-            <button
-              onClick={() => { onClose(); onPaste(); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] text-blue-400 transition"
-            >
-              <Clipboard className="w-3.5 h-3.5" />
-              <span className="flex-1">여기에 붙여넣기</span>
-              <span className="text-[10px] text-blue-400/70 font-mono">⌘V</span>
-            </button>
+            <div className="flex items-center">
+              <button
+                onClick={() => { onClose(); onPaste(); }}
+                className="flex-1 flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] text-blue-400 transition"
+              >
+                <Clipboard className="w-3.5 h-3.5" />
+                <span className="flex-1">붙여넣기</span>
+                <span className="text-[10px] text-blue-400/70 font-mono">⌘V</span>
+              </button>
+              {onCancelClipboard && (
+                <button
+                  onClick={() => { onClose(); onCancelClipboard(); }}
+                  className="px-2 py-2 text-gray-400 hover:text-white hover:bg-[#28283a] transition text-[11px]"
+                  title="클립보드 취소"
+                >
+                  취소
+                </button>
+              )}
+            </div>
           )}
 
           <div className="h-px bg-[#262638] my-1" />
@@ -198,14 +223,25 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           </button>
 
           {clipboard && (
-            <button
-              onClick={() => { onClose(); onPaste(); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] text-blue-400 transition"
-            >
-              <Clipboard className="w-3.5 h-3.5" />
-              <span className="flex-1">붙여넣기 ({clipboard.paths.length}개)</span>
-              <span className="text-[10px] text-blue-400/70 font-mono">⌘V</span>
-            </button>
+            <div className="flex items-center">
+              <button
+                onClick={() => { onClose(); onPaste(); }}
+                className="flex-1 flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] text-blue-400 transition"
+              >
+                <Clipboard className="w-3.5 h-3.5" />
+                <span className="flex-1">붙여넣기 ({clipboard.paths.length}개)</span>
+                <span className="text-[10px] text-blue-400/70 font-mono">⌘V</span>
+              </button>
+              {onCancelClipboard && (
+                <button
+                  onClick={() => { onClose(); onCancelClipboard(); }}
+                  className="px-2 py-2 text-gray-400 hover:text-white hover:bg-[#28283a] transition text-[11px]"
+                  title="클립보드 취소"
+                >
+                  취소
+                </button>
+              )}
+            </div>
           )}
 
           <div className="h-px bg-[#262638] my-1" />
