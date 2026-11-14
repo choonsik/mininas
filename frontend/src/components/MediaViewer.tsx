@@ -1,5 +1,21 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { X, Download, Play, Music, FileText, Image as ImageIcon, Globe, Subtitles as SubtitlesIcon, AlertTriangle, Sparkles, RefreshCw, FolderSync } from 'lucide-react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { 
+  X, 
+  Download, 
+  Play, 
+  Music, 
+  FileText, 
+  Image as ImageIcon, 
+  Globe, 
+  Subtitles as SubtitlesIcon, 
+  AlertTriangle, 
+  Sparkles, 
+  RefreshCw, 
+  ChevronLeft, 
+  ChevronRight,
+  ListOrdered,
+  FolderSync
+} from 'lucide-react';
 import { FileItem, SubtitleTrack, MediaInspection, MediaCapabilities, BatchConvertJob } from '../types';
 import { api } from '../api';
 import { formatBytes, truncateMiddle } from '../utils/format';
@@ -8,15 +24,26 @@ interface MediaViewerProps {
   item: FileItem | null;
   storageId?: string;
   onClose: () => void;
+  items?: FileItem[];
+  onNavigateMedia?: (item: FileItem) => void;
 }
 
-export const MediaViewer: React.FC<MediaViewerProps> = ({ item, storageId = '', onClose }) => {
+export const MediaViewer: React.FC<MediaViewerProps> = ({ 
+  item, 
+  storageId = '', 
+  onClose,
+  items = [],
+  onNavigateMedia 
+}) => {
   const [textContent, setTextContent] = useState<string | null>(null);
   const [loadingText, setLoadingText] = useState(false);
   const [subtitles, setSubtitles] = useState<SubtitleTrack[]>([]);
   const [selectedSubtitleUrl, setSelectedSubtitleUrl] = useState<string | null>(null);
   const [inspection, setInspection] = useState<MediaInspection | null>(null);
   const [capabilities, setCapabilities] = useState<MediaCapabilities | null>(null);
+
+  // Auto-play next episode/video setting
+  const [autoPlayNext, setAutoPlayNext] = useState<boolean>(true);
 
   // Conversion state
   const [showConvertModal, setShowConvertModal] = useState(false);
@@ -27,6 +54,38 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({ item, storageId = '', 
   const [activeJob, setActiveJob] = useState<BatchConvertJob | null>(null);
   const pollTimerRef = useRef<number | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Compute viewable playlist (non-directory files)
+  // If multiple items of current mediaType exist, navigate within same mediaType; otherwise all viewable files
+  const playlist = useMemo(() => {
+    if (!item || items.length === 0) return [];
+    const nonDirs = items.filter(i => !i.isDir);
+    const sameType = nonDirs.filter(i => i.mediaType === item.mediaType);
+    return sameType.length > 1 ? sameType : nonDirs;
+  }, [items, item]);
+
+  const currentIndex = useMemo(() => {
+    if (!item || playlist.length === 0) return -1;
+    return playlist.findIndex(i => i.path === item.path);
+  }, [playlist, item]);
+
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex >= 0 && currentIndex < playlist.length - 1;
+
+  const prevItem = hasPrev ? playlist[currentIndex - 1] : null;
+  const nextItem = hasNext ? playlist[currentIndex + 1] : null;
+
+  const handlePrev = useCallback(() => {
+    if (hasPrev && prevItem && onNavigateMedia) {
+      onNavigateMedia(prevItem);
+    }
+  }, [hasPrev, prevItem, onNavigateMedia]);
+
+  const handleNext = useCallback(() => {
+    if (hasNext && nextItem && onNavigateMedia) {
+      onNavigateMedia(nextItem);
+    }
+  }, [hasNext, nextItem, onNavigateMedia]);
 
   useEffect(() => {
     if (!item) return;
@@ -79,6 +138,42 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({ item, storageId = '', 
     };
   }, [item, storageId]);
 
+  // Keyboard navigation listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is inside an input or textarea
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+
+      // PageUp/PageDown always navigates
+      if (e.key === 'PageUp' || (e.shiftKey && e.key === 'ArrowLeft') || e.key === '[') {
+        e.preventDefault();
+        handlePrev();
+      } else if (e.key === 'PageDown' || (e.shiftKey && e.key === 'ArrowRight') || e.key === ']') {
+        e.preventDefault();
+        handleNext();
+      } else if (item?.mediaType !== 'video') {
+        // Plain ArrowLeft / ArrowRight for non-video files
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          handlePrev();
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          handleNext();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handlePrev, handleNext, onClose, item]);
+
   // Synchronize subtitle track mode when selectedSubtitleUrl changes or video loads
   const selectSubtitle = (url: string | null) => {
     setSelectedSubtitleUrl(url);
@@ -99,6 +194,13 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({ item, storageId = '', 
   const handleVideoLoaded = () => {
     if (selectedSubtitleUrl) {
       selectSubtitle(selectedSubtitleUrl);
+    }
+  };
+
+  // Video ended -> auto play next video if enabled
+  const handleVideoEnded = () => {
+    if (autoPlayNext && hasNext) {
+      handleNext();
     }
   };
 
@@ -187,25 +289,77 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({ item, storageId = '', 
   const needsConversion = !isWebFile && (inspection === null || inspection.needsConversion);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col justify-between animate-fadeIn">
+    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col justify-between animate-fadeIn select-none">
       {/* Top Header */}
-      <div className="h-16 px-6 flex items-center justify-between border-b border-white/10 bg-black/40">
+      <div className="h-16 px-6 flex items-center justify-between border-b border-white/10 bg-black/60 z-20">
+        {/* Left: File Info & Icon */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="p-2 rounded-lg bg-white/10 text-white">
+          <div className="p-2 rounded-lg bg-white/10 text-white shrink-0">
             {item.mediaType === 'image' && <ImageIcon className="w-5 h-5 text-emerald-400" />}
             {item.mediaType === 'video' && <Play className="w-5 h-5 text-violet-400" />}
             {item.mediaType === 'audio' && <Music className="w-5 h-5 text-pink-400" />}
             {item.mediaType === 'text' && <FileText className="w-5 h-5 text-amber-400" />}
           </div>
-          <div>
-            <h3 className="text-white font-medium text-sm truncate max-w-lg" title={item.name}>
+          <div className="min-w-0">
+            <h3 className="text-white font-medium text-sm truncate max-w-md sm:max-w-lg" title={item.name}>
               {truncateMiddle(item.name, 60)}
             </h3>
             <span className="text-xs text-gray-400 font-mono">{formatBytes(item.size)}</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Center: Navigation Controls (Prev / Index / Next) */}
+        {playlist.length > 1 && (
+          <div className="flex items-center gap-2 bg-white/10 border border-white/10 px-3 py-1.5 rounded-xl shadow-inner">
+            <button
+              onClick={handlePrev}
+              disabled={!hasPrev}
+              className={`p-1 rounded-lg transition ${
+                hasPrev 
+                  ? 'text-gray-200 hover:text-white hover:bg-white/15' 
+                  : 'text-gray-600 cursor-not-allowed'
+              }`}
+              title={hasPrev && prevItem ? `이전 파일: ${prevItem.name} (단축키: Shift+← / [)` : '이전 파일 없음'}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-1.5 px-2 text-xs font-mono text-gray-300">
+              <ListOrdered className="w-3.5 h-3.5 text-blue-400" />
+              <span className="font-bold text-white">{currentIndex + 1}</span>
+              <span className="text-gray-500">/</span>
+              <span className="text-gray-400">{playlist.length}</span>
+            </div>
+
+            <button
+              onClick={handleNext}
+              disabled={!hasNext}
+              className={`p-1 rounded-lg transition ${
+                hasNext 
+                  ? 'text-gray-200 hover:text-white hover:bg-white/15' 
+                  : 'text-gray-600 cursor-not-allowed'
+              }`}
+              title={hasNext && nextItem ? `다음 파일: ${nextItem.name} (단축키: Shift+→ / ])` : '다음 파일 없음'}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          {item.mediaType === 'video' && playlist.length > 1 && (
+            <label className="hidden md:flex items-center gap-1.5 text-xs text-gray-300 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-lg cursor-pointer hover:bg-white/10 transition" title="영상 종료 시 다음 파일 자동 재생">
+              <input
+                type="checkbox"
+                checked={autoPlayNext}
+                onChange={(e) => setAutoPlayNext(e.target.checked)}
+                className="rounded bg-black/40 border-white/20 text-blue-500 focus:ring-0 w-3.5 h-3.5"
+              />
+              <span className="text-[11px]">다음 영상 자동 재생</span>
+            </label>
+          )}
+
           {item.mediaType === 'video' && needsConversion && (
             <button
               onClick={() => setShowConvertModal(true)}
@@ -239,19 +393,53 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({ item, storageId = '', 
           <button
             onClick={onClose}
             className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition"
+            title="닫기 (ESC)"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
       </div>
 
+      {/* Floating Prev / Next Navigation Buttons on left & right sides */}
+      {playlist.length > 1 && (
+        <>
+          {/* Previous Floating Button */}
+          <button
+            onClick={handlePrev}
+            disabled={!hasPrev}
+            className={`fixed left-4 top-1/2 -translate-y-1/2 z-40 p-3.5 rounded-full backdrop-blur-md border transition-all duration-200 group ${
+              hasPrev
+                ? 'bg-black/60 hover:bg-black/90 border-white/20 hover:border-white/40 text-white hover:scale-110 shadow-2xl cursor-pointer'
+                : 'opacity-0 pointer-events-none'
+            }`}
+            title={prevItem ? `이전: ${prevItem.name}` : ''}
+          >
+            <ChevronLeft className="w-6 h-6 transform group-hover:-translate-x-0.5 transition-transform" />
+          </button>
+
+          {/* Next Floating Button */}
+          <button
+            onClick={handleNext}
+            disabled={!hasNext}
+            className={`fixed right-4 top-1/2 -translate-y-1/2 z-40 p-3.5 rounded-full backdrop-blur-md border transition-all duration-200 group ${
+              hasNext
+                ? 'bg-black/60 hover:bg-black/90 border-white/20 hover:border-white/40 text-white hover:scale-110 shadow-2xl cursor-pointer'
+                : 'opacity-0 pointer-events-none'
+            }`}
+            title={nextItem ? `다음: ${nextItem.name}` : ''}
+          >
+            <ChevronRight className="w-6 h-6 transform group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </>
+      )}
+
       {/* Media Center Content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-hidden relative">
         {item.mediaType === 'image' && (
           <img
             src={streamUrl}
             alt={item.name}
-            className="max-h-[82vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
+            className="max-h-[82vh] max-w-[90vw] object-contain rounded-lg shadow-2xl animate-scaleUp"
           />
         )}
 
@@ -327,6 +515,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({ item, storageId = '', 
                 autoPlay
                 playsInline
                 onLoadedMetadata={handleVideoLoaded}
+                onEnded={handleVideoEnded}
                 className="w-full max-h-[68vh]"
               >
                 {subtitles.map((sub) => (
@@ -348,152 +537,164 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({ item, storageId = '', 
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5 text-cyan-300 font-semibold mr-1">
                     <SubtitlesIcon className="w-4 h-4 text-cyan-400" />
-                    <span>자막 선택:</span>
+                    <span>자막 트랙:</span>
                   </div>
 
-                  {/* 1. 한국어 퀵 버튼 (1개면 한국어, 외장/내장 복수 시 각각 버튼 제공) */}
-                  {koSubs.map((sub) => {
-                    const isEmbedded = sub.label.includes('내장');
-                    const labelText = koSubs.length > 1
-                      ? isEmbedded ? '한국어 (내장)' : '한국어 (외장)'
-                      : '한국어';
-                    return (
-                      <button
-                        key={sub.url}
-                        onClick={() => selectSubtitle(sub.url)}
-                        title={sub.label}
-                        className={`px-3 py-1 rounded-lg text-xs transition flex items-center gap-1 ${
-                          selectedSubtitleUrl === sub.url
-                            ? 'bg-cyan-500 text-black font-bold shadow-md shadow-cyan-500/20'
-                            : 'bg-white/10 hover:bg-white/20 text-gray-200'
-                        }`}
-                      >
-                        <span>🇰🇷</span>
-                        <span>{labelText}</span>
-                      </button>
-                    );
-                  })}
+                  {/* Subtitle Off */}
+                  <button
+                    onClick={() => selectSubtitle(null)}
+                    className={`px-2.5 py-1 rounded-lg border text-xs transition ${
+                      selectedSubtitleUrl === null
+                        ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
+                        : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    자막 끄기
+                  </button>
 
-                  {/* 2. 영어 퀵 버튼 */}
+                  {/* Quick Korean Subtitle Buttons */}
+                  {koSubs.map((sub) => (
+                    <button
+                      key={sub.url}
+                      onClick={() => selectSubtitle(sub.url)}
+                      className={`px-2.5 py-1 rounded-lg border text-xs transition flex items-center gap-1.5 ${
+                        selectedSubtitleUrl === sub.url
+                          ? 'bg-cyan-500/30 border-cyan-400 text-white font-bold shadow-sm'
+                          : 'bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <span>🇰🇷 {sub.label}</span>
+                      <span className="text-[10px] uppercase font-mono px-1 py-0.2 rounded bg-black/40 text-cyan-300">
+                        {sub.format}
+                      </span>
+                    </button>
+                  ))}
+
+                  {/* English quick button */}
                   {enSub && (
                     <button
                       onClick={() => selectSubtitle(enSub.url)}
-                      className={`px-3 py-1 rounded-lg text-xs transition flex items-center gap-1 ${
+                      className={`px-2.5 py-1 rounded-lg border text-xs transition ${
                         selectedSubtitleUrl === enSub.url
-                          ? 'bg-cyan-500 text-black font-bold shadow-md shadow-cyan-500/20'
-                          : 'bg-white/10 hover:bg-white/20 text-gray-200'
+                          ? 'bg-cyan-500/30 border-cyan-400 text-white font-bold'
+                          : 'bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10'
                       }`}
                     >
-                      <span>🇺🇸</span>
-                      <span>English</span>
+                      🇺🇸 English
                     </button>
                   )}
 
-                  {/* 3. 일본어 퀵 버튼 */}
+                  {/* Japanese quick button */}
                   {jaSub && (
                     <button
                       onClick={() => selectSubtitle(jaSub.url)}
-                      className={`px-3 py-1 rounded-lg text-xs transition flex items-center gap-1 ${
+                      className={`px-2.5 py-1 rounded-lg border text-xs transition ${
                         selectedSubtitleUrl === jaSub.url
-                          ? 'bg-cyan-500 text-black font-bold shadow-md shadow-cyan-500/20'
-                          : 'bg-white/10 hover:bg-white/20 text-gray-200'
+                          ? 'bg-cyan-500/30 border-cyan-400 text-white font-bold'
+                          : 'bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10'
                       }`}
                     >
-                      <span>🇯🇵</span>
-                      <span>日本語</span>
+                      🇯🇵 日本語
                     </button>
                   )}
 
-                  {/* 4. 기타 언어 드롭다운 */}
+                  {/* Other subtitles dropdown */}
                   {otherSubs.length > 0 && (
                     <select
-                      value={otherSubs.some((s) => s.url === selectedSubtitleUrl) ? selectedSubtitleUrl || '' : ''}
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          selectSubtitle(e.target.value);
-                        }
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-[#222430] border border-white/20 text-xs text-gray-200 focus:outline-none focus:border-cyan-400 cursor-pointer"
+                      value={selectedSubtitleUrl && otherSubs.some(s => s.url === selectedSubtitleUrl) ? selectedSubtitleUrl : ''}
+                      onChange={(e) => selectSubtitle(e.target.value || null)}
+                      className="px-2.5 py-1 rounded-lg bg-black/60 border border-white/20 text-gray-300 hover:text-white text-xs focus:outline-none focus:border-cyan-400"
                     >
                       <option value="">🌐 기타 언어 ({otherSubs.length}개)...</option>
-                      {otherSubs.map((s) => (
-                        <option key={s.url} value={s.url}>
-                          {s.label}
+                      {otherSubs.map((sub) => (
+                        <option key={sub.url} value={sub.url}>
+                          {sub.label} ({sub.format.toUpperCase()})
                         </option>
                       ))}
                     </select>
                   )}
                 </div>
 
-                {/* 5. 자막 끄기 버튼 */}
-                <button
-                  onClick={() => selectSubtitle(null)}
-                  className={`px-2.5 py-1 rounded-lg text-xs transition ${
-                    selectedSubtitleUrl === null
-                      ? 'bg-red-500/30 text-red-300 border border-red-500/40 font-medium'
-                      : 'bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  자막 끄기
-                </button>
+                <div className="text-[11px] text-gray-400">
+                  총 {subtitles.length}개 자막 감지됨 (WebVTT 자동 변환)
+                </div>
               </div>
             )}
           </div>
         )}
 
         {item.mediaType === 'audio' && (
-          <div className="bg-[#1c1c26] border border-white/10 p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-6 max-w-md w-full">
-            <div className="w-24 h-24 rounded-full bg-pink-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400 shadow-inner">
-              <Music className="w-12 h-12" />
+          <div className="flex flex-col items-center gap-6 p-8 bg-white/5 rounded-2xl border border-white/10 shadow-2xl max-w-md w-full">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-pink-500 to-rose-400 flex items-center justify-center shadow-lg shadow-pink-500/20">
+              <Music className="w-12 h-12 text-white" />
             </div>
             <div className="text-center">
-              <h4 className="text-white font-semibold text-base truncate max-w-xs">{item.name}</h4>
-              <p className="text-gray-400 text-xs mt-1">오디오 재생 중</p>
+              <h4 className="text-white font-bold text-base truncate max-w-xs">{item.name}</h4>
+              <p className="text-xs text-gray-400 mt-1">{formatBytes(item.size)}</p>
             </div>
-            <audio src={streamUrl} controls autoPlay className="w-full" />
+            <audio src={streamUrl} controls autoPlay className="w-full" onEnded={handleVideoEnded} />
           </div>
         )}
 
         {item.mediaType === 'text' && (
-          <div className="w-full max-w-4xl h-[75vh] bg-[#171720] border border-white/10 rounded-xl p-5 overflow-auto shadow-2xl">
-            {loadingText ? (
-              <div className="h-full flex items-center justify-center text-gray-400 text-sm">
-                내용을 불러오는 중...
-              </div>
-            ) : (
-              <pre className="font-mono text-xs text-gray-200 whitespace-pre-wrap leading-relaxed">
-                {textContent}
-              </pre>
-            )}
-          </div>
-        )}
-
-        {item.mediaType === 'other' && (
-          <div className="text-center text-gray-400">
-            <p className="text-base font-medium text-gray-200">미리보기를 지원하지 않는 파일 형식입니다</p>
-            <p className="text-xs mt-1">상단의 다운로드 버튼을 눌러 컴퓨터에 저장 후 확인하세요.</p>
+          <div className="w-full max-w-4xl h-[78vh] bg-[#16161f] border border-white/10 rounded-xl overflow-hidden flex flex-col shadow-2xl">
+            <div className="px-4 py-2 bg-white/5 border-b border-white/10 text-xs text-gray-400 font-mono flex items-center justify-between">
+              <span>{item.name}</span>
+              <span>{loadingText ? '불러오는 중...' : `${textContent?.length || 0} characters`}</span>
+            </div>
+            <div className="flex-1 p-4 overflow-auto font-mono text-xs text-gray-200 whitespace-pre-wrap leading-relaxed select-text">
+              {loadingText ? (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  <RefreshCw className="w-5 h-5 animate-spin mr-2" /> 텍스트 파일을 불러오고 있습니다...
+                </div>
+              ) : (
+                textContent
+              )}
+            </div>
           </div>
         )}
       </div>
 
+      {/* Bottom Footer Info Bar */}
+      <div className="h-10 px-6 flex items-center justify-between border-t border-white/10 bg-black/40 text-[11px] text-gray-400">
+        <div>
+          <span>경로: {item.path}</span>
+        </div>
+        <div className="flex items-center gap-4">
+          {playlist.length > 1 && (
+            <span className="hidden sm:inline text-gray-500">
+              단축키: 이전 (<kbd className="px-1 py-0.5 bg-white/10 rounded">Shift+←</kbd> 또는 <kbd className="px-1 py-0.5 bg-white/10 rounded">[</kbd>) / 다음 (<kbd className="px-1 py-0.5 bg-white/10 rounded">Shift+→</kbd> 또는 <kbd className="px-1 py-0.5 bg-white/10 rounded">]</kbd>)
+            </span>
+          )}
+          <span>닫기: <kbd className="px-1 py-0.5 bg-white/10 rounded">ESC</kbd></span>
+        </div>
+      </div>
+
       {/* Batch Conversion Modal */}
       {showConvertModal && (
-        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#1a1c26] border border-white/15 rounded-2xl p-6 max-w-md w-full shadow-2xl text-white">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400">
-                <Sparkles className="w-6 h-6" />
+        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#1b1b24] border border-white/15 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                <h3 className="font-bold text-white text-base">웹 호환 고속 변환</h3>
               </div>
-              <div>
-                <h3 className="font-bold text-base">웹 호환 미디어 변환</h3>
-                <p className="text-xs text-gray-400">비디오 화질은 100% 보존하며 오디오/자막을 최적화합니다</p>
-              </div>
+              <button
+                onClick={() => setShowConvertModal(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="space-y-4 text-xs text-gray-300">
-              {/* Target Scope */}
+            <div className="mt-4 space-y-4 text-xs">
+              <p className="text-gray-300 leading-relaxed">
+                현재 브라우저에서 재생이 원활하지 않은 오디오(EAC3 등)를 <strong>무손실 비디오 복사 + AAC 고속 변환</strong>하여 브라우저에서 버퍼링 없이 즉시 재생되도록 변환합니다.
+              </p>
+
+              {/* Conversion Scope */}
               <div className="space-y-2">
-                <label className="font-semibold text-gray-200">변환 대상 범위</label>
+                <label className="font-semibold text-gray-200">변환 대상</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setConvertTarget('folder')}
@@ -506,7 +707,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({ item, storageId = '', 
                     <FolderSync className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
                     <div>
                       <span className="font-medium block text-white">폴더 전체 일괄</span>
-                      <span className="text-[11px] text-gray-400">같은 폴더의 모든 영상</span>
+                      <span className="text-[11px] text-gray-400">현재 폴더 내 모든 영상</span>
                     </div>
                   </button>
 

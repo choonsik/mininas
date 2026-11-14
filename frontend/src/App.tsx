@@ -669,7 +669,9 @@ export const App: React.FC = () => {
       <MediaViewer 
         item={activeMediaItem} 
         storageId={activeStorageId}
-        onClose={handleCloseMedia} 
+        onClose={handleCloseMedia}
+        items={sortedItems}
+        onNavigateMedia={handleOpenMedia}
       />
 
       {/* Upload Modal */}

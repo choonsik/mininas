@@ -107,6 +107,12 @@ graph TD
 ---
 
 ### 3.3 미디어 플레이어 & 자막 서브시스템 (Media & Subtitles)
+- **이전 / 다음 파일 네비게이션 (Playlist Navigation)**:
+  - 이미지, 비디오, 오디오, 텍스트 뷰어 내에서 폴더 내 이전/다음 파일로 즉시 이동 지원.
+  - 상단 툴바에 현재 파일 순번 표시 (`[ 3 / 15 ]`) 및 이전/다음 퀵 컨트롤.
+  - 화면 좌/우 중앙 반투명 플로팅 네비게이션 버튼 (`<ChevronLeft>`, `<ChevronRight>`).
+  - 단축키 지원: `PageUp`/`PageDown`, `Shift+←`/`Shift+→`, `[`/`]`, 비디오 외 미디어의 경우 `←`/`→`.
+  - 동영상 재생 완료(`onEnded`) 시 다음 에피소드 자동 연속 재생(Auto-Play Next) 토글 지원.
 - **HTTP 206 Partial Content 스트리밍**:
   - 대용량 비디오(MP4, MKV 등) 재생 시 Range 헤더를 지원하여 임의 구간 즉시 탐색(Seek) 지원.
 - **스마트 자막 자동 감지 & WebVTT 실시간 변환**:
