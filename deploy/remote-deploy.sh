@@ -17,7 +17,7 @@ if [ -z "$REMOTE_TARGET" ]; then
 fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PACKAGE_NAME="mininas-v1.0.0-intel-mac"
+PACKAGE_NAME="mininas-v0.2-intel-mac"
 ARCHIVE_FILE="$ROOT_DIR/release/${PACKAGE_NAME}.tar.gz"
 
 echo "=========================================================="
