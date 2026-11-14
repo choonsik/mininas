@@ -27,6 +27,7 @@ if [ ! -f "$GO_BIN" ]; then
     GO_BIN="go"
 fi
 CGO_ENABLED=0 MACOSX_DEPLOYMENT_TARGET=10.13 GOOS=darwin GOARCH=amd64 GOTOOLCHAIN=local "$GO_BIN" build -ldflags="-s -w" -o "$ROOT_DIR/backend/mininas-intel" .
+cp -f "$ROOT_DIR/backend/mininas-intel" "$ROOT_DIR/mininas-intel-mac"
 
 # 3. 배포 디렉토리 구성
 echo "📂 [3/4] 배포 번들 디렉토리 패키징 중..."

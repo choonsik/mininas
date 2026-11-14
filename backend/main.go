@@ -155,7 +155,7 @@ func getMediaType(ext string) string {
 		return "video"
 	case ".mp3", ".wav", ".aac", ".flac", ".m4a", ".ogg":
 		return "audio"
-	case ".txt", ".md", ".json", ".log", ".csv", ".yaml", ".yml", ".xml", ".html", ".js", ".ts", ".go", ".py":
+	case ".txt", ".md", ".json", ".log", ".csv", ".yaml", ".yml", ".xml", ".html", ".htm", ".css", ".scss", ".sass", ".less", ".js", ".jsx", ".ts", ".tsx", ".go", ".py", ".sh", ".bash", ".zsh", ".sql", ".env", ".ini", ".conf":
 		return "text"
 	case ".zip", ".tar", ".gz", ".7z", ".rar":
 		return "archive"
