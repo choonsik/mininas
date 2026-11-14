@@ -86,3 +86,14 @@ export interface BatchConvertJob {
   completedAt?: string;
   errors?: string[];
 }
+
+export type SortField = 'name' | 'size' | 'date' | 'type';
+export type SortOrder = 'asc' | 'desc';
+
+export interface ClipboardItem {
+  action: 'copy' | 'cut';
+  paths: string[];
+  storageId: string;
+  storageName: string;
+}
+

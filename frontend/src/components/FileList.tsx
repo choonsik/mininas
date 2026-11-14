@@ -16,9 +16,16 @@ import {
   Archive as ZipIcon,
   CheckSquare,
   Square,
-  Globe
+  Globe,
+  Copy,
+  Scissors,
+  Clipboard,
+  Info,
+  ArrowUp,
+  ArrowDown,
+  Sparkles
 } from 'lucide-react';
-import { FileItem, BreadcrumbItem } from '../types';
+import { FileItem, BreadcrumbItem, ClipboardItem, SortField, SortOrder } from '../types';
 import { formatBytes, formatDate, truncateMiddle } from '../utils/format';
 import { api } from '../api';
 
@@ -38,6 +45,21 @@ interface FileListProps {
   onUploadClick: () => void;
   onRename: (item: FileItem) => void;
   onDeleteSelected: () => void;
+  onDeleteSingle: (item: FileItem) => void;
+  onShowDetails: (item: FileItem) => void;
+  clipboard: ClipboardItem | null;
+  onCopySelected: () => void;
+  onCutSelected: () => void;
+  onPaste: () => void;
+  onCopyItem: (item: FileItem) => void;
+  onCutItem: (item: FileItem) => void;
+  onItemContextMenu: (e: React.MouseEvent, item: FileItem) => void;
+  onBackgroundContextMenu: (e: React.MouseEvent) => void;
+  hasVideos: boolean;
+  onSwitchToNetflix: () => void;
+  sortField: SortField;
+  sortOrder: SortOrder;
+  onSortChange: (field: SortField) => void;
 }
 
 export const FileList: React.FC<FileListProps> = ({
@@ -56,6 +78,21 @@ export const FileList: React.FC<FileListProps> = ({
   onUploadClick,
   onRename,
   onDeleteSelected,
+  onDeleteSingle,
+  onShowDetails,
+  clipboard,
+  onCopySelected,
+  onCutSelected,
+  onPaste,
+  onCopyItem,
+  onCutItem,
+  onItemContextMenu,
+  onBackgroundContextMenu,
+  hasVideos,
+  onSwitchToNetflix,
+  sortField,
+  sortOrder,
+  onSortChange,
 }) => {
   // Build breadcrumb segments
   const pathParts = currentPath.split('/').filter(Boolean);
@@ -99,10 +136,22 @@ export const FileList: React.FC<FileListProps> = ({
   const hasSelection = selectedPaths.size > 0;
   const isAllSelected = items.length > 0 && selectedPaths.size === items.length;
 
+  const renderSortArrow = (field: SortField) => {
+    if (sortField !== field) return null;
+    return sortOrder === 'asc' ? (
+      <ArrowUp className="w-3 h-3 text-blue-400" />
+    ) : (
+      <ArrowDown className="w-3 h-3 text-blue-400" />
+    );
+  };
+
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#121217] overflow-hidden">
+    <div 
+      className="flex-1 flex flex-col h-full bg-[#121217] overflow-hidden"
+      onContextMenu={onBackgroundContextMenu}
+    >
       {/* Top Toolbar: Breadcrumb & Actions */}
-      <div className="h-14 border-b border-[#22222d] px-6 flex items-center justify-between bg-[#15151c]/60 backdrop-blur">
+      <div className="h-14 border-b border-[#22222d] px-6 flex items-center justify-between bg-[#15151c]/60 backdrop-blur shrink-0">
         {/* Breadcrumb Path */}
         <nav className="flex items-center gap-1.5 text-sm overflow-x-auto py-1 scrollbar-none">
           {breadcrumbs.map((crumb, idx) => (
@@ -125,142 +174,197 @@ export const FileList: React.FC<FileListProps> = ({
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
           {hasSelection ? (
-            <div className="flex items-center gap-2 bg-blue-600/10 border border-blue-500/20 px-3 py-1 rounded-lg">
-              <span className="text-xs text-blue-400 font-medium">
-                {selectedPaths.size}개 선택됨
+            <div className="flex items-center gap-1.5 bg-blue-600/10 border border-blue-500/20 px-2.5 py-1 rounded-lg">
+              <span className="text-xs text-blue-400 font-medium mr-1">
+                {selectedPaths.size}개 선택
               </span>
+
+              <button
+                onClick={onCopySelected}
+                className="flex items-center gap-1 text-xs bg-[#242436] hover:bg-[#32324a] text-gray-200 px-2.5 py-1 rounded font-medium transition"
+                title="선택 항목 복사"
+              >
+                <Copy className="w-3.5 h-3.5 text-blue-400" />
+                복사
+              </button>
+
+              <button
+                onClick={onCutSelected}
+                className="flex items-center gap-1 text-xs bg-[#242436] hover:bg-[#32324a] text-gray-200 px-2.5 py-1 rounded font-medium transition"
+                title="선택 항목 잘라내기 (이동)"
+              >
+                <Scissors className="w-3.5 h-3.5 text-amber-400" />
+                이동
+              </button>
+
               <button
                 onClick={() => {
                   const paths = Array.from(selectedPaths);
                   window.location.href = api.getZipDownloadUrl(paths, storageId);
                 }}
-                className="flex items-center gap-1 text-xs bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded font-medium transition"
+                className="flex items-center gap-1 text-xs bg-[#242436] hover:bg-[#32324a] text-gray-200 px-2.5 py-1 rounded font-medium transition"
+                title="선택 항목 ZIP 압축 다운로드"
               >
-                <ZipIcon className="w-3.5 h-3.5" />
-                ZIP 다운로드
+                <ZipIcon className="w-3.5 h-3.5 text-emerald-400" />
+                ZIP
               </button>
+
               <button
                 onClick={onDeleteSelected}
-                className="flex items-center gap-1 text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-2.5 py-1 rounded font-medium transition"
+                className="flex items-center gap-1 text-xs bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white px-2.5 py-1 rounded font-medium transition"
+                title="선택 항목 삭제"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 삭제
               </button>
+
               <button
                 onClick={onClearSelection}
-                className="text-xs text-gray-400 hover:text-gray-200 underline ml-1"
+                className="text-xs text-gray-400 hover:text-white px-1.5 py-1"
+                title="선택 해제"
               >
-                선택 해제
+                취소
               </button>
             </div>
           ) : (
-            <>
+            <div className="flex items-center gap-2">
+              {clipboard && (
+                <button
+                  onClick={onPaste}
+                  className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg font-medium shadow-sm transition animate-pulse"
+                  title={`${clipboard.paths.length}개 항목 붙여넣기`}
+                >
+                  <Clipboard className="w-3.5 h-3.5" />
+                  붙여넣기 ({clipboard.paths.length})
+                </button>
+              )}
+
               <button
                 onClick={onNewFolder}
-                className="flex items-center gap-1.5 text-xs text-gray-300 hover:text-white bg-[#1e1e27] hover:bg-[#282835] border border-[#2e2e3d] px-3 py-1.5 rounded-lg transition shadow-sm font-medium"
+                className="flex items-center gap-1.5 text-xs bg-[#1f1f2a] hover:bg-[#282837] text-gray-200 border border-[#2b2b3a] px-3 py-1.5 rounded-lg font-medium transition"
               >
-                <FolderPlus className="w-4 h-4 text-blue-400" />
+                <FolderPlus className="w-3.5 h-3.5 text-blue-400" />
                 새 폴더
               </button>
               <button
                 onClick={onUploadClick}
-                className="flex items-center gap-1.5 text-xs text-white bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-lg transition shadow-sm font-medium shadow-blue-600/20"
+                className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg font-medium shadow-sm transition"
               >
-                <Upload className="w-4 h-4" />
+                <Upload className="w-3.5 h-3.5" />
                 파일 업로드
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Main File View Area */}
-      <div className="flex-1 overflow-y-auto p-6">
+      {/* Netflix Mode Banner (Appears when folder contains videos) */}
+      {hasVideos && (
+        <div className="bg-gradient-to-r from-red-950/60 via-[#1c1417] to-neutral-900 border-b border-red-900/40 px-6 py-2.5 flex items-center justify-between text-xs animate-fadeIn shrink-0">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1 rounded bg-red-600 text-white shadow-md">
+              <Film className="w-3.5 h-3.5" />
+            </span>
+            <span className="text-gray-200">
+              <strong className="text-white font-semibold">동영상 폴더 감지:</strong> 이 폴더는 넷플릭스 스타일 시네마 뷰로 편리하게 감상할 수 있습니다.
+            </span>
+          </div>
+          <button
+            onClick={onSwitchToNetflix}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold tracking-tight shadow-md shadow-red-900/40 transition active:scale-95"
+          >
+            <Sparkles className="w-3 h-3" />
+            넷플릭스 뷰로 보기
+          </button>
+        </div>
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-[#252535]">
         {items.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#1c1c24] border border-[#292936] flex items-center justify-center text-gray-500 mb-4">
-              <Folder className="w-8 h-8 opacity-40" />
+          <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-3">
+            <div className="w-16 h-16 rounded-2xl bg-[#181822] flex items-center justify-center border border-[#232332]">
+              <Folder className="w-8 h-8 text-gray-600" />
             </div>
-            <p className="text-gray-300 font-medium text-base">폴더가 비어 있습니다</p>
-            <p className="text-gray-500 text-xs mt-1 max-w-sm">
-              상단의 [파일 업로드] 버튼을 누르거나 파일을 여기로 드래그 앤 드롭하여 저장하세요.
-            </p>
+            <p className="text-sm font-medium">폴더가 비어 있습니다</p>
+            <p className="text-xs text-gray-600">파일을 드래그하여 업로드하거나 상단 버튼을 사용하세요</p>
           </div>
         ) : viewMode === 'grid' ? (
           /* Grid View */
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
             {items.map((item) => {
               const isSelected = selectedPaths.has(item.path);
+              const isCut = clipboard?.action === 'cut' && clipboard.paths.includes(item.path);
               return (
                 <div
                   key={item.path}
                   onClick={(e) => handleItemClick(item, e)}
-                  className={`group relative bg-[#171720] hover:bg-[#1f1f2c] border rounded-xl p-3 flex flex-col items-center text-center cursor-pointer transition select-none ${
+                  onContextMenu={(e) => {
+                    e.stopPropagation();
+                    onItemContextMenu(e, item);
+                  }}
+                  className={`group relative flex flex-col items-center p-3.5 rounded-xl border transition cursor-pointer select-none ${
                     isSelected
-                      ? 'border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/50'
-                      : 'border-[#262633] hover:border-[#38384a]'
-                  }`}
+                      ? 'bg-blue-600/10 border-blue-500/50 shadow-md shadow-blue-500/10'
+                      : 'bg-[#171720]/80 border-[#232330] hover:bg-[#1f1f2b] hover:border-[#333346]'
+                  } ${isCut ? 'opacity-50 border-dashed border-amber-500' : ''}`}
                 >
-                  {/* Selection checkbox */}
-                  <div
+                  {/* Selection Checkbox */}
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onToggleSelect(item.path);
                     }}
-                    className={`absolute top-2.5 left-2.5 p-1 rounded-md transition ${
-                      isSelected
-                        ? 'text-blue-400 opacity-100'
-                        : 'text-gray-400 opacity-0 group-hover:opacity-100 hover:text-white'
+                    className={`absolute top-2 left-2 p-1 rounded transition z-10 ${
+                      isSelected ? 'opacity-100 text-blue-400' : 'opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white'
                     }`}
                   >
                     {isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-                  </div>
+                  </button>
 
-                  {/* Thumbnail / Icon */}
-                  <div className="w-16 h-16 my-2 flex items-center justify-center overflow-hidden rounded-lg bg-[#111116]/80">
+                  {/* Icon or Image/Video Preview */}
+                  <div className="w-16 h-16 my-2 flex items-center justify-center relative">
                     {item.mediaType === 'image' ? (
                       <img
                         src={api.getStreamUrl(item.path, storageId)}
                         alt={item.name}
                         loading="lazy"
-                        className="w-full h-full object-cover rounded-lg"
+                        className="w-full h-full object-cover rounded-lg shadow-sm"
                       />
                     ) : (
-                      getFileIcon(item, 'w-10 h-10')
+                      getFileIcon(item, 'w-12 h-12')
                     )}
                   </div>
 
-                  {/* Name with Smart Middle Truncation */}
-                  <span
-                    className="text-xs font-medium text-gray-200 w-full text-center px-1 mt-1 break-all"
+                  {/* File Name */}
+                  <span 
+                    className="text-xs text-gray-200 font-medium text-center truncate w-full px-1 group-hover:text-white"
                     title={item.name}
                   >
-                    {truncateMiddle(item.name, 28)}
+                    {truncateMiddle(item.name, 22)}
                   </span>
 
-                  {/* Sub info */}
-                  <span className="text-[11px] text-gray-400 mt-0.5 font-mono">
+                  {/* Size or Dir flag */}
+                  <span className="text-[10px] text-gray-400 font-mono mt-1">
                     {item.isDir ? '폴더' : formatBytes(item.size)}
                   </span>
 
-                  {/* Hover Actions */}
-                  <div className="absolute top-2.5 right-2.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                    {(item.ext === '.html' || item.ext === '.htm' || item.isDir) && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(api.getHostUrl(item.path, storageId), '_blank');
-                        }}
-                        className="p-1 rounded bg-emerald-600/30 text-emerald-400 hover:text-white hover:bg-emerald-600 transition"
-                        title="웹페이지로 열기 (새 탭)"
-                      >
-                        <Globe className="w-3 h-3" />
-                      </button>
-                    )}
+                  {/* Hover Quick Actions */}
+                  <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition z-10">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onShowDetails(item);
+                      }}
+                      className="p-1 rounded bg-[#2a2a38] text-gray-300 hover:text-white hover:bg-[#38384a] transition"
+                      title="상세 정보"
+                    >
+                      <Info className="w-3 h-3" />
+                    </button>
                     {!item.isDir && (
                       <button
                         onClick={(e) => handleDownloadSingle(item, e)}
-                        className="p-1 rounded bg-[#2a2a38] text-gray-300 hover:text-white hover:bg-blue-600 transition"
+                        className="p-1 rounded bg-[#2a2a38] text-gray-300 hover:text-blue-400 hover:bg-[#38384a] transition"
                         title="다운로드"
                       >
                         <Download className="w-3 h-3" />
@@ -276,6 +380,16 @@ export const FileList: React.FC<FileListProps> = ({
                     >
                       <Edit3 className="w-3 h-3" />
                     </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteSingle(item);
+                      }}
+                      className="p-1 rounded bg-[#2a2a38] text-red-400 hover:text-red-300 hover:bg-red-500/20 transition"
+                      title="삭제"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
                   </div>
                 </div>
               );
@@ -284,7 +398,7 @@ export const FileList: React.FC<FileListProps> = ({
         ) : (
           /* List View */
           <div className="bg-[#171720] border border-[#252533] rounded-xl overflow-hidden">
-            <div className="grid grid-cols-12 px-4 py-2.5 bg-[#1b1b24] border-b border-[#252533] text-xs font-semibold text-gray-400">
+            <div className="grid grid-cols-12 px-4 py-2.5 bg-[#1b1b24] border-b border-[#252533] text-xs font-semibold text-gray-400 select-none">
               <div className="col-span-6 flex items-center gap-3">
                 <button
                   onClick={onSelectAll}
@@ -292,25 +406,55 @@ export const FileList: React.FC<FileListProps> = ({
                 >
                   {isAllSelected ? <CheckSquare className="w-4 h-4 text-blue-400" /> : <Square className="w-4 h-4" />}
                 </button>
-                <span>이름</span>
+                <button
+                  onClick={() => onSortChange('name')}
+                  className="flex items-center gap-1 hover:text-white transition"
+                >
+                  <span>이름</span>
+                  {renderSortArrow('name')}
+                </button>
               </div>
-              <div className="col-span-2">크기</div>
-              <div className="col-span-3">수정 날짜</div>
+
+              <div className="col-span-2">
+                <button
+                  onClick={() => onSortChange('size')}
+                  className="flex items-center gap-1 hover:text-white transition"
+                >
+                  <span>크기</span>
+                  {renderSortArrow('size')}
+                </button>
+              </div>
+
+              <div className="col-span-3">
+                <button
+                  onClick={() => onSortChange('date')}
+                  className="flex items-center gap-1 hover:text-white transition"
+                >
+                  <span>수정 날짜</span>
+                  {renderSortArrow('date')}
+                </button>
+              </div>
+
               <div className="col-span-1 text-right">작업</div>
             </div>
 
             <div className="divide-y divide-[#21212c]">
               {items.map((item) => {
                 const isSelected = selectedPaths.has(item.path);
+                const isCut = clipboard?.action === 'cut' && clipboard.paths.includes(item.path);
                 return (
                   <div
                     key={item.path}
                     onClick={(e) => handleItemClick(item, e)}
+                    onContextMenu={(e) => {
+                      e.stopPropagation();
+                      onItemContextMenu(e, item);
+                    }}
                     className={`grid grid-cols-12 px-4 py-2.5 text-xs items-center cursor-pointer transition select-none ${
                       isSelected
                         ? 'bg-blue-500/10 text-white'
                         : 'hover:bg-[#1e1e28] text-gray-200'
-                    }`}
+                    } ${isCut ? 'opacity-50' : ''}`}
                   >
                     <div className="col-span-6 flex items-center gap-3 min-w-0 pr-4">
                       <button
@@ -336,7 +480,17 @@ export const FileList: React.FC<FileListProps> = ({
                       {formatDate(item.modTime)}
                     </div>
 
-                    <div className="col-span-1 flex items-center justify-end gap-1.5">
+                    <div className="col-span-1 flex items-center justify-end gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onShowDetails(item);
+                        }}
+                        className="p-1 text-gray-400 hover:text-gray-200 hover:bg-[#282835] rounded transition"
+                        title="상세 정보"
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
                       {(item.ext === '.html' || item.ext === '.htm' || item.isDir) && (
                         <button
                           onClick={(e) => {
@@ -367,6 +521,16 @@ export const FileList: React.FC<FileListProps> = ({
                         title="이름 변경"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteSingle(item);
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-400 hover:bg-red-500/20 rounded transition"
+                        title="삭제"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>

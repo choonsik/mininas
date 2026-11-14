@@ -54,6 +54,44 @@ export const api = {
     }
   },
 
+  async copyItems(sourcePaths: string[], targetDir: string, storageId: string = '', targetStorageId?: string): Promise<{ copied: number }> {
+    const res = await fetch(`${API_BASE}/files/copy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sourcePaths,
+        targetDir,
+        storage: storageId,
+        sourceStorage: storageId,
+        targetStorage: targetStorageId || storageId,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to copy items' }));
+      throw new Error(err.error || 'Failed to copy items');
+    }
+    return res.json();
+  },
+
+  async moveItems(sourcePaths: string[], targetDir: string, storageId: string = '', targetStorageId?: string): Promise<{ moved: number }> {
+    const res = await fetch(`${API_BASE}/files/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sourcePaths,
+        targetDir,
+        storage: storageId,
+        sourceStorage: storageId,
+        targetStorage: targetStorageId || storageId,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to move items' }));
+      throw new Error(err.error || 'Failed to move items');
+    }
+    return res.json();
+  },
+
   uploadFiles(
     targetPath: string,
     files: File[],

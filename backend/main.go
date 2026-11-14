@@ -493,6 +493,240 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"status":"ok"}`))
 }
 
+func getUniqueDestination(dstDir, baseName string) string {
+	destPath := filepath.Join(dstDir, baseName)
+	if _, err := os.Stat(destPath); os.IsNotExist(err) {
+		return destPath
+	}
+
+	ext := filepath.Ext(baseName)
+	nameWithoutExt := strings.TrimSuffix(baseName, ext)
+	counter := 1
+	for {
+		newName := fmt.Sprintf("%s (%d)%s", nameWithoutExt, counter, ext)
+		destPath = filepath.Join(dstDir, newName)
+		if _, err := os.Stat(destPath); os.IsNotExist(err) {
+			return destPath
+		}
+		counter++
+	}
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	si, err := in.Stat()
+	if err != nil {
+		return err
+	}
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, si.Mode())
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+	return out.Sync()
+}
+
+func copyDir(src, dst string) error {
+	si, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dst, si.Mode()); err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		s := filepath.Join(src, entry.Name())
+		d := filepath.Join(dst, entry.Name())
+		if entry.IsDir() {
+			if err := copyDir(s, d); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(s, d); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func handleCopy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		SourceStorage string   `json:"sourceStorage"`
+		TargetStorage string   `json:"targetStorage"`
+		Storage       string   `json:"storage"`
+		SourcePaths   []string `json:"sourcePaths"`
+		TargetDir     string   `json:"targetDir"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, `{"error":"Invalid request"}`, http.StatusBadRequest)
+		return
+	}
+	srcStorage := body.SourceStorage
+	if srcStorage == "" {
+		srcStorage = body.Storage
+	}
+	dstStorage := body.TargetStorage
+	if dstStorage == "" {
+		dstStorage = srcStorage
+	}
+
+	dstParent, err := resolveSafePath(dstStorage, body.TargetDir)
+	if err != nil {
+		http.Error(w, `{"error":"Invalid target directory"}`, http.StatusBadRequest)
+		return
+	}
+
+	dstInfo, err := os.Stat(dstParent)
+	if err != nil || !dstInfo.IsDir() {
+		http.Error(w, `{"error":"Target directory does not exist or is not a directory"}`, http.StatusBadRequest)
+		return
+	}
+
+	copiedCount := 0
+	for _, srcRel := range body.SourcePaths {
+		srcFull, err := resolveSafePath(srcStorage, srcRel)
+		if err != nil {
+			continue
+		}
+		srcInfo, err := os.Stat(srcFull)
+		if err != nil {
+			continue
+		}
+
+		baseName := filepath.Base(srcFull)
+		destFull := getUniqueDestination(dstParent, baseName)
+
+		// Prevent copying directory into itself
+		if srcInfo.IsDir() && strings.HasPrefix(destFull, srcFull+string(filepath.Separator)) {
+			continue
+		}
+
+		if srcInfo.IsDir() {
+			if err := copyDir(srcFull, destFull); err == nil {
+				copiedCount++
+			}
+		} else {
+			if err := copyFile(srcFull, destFull); err == nil {
+				copiedCount++
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "ok",
+		"copied": copiedCount,
+	})
+}
+
+func handleMove(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		SourceStorage string   `json:"sourceStorage"`
+		TargetStorage string   `json:"targetStorage"`
+		Storage       string   `json:"storage"`
+		SourcePaths   []string `json:"sourcePaths"`
+		TargetDir     string   `json:"targetDir"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, `{"error":"Invalid request"}`, http.StatusBadRequest)
+		return
+	}
+	srcStorage := body.SourceStorage
+	if srcStorage == "" {
+		srcStorage = body.Storage
+	}
+	dstStorage := body.TargetStorage
+	if dstStorage == "" {
+		dstStorage = srcStorage
+	}
+
+	dstParent, err := resolveSafePath(dstStorage, body.TargetDir)
+	if err != nil {
+		http.Error(w, `{"error":"Invalid target directory"}`, http.StatusBadRequest)
+		return
+	}
+
+	dstInfo, err := os.Stat(dstParent)
+	if err != nil || !dstInfo.IsDir() {
+		http.Error(w, `{"error":"Target directory does not exist or is not a directory"}`, http.StatusBadRequest)
+		return
+	}
+
+	movedCount := 0
+	for _, srcRel := range body.SourcePaths {
+		srcFull, err := resolveSafePath(srcStorage, srcRel)
+		if err != nil {
+			continue
+		}
+		srcInfo, err := os.Stat(srcFull)
+		if err != nil {
+			continue
+		}
+
+		baseName := filepath.Base(srcFull)
+		if filepath.Dir(srcFull) == dstParent && srcStorage == dstStorage {
+			continue
+		}
+
+		destFull := getUniqueDestination(dstParent, baseName)
+
+		// Prevent moving directory into itself
+		if srcInfo.IsDir() && strings.HasPrefix(destFull, srcFull+string(filepath.Separator)) {
+			continue
+		}
+
+		// Try atomic rename first (works within same volume)
+		if err := os.Rename(srcFull, destFull); err == nil {
+			movedCount++
+			continue
+		}
+
+		// Fallback for cross-device: copy + remove
+		if srcInfo.IsDir() {
+			if err := copyDir(srcFull, destFull); err == nil {
+				os.RemoveAll(srcFull)
+				movedCount++
+			}
+		} else {
+			if err := copyFile(srcFull, destFull); err == nil {
+				os.Remove(srcFull)
+				movedCount++
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "ok",
+		"moved": movedCount,
+	})
+}
+
 func getSystemStats() SystemStats {
 	hostname, _ := os.Hostname()
 
@@ -1006,6 +1240,8 @@ func main() {
 	mux.HandleFunc("/api/files/mkdir", handleMkdir)
 	mux.HandleFunc("/api/files/rename", handleRename)
 	mux.HandleFunc("/api/files/delete", handleDelete)
+	mux.HandleFunc("/api/files/copy", handleCopy)
+	mux.HandleFunc("/api/files/move", handleMove)
 	mux.HandleFunc("/api/system/stats", handleSystemStats)
 
 	// Static website hosting route (serves HTML/sites directly)

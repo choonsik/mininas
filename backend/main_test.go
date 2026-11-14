@@ -195,6 +195,58 @@ func TestZipStreaming(t *testing.T) {
 	}
 }
 
+func TestFileCopyAndMove(t *testing.T) {
+	_, cleanup := setupTestEnvironment(t)
+	defer cleanup()
+
+	// 1. Create a file and a subdirectory
+	srcFilePath := filepath.Join(activeStorages[0].Path, "original.txt")
+	_ = os.WriteFile(srcFilePath, []byte("Content to copy and move"), 0644)
+	subDir := filepath.Join(activeStorages[0].Path, "target_folder")
+	_ = os.MkdirAll(subDir, 0755)
+
+	// 2. Test Copy
+	copyReqBody := `{"storage":"s1","sourcePaths":["/original.txt"],"targetDir":"/target_folder"}`
+	reqCopy := httptest.NewRequest("POST", "/api/files/copy", strings.NewReader(copyReqBody))
+	reqCopy.Header.Set("Content-Type", "application/json")
+	wCopy := httptest.NewRecorder()
+	handleCopy(wCopy, reqCopy)
+
+	if wCopy.Result().StatusCode != http.StatusOK {
+		t.Fatalf("Copy failed with status %d", wCopy.Result().StatusCode)
+	}
+
+	copiedPath := filepath.Join(subDir, "original.txt")
+	if _, err := os.Stat(copiedPath); os.IsNotExist(err) {
+		t.Fatalf("Copied file does not exist at %s", copiedPath)
+	}
+	// Verify original file still exists
+	if _, err := os.Stat(srcFilePath); os.IsNotExist(err) {
+		t.Fatalf("Original file should still exist after copy")
+	}
+
+	// 3. Test Move
+	moveReqBody := `{"storage":"s1","sourcePaths":["/original.txt"],"targetDir":"/target_folder"}`
+	reqMove := httptest.NewRequest("POST", "/api/files/move", strings.NewReader(moveReqBody))
+	reqMove.Header.Set("Content-Type", "application/json")
+	wMove := httptest.NewRecorder()
+	handleMove(wMove, reqMove)
+
+	if wMove.Result().StatusCode != http.StatusOK {
+		t.Fatalf("Move failed with status %d", wMove.Result().StatusCode)
+	}
+
+	// Since target_folder already has original.txt, it should have been moved with unique name original (1).txt
+	movedUniquePath := filepath.Join(subDir, "original (1).txt")
+	if _, err := os.Stat(movedUniquePath); os.IsNotExist(err) {
+		t.Fatalf("Moved file should exist with unique name at %s", movedUniquePath)
+	}
+	// Original file in root should no longer exist
+	if _, err := os.Stat(srcFilePath); !os.IsNotExist(err) {
+		t.Fatalf("Original file should be gone after move")
+	}
+}
+
 func TestStaticSiteHosting(t *testing.T) {
 	_, cleanup := setupTestEnvironment(t)
 	defer cleanup()

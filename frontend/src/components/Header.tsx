@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   HardDrive, 
   Cpu, 
@@ -7,9 +7,14 @@ import {
   List, 
   RefreshCw, 
   Search,
-  Server
+  Server,
+  Film,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Check
 } from 'lucide-react';
-import { SystemStats, StorageInfo } from '../types';
+import { SystemStats, StorageInfo, SortField, SortOrder } from '../types';
 import { formatBytes } from '../utils/format';
 
 interface HeaderProps {
@@ -17,10 +22,14 @@ interface HeaderProps {
   activeStorage: StorageInfo | null;
   searchQuery: string;
   onSearchChange: (q: string) => void;
-  viewMode: 'grid' | 'list';
-  onViewModeChange: (m: 'grid' | 'list') => void;
+  viewMode: 'grid' | 'list' | 'netflix';
+  onViewModeChange: (m: 'grid' | 'list' | 'netflix') => void;
   onRefresh: () => void;
   isRefreshing: boolean;
+  hasVideos?: boolean;
+  sortField: SortField;
+  sortOrder: SortOrder;
+  onSortChange: (field: SortField) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -32,8 +41,31 @@ export const Header: React.FC<HeaderProps> = ({
   onViewModeChange,
   onRefresh,
   isRefreshing,
+  hasVideos,
+  sortField,
+  sortOrder,
+  onSortChange,
 }) => {
   const disk = activeStorage ? activeStorage.disk : stats?.disk;
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setIsSortOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const sortOptions: { id: SortField; label: string }[] = [
+    { id: 'name', label: '이름순' },
+    { id: 'date', label: '수정일순' },
+    { id: 'size', label: '크기순' },
+    { id: 'type', label: '파일 형식순' },
+  ];
 
   return (
     <header className="h-16 border-b border-[#252530] bg-[#16161d] px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm">
@@ -70,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right: Stats & View controls */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         {/* Hardware Status Chips */}
         {stats && (
           <div className="hidden xl:flex items-center gap-3 text-xs bg-[#1f1f28] border border-[#2a2a38] px-3.5 py-1.5 rounded-lg">
@@ -119,6 +151,48 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
+        {/* Sorting Dropdown */}
+        <div className="relative" ref={sortRef}>
+          <button
+            onClick={() => setIsSortOpen(!isSortOpen)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-300 hover:text-white bg-[#1f1f28] hover:bg-[#282838] border border-[#2a2a38] rounded-lg transition"
+            title="정렬 기준"
+          >
+            <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+            <span className="hidden sm:inline">
+              {sortOptions.find(o => o.id === sortField)?.label}
+            </span>
+            {sortOrder === 'asc' ? (
+              <ArrowUp className="w-3 h-3 text-blue-400" />
+            ) : (
+              <ArrowDown className="w-3 h-3 text-blue-400" />
+            )}
+          </button>
+
+          {isSortOpen && (
+            <div className="absolute right-0 mt-1 w-36 bg-[#1c1c28] border border-[#2e2e42] rounded-xl shadow-xl py-1 z-40 text-xs animate-scaleUp">
+              <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                정렬 방식
+              </div>
+              {sortOptions.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => {
+                    onSortChange(opt.id);
+                    setIsSortOpen(false);
+                  }}
+                  className="w-full px-3 py-2 text-left flex items-center justify-between text-gray-200 hover:bg-[#28283a] transition"
+                >
+                  <span>{opt.label}</span>
+                  {sortField === opt.id && (
+                    <Check className="w-3.5 h-3.5 text-blue-400" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* View mode toggle */}
         <div className="flex items-center bg-[#1f1f28] border border-[#2a2a38] rounded-lg p-0.5">
           <button
@@ -134,6 +208,24 @@ export const Header: React.FC<HeaderProps> = ({
             title="목록 보기"
           >
             <List className="w-4 h-4" />
+          </button>
+
+          {/* Netflix View Button (Highlighted when folder has videos) */}
+          <button
+            onClick={() => onViewModeChange('netflix')}
+            className={`relative p-1.5 rounded-md transition flex items-center gap-1 ${
+              viewMode === 'netflix'
+                ? 'bg-red-600 text-white shadow-sm shadow-red-900/50'
+                : hasVideos
+                ? 'text-red-400 hover:text-red-300 hover:bg-red-950/30'
+                : 'text-gray-400 hover:text-gray-200'
+            }`}
+            title="넷플릭스 뷰 (시네마 모드)"
+          >
+            <Film className="w-4 h-4" />
+            {hasVideos && viewMode !== 'netflix' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse absolute top-1 right-1" />
+            )}
           </button>
         </div>
 
