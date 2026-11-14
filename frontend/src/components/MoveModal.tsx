@@ -7,18 +7,20 @@ import {
   FolderPlus, 
   CornerLeftUp,
   Check,
-  RefreshCw
+  RefreshCw,
+  HardDrive
 } from 'lucide-react';
-import { FileItem, BreadcrumbItem } from '../types';
+import { FileItem, BreadcrumbItem, StorageInfo } from '../types';
 import { api } from '../api';
+import { formatBytes } from '../utils/format';
 
 interface MoveModalProps {
   isOpen: boolean;
   onClose: () => void;
   sourcePaths: string[];
   currentStorageId: string;
-  currentStorageName: string;
-  onMoveSuccess: (targetDir: string, movedCount: number) => void;
+  storages: StorageInfo[];
+  onMoveSuccess: (targetDir: string, movedCount: number, targetStorageId: string) => void;
 }
 
 export const MoveModal: React.FC<MoveModalProps> = ({
@@ -26,9 +28,10 @@ export const MoveModal: React.FC<MoveModalProps> = ({
   onClose,
   sourcePaths,
   currentStorageId,
-  currentStorageName,
+  storages,
   onMoveSuccess,
 }) => {
+  const [targetStorageId, setTargetStorageId] = useState<string>(currentStorageId);
   const [browsePath, setBrowsePath] = useState<string>('/');
   const [subFolders, setSubFolders] = useState<FileItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,16 +40,20 @@ export const MoveModal: React.FC<MoveModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load directories of current browsePath
-  const loadFolders = useCallback(async (path: string) => {
+  // Target Storage object
+  const activeTargetStorage = storages.find(s => s.id === targetStorageId) || storages[0] || null;
+
+  // Load directories of current browsePath in selected target storage
+  const loadFolders = useCallback(async (path: string, storageId: string) => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await api.getFiles(path, currentStorageId);
-      // Filter directories only, and exclude any folder that is in sourcePaths (cannot move folder into itself)
+      const data = await api.getFiles(path, storageId);
+      // Filter directories only
+      // If within same storage, exclude any folder that is in sourcePaths
       const dirs = data.items.filter(item => {
         if (!item.isDir) return false;
-        if (sourcePaths.includes(item.path)) return false;
+        if (storageId === currentStorageId && sourcePaths.includes(item.path)) return false;
         return true;
       });
       setSubFolders(dirs);
@@ -59,17 +66,26 @@ export const MoveModal: React.FC<MoveModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      setTargetStorageId(currentStorageId);
       setBrowsePath('/');
-      loadFolders('/');
+      loadFolders('/', currentStorageId);
       setIsCreatingFolder(false);
       setNewFolderName('');
       setError(null);
     }
-  }, [isOpen, loadFolders]);
+  }, [isOpen, currentStorageId, loadFolders]);
+
+  const handleSelectStorage = (storageId: string) => {
+    setTargetStorageId(storageId);
+    setBrowsePath('/');
+    loadFolders('/', storageId);
+    setIsCreatingFolder(false);
+    setNewFolderName('');
+  };
 
   const handleNavigate = (path: string) => {
     setBrowsePath(path);
-    loadFolders(path);
+    loadFolders(path, targetStorageId);
   };
 
   const handleGoUp = () => {
@@ -84,10 +100,10 @@ export const MoveModal: React.FC<MoveModalProps> = ({
     e.preventDefault();
     if (!newFolderName.trim()) return;
     try {
-      await api.createFolder(browsePath, newFolderName.trim(), currentStorageId);
+      await api.createFolder(browsePath, newFolderName.trim(), targetStorageId);
       setNewFolderName('');
       setIsCreatingFolder(false);
-      loadFolders(browsePath);
+      loadFolders(browsePath, targetStorageId);
     } catch (err: any) {
       setError(err.message || '폴더 생성 실패');
     }
@@ -95,11 +111,24 @@ export const MoveModal: React.FC<MoveModalProps> = ({
 
   const handleExecuteMove = async () => {
     if (sourcePaths.length === 0) return;
+
+    // Check same folder in same storage
+    if (targetStorageId === currentStorageId) {
+      const allInSameDir = sourcePaths.every(p => {
+        const parent = p.substring(0, p.lastIndexOf('/')) || '/';
+        return parent === browsePath;
+      });
+      if (allInSameDir) {
+        setError('출발지 폴더와 대상 폴더가 동일합니다.');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setError(null);
     try {
-      const res = await api.moveItems(sourcePaths, browsePath, currentStorageId);
-      onMoveSuccess(browsePath, res.moved);
+      const res = await api.moveItems(sourcePaths, browsePath, currentStorageId, targetStorageId);
+      onMoveSuccess(browsePath, res.moved, targetStorageId);
       onClose();
     } catch (err: any) {
       setError(err.message || '파일 이동 실패');
@@ -113,17 +142,19 @@ export const MoveModal: React.FC<MoveModalProps> = ({
   // Breadcrumbs
   const pathParts = browsePath.split('/').filter(Boolean);
   const breadcrumbs: BreadcrumbItem[] = [
-    { name: currentStorageName || '루트', path: '/' },
+    { name: activeTargetStorage?.name || '루트', path: '/' },
     ...pathParts.map((part, index) => ({
       name: part,
       path: '/' + pathParts.slice(0, index + 1).join('/'),
     })),
   ];
 
+  const isCrossStorage = targetStorageId !== currentStorageId;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
       <div 
-        className="bg-[#1b1b24] border border-[#2e2e42] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-scaleUp"
+        className="bg-[#1b1b24] border border-[#2e2e42] rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-scaleUp"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -133,9 +164,9 @@ export const MoveModal: React.FC<MoveModalProps> = ({
               <ArrowRight className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">폴더로 이동</h3>
+              <h3 className="text-base font-bold text-white">파일 이동</h3>
               <p className="text-xs text-gray-400">
-                선택한 <strong className="text-amber-400">{sourcePaths.length}개</strong> 항목을 이동할 폴더를 선택하세요
+                선택한 <strong className="text-amber-400">{sourcePaths.length}개</strong> 항목을 이동할 저장소와 폴더를 선택하세요
               </p>
             </div>
           </div>
@@ -147,8 +178,45 @@ export const MoveModal: React.FC<MoveModalProps> = ({
           </button>
         </div>
 
+        {/* Storage Tabs (Multi-Storage Support) */}
+        {storages.length > 1 && (
+          <div className="px-6 py-2.5 bg-[#14141d] border-b border-[#242436] flex items-center gap-2 overflow-x-auto scrollbar-none">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider shrink-0 mr-1">
+              대상 저장소:
+            </span>
+            {storages.map((s) => {
+              const isSelected = s.id === targetStorageId;
+              const isCurrent = s.id === currentStorageId;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => handleSelectStorage(s.id)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition shrink-0 ${
+                    isSelected
+                      ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-900/40'
+                      : 'bg-[#1e1e2c] border-[#2c2c40] text-gray-300 hover:text-white hover:bg-[#262638]'
+                  }`}
+                >
+                  <HardDrive className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-blue-400'}`} />
+                  <span>{s.name}</span>
+                  {isCurrent && (
+                    <span className="text-[9px] px-1 py-0.2 rounded bg-black/30 text-gray-300">
+                      현재
+                    </span>
+                  )}
+                  {s.disk && (
+                    <span className="text-[10px] font-mono text-gray-300 opacity-80">
+                      (가용 {formatBytes(s.disk.freeBytes)})
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Breadcrumb Path & Go Up Button */}
-        <div className="px-6 py-2.5 bg-[#14141c] border-b border-[#252536] flex items-center justify-between gap-2 text-xs">
+        <div className="px-6 py-2 bg-[#12121a] border-b border-[#222232] flex items-center justify-between gap-2 text-xs">
           <nav className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5">
             {breadcrumbs.map((crumb, idx) => (
               <React.Fragment key={crumb.path}>
@@ -217,7 +285,7 @@ export const MoveModal: React.FC<MoveModalProps> = ({
         )}
 
         {/* Folder List Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-1 min-h-[220px] max-h-[360px] scrollbar-thin scrollbar-thumb-[#2a2a3e]">
+        <div className="flex-1 overflow-y-auto p-4 space-y-1 min-h-[220px] max-h-[340px] scrollbar-thin scrollbar-thumb-[#2a2a3e]">
           {error && (
             <div className="p-3 mb-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-xs">
               {error}
@@ -233,7 +301,9 @@ export const MoveModal: React.FC<MoveModalProps> = ({
             <div className="text-center py-10 text-gray-500 space-y-1">
               <Folder className="w-8 h-8 mx-auto opacity-30 text-gray-400" />
               <p className="text-xs">하위 폴더가 없습니다.</p>
-              <p className="text-[11px] text-gray-600">현재 위치: <code className="text-gray-400 font-mono">{browsePath}</code></p>
+              <p className="text-[11px] text-gray-600">
+                선택 위치: <strong className="text-gray-300 font-mono">[{activeTargetStorage?.name}] {browsePath}</strong>
+              </p>
             </div>
           ) : (
             subFolders.map((folder) => (
@@ -254,8 +324,14 @@ export const MoveModal: React.FC<MoveModalProps> = ({
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-[#28283a] bg-[#161620] flex items-center justify-between gap-3">
-          <div className="text-xs text-gray-400 truncate max-w-[240px]">
-            선택 위치: <strong className="text-gray-200 font-mono">{browsePath}</strong>
+          <div className="text-xs text-gray-400 truncate max-w-[260px]">
+            {isCrossStorage ? (
+              <span className="text-amber-400 font-semibold">
+                [외장/다른 저장소로 이동]: {activeTargetStorage?.name}:{browsePath}
+              </span>
+            ) : (
+              <span>이동 위치: <strong className="text-gray-200 font-mono">{browsePath}</strong></span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -272,11 +348,16 @@ export const MoveModal: React.FC<MoveModalProps> = ({
               className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black shadow-lg shadow-amber-500/20 transition active:scale-95 disabled:opacity-50"
             >
               {isSubmitting ? (
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>{isCrossStorage ? '복사 및 이동 중...' : '이동 중...'}</span>
+                </>
               ) : (
-                <Check className="w-3.5 h-3.5" />
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>여기로 이동</span>
+                </>
               )}
-              <span>여기로 이동</span>
             </button>
           </div>
         </div>

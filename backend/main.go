@@ -604,13 +604,16 @@ func handleCopy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	copiedCount := 0
+	var copyErrors []string
 	for _, srcRel := range body.SourcePaths {
 		srcFull, err := resolveSafePath(srcStorage, srcRel)
 		if err != nil {
+			copyErrors = append(copyErrors, fmt.Sprintf("%s: 접근 권한 오류 (%s)", srcRel, err.Error()))
 			continue
 		}
 		srcInfo, err := os.Stat(srcFull)
 		if err != nil {
+			copyErrors = append(copyErrors, fmt.Sprintf("%s: 파일 없음 (%s)", srcRel, err.Error()))
 			continue
 		}
 
@@ -619,24 +622,35 @@ func handleCopy(w http.ResponseWriter, r *http.Request) {
 
 		// Prevent copying directory into itself
 		if srcInfo.IsDir() && strings.HasPrefix(destFull, srcFull+string(filepath.Separator)) {
+			copyErrors = append(copyErrors, fmt.Sprintf("%s: 자기 자신 또는 하위 디렉토리로 복사할 수 없습니다.", baseName))
 			continue
 		}
 
 		if srcInfo.IsDir() {
-			if err := copyDir(srcFull, destFull); err == nil {
+			if err := copyDir(srcFull, destFull); err != nil {
+				copyErrors = append(copyErrors, fmt.Sprintf("%s 디렉토리 복사 실패: %s", baseName, err.Error()))
+			} else {
 				copiedCount++
 			}
 		} else {
-			if err := copyFile(srcFull, destFull); err == nil {
+			if err := copyFile(srcFull, destFull); err != nil {
+				copyErrors = append(copyErrors, fmt.Sprintf("%s 파일 복사 실패: %s", baseName, err.Error()))
+			} else {
 				copiedCount++
 			}
 		}
+	}
+
+	if copiedCount == 0 && len(copyErrors) > 0 {
+		http.Error(w, fmt.Sprintf(`{"error":"%s"}`, strings.Join(copyErrors, ", ")), http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "ok",
 		"copied": copiedCount,
+		"errors": copyErrors,
 	})
 }
 
@@ -678,13 +692,16 @@ func handleMove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	movedCount := 0
+	var moveErrors []string
 	for _, srcRel := range body.SourcePaths {
 		srcFull, err := resolveSafePath(srcStorage, srcRel)
 		if err != nil {
+			moveErrors = append(moveErrors, fmt.Sprintf("%s: 접근 권한 오류 (%s)", srcRel, err.Error()))
 			continue
 		}
 		srcInfo, err := os.Stat(srcFull)
 		if err != nil {
+			moveErrors = append(moveErrors, fmt.Sprintf("%s: 파일 없음 (%s)", srcRel, err.Error()))
 			continue
 		}
 
@@ -697,6 +714,7 @@ func handleMove(w http.ResponseWriter, r *http.Request) {
 
 		// Prevent moving directory into itself
 		if srcInfo.IsDir() && strings.HasPrefix(destFull, srcFull+string(filepath.Separator)) {
+			moveErrors = append(moveErrors, fmt.Sprintf("%s: 자기 자신 또는 하위 디렉토리로 이동할 수 없습니다.", baseName))
 			continue
 		}
 
@@ -708,22 +726,32 @@ func handleMove(w http.ResponseWriter, r *http.Request) {
 
 		// Fallback for cross-device: copy + remove
 		if srcInfo.IsDir() {
-			if err := copyDir(srcFull, destFull); err == nil {
+			if err := copyDir(srcFull, destFull); err != nil {
+				moveErrors = append(moveErrors, fmt.Sprintf("%s 복사 실패: %s", baseName, err.Error()))
+			} else {
 				os.RemoveAll(srcFull)
 				movedCount++
 			}
 		} else {
-			if err := copyFile(srcFull, destFull); err == nil {
+			if err := copyFile(srcFull, destFull); err != nil {
+				moveErrors = append(moveErrors, fmt.Sprintf("%s 복사 실패: %s", baseName, err.Error()))
+			} else {
 				os.Remove(srcFull)
 				movedCount++
 			}
 		}
 	}
 
+	if movedCount == 0 && len(moveErrors) > 0 {
+		http.Error(w, fmt.Sprintf(`{"error":"%s"}`, strings.Join(moveErrors, ", ")), http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "ok",
-		"moved": movedCount,
+		"moved":  movedCount,
+		"errors": moveErrors,
 	})
 }
 

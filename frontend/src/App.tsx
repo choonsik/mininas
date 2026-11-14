@@ -301,8 +301,10 @@ export const App: React.FC = () => {
     setIsMoveModalOpen(true);
   };
 
-  const handleMoveSuccess = (targetDir: string, movedCount: number) => {
-    showToast(`${movedCount}개 항목이 '${targetDir}'(으)로 이동되었습니다.`, 'success');
+  const handleMoveSuccess = (targetDir: string, movedCount: number, targetStorageId?: string) => {
+    const targetStorage = storages.find(s => s.id === targetStorageId);
+    const storageLabel = targetStorage && targetStorageId !== activeStorageId ? ` [${targetStorage.name}]` : '';
+    showToast(`${movedCount}개 항목이${storageLabel} '${targetDir}'(으)로 이동되었습니다.`, 'success');
     setSelectedPaths(new Set());
     setClipboard(null);
     loadFiles(currentPath, activeStorageId);
@@ -750,8 +752,8 @@ export const App: React.FC = () => {
         isOpen={isMoveModalOpen}
         onClose={() => setIsMoveModalOpen(false)}
         sourcePaths={moveSourcePaths}
+        storages={storages}
         currentStorageId={activeStorageId}
-        currentStorageName={activeStorage?.name || '저장소'}
         onMoveSuccess={handleMoveSuccess}
       />
 

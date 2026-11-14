@@ -245,6 +245,27 @@ func TestFileCopyAndMove(t *testing.T) {
 	if _, err := os.Stat(srcFilePath); !os.IsNotExist(err) {
 		t.Fatalf("Original file should be gone after move")
 	}
+
+	// 4. Test Cross-Storage Move (s1 -> s2)
+	crossSrcPath := filepath.Join(activeStorages[0].Path, "to_cross.txt")
+	_ = os.WriteFile(crossSrcPath, []byte("Cross storage content"), 0644)
+	crossMoveBody := `{"sourceStorage":"s1","targetStorage":"s2","sourcePaths":["/to_cross.txt"],"targetDir":"/"}`
+	reqCross := httptest.NewRequest("POST", "/api/files/move", strings.NewReader(crossMoveBody))
+	reqCross.Header.Set("Content-Type", "application/json")
+	wCross := httptest.NewRecorder()
+	handleMove(wCross, reqCross)
+
+	if wCross.Result().StatusCode != http.StatusOK {
+		t.Fatalf("Cross-storage move failed with status %d", wCross.Result().StatusCode)
+	}
+
+	dstCrossPath := filepath.Join(activeStorages[1].Path, "to_cross.txt")
+	if _, err := os.Stat(dstCrossPath); os.IsNotExist(err) {
+		t.Fatalf("Cross-storage destination file not found at %s", dstCrossPath)
+	}
+	if _, err := os.Stat(crossSrcPath); !os.IsNotExist(err) {
+		t.Fatalf("Cross-storage source file should be deleted after move")
+	}
 }
 
 func TestStaticSiteHosting(t *testing.T) {
