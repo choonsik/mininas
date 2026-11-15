@@ -55,7 +55,7 @@ Docker나 외부 런타임 의존성 없이 단일 바이너리(Pure Go, CGO=0)�
 
 ## 빠른 시작 및 운영
 
-배포 패키지(`mininas-v0.2-intel-mac.tar.gz`)를 맥 미니에 압축 해제하면 다음 스크립트로 제어할 수 있습니다:
+배포 패키지(`mininas-v0.3-intel-mac.tar.gz`)를 맥 미니에 압축 해제하면 다음 스크립트로 제어할 수 있습니다:
 
 ```
 MiniNAS/
