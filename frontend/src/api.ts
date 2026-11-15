@@ -1,4 +1,4 @@
-import { FileItem, SystemStats, StorageInfo, SubtitleTrack, MediaCapabilities, MediaInspection, BatchConvertJob } from './types';
+import { FileItem, SystemStats, StorageInfo, SubtitleTrack, MediaCapabilities, MediaInspection, BatchConvertJob, TrashResponse } from './types';
 
 const API_BASE = '/api';
 
@@ -42,11 +42,11 @@ export const api = {
     }
   },
 
-  async deleteItems(paths: string[], storageId: string = ''): Promise<void> {
+  async deleteItems(paths: string[], storageId: string = '', permanent: boolean = false): Promise<void> {
     const res = await fetch(`${API_BASE}/files/delete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paths, storage: storageId }),
+      body: JSON.stringify({ paths, storage: storageId, permanent }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Failed to delete items' }));
@@ -147,10 +147,8 @@ export const api = {
 
   getHostUrl(path: string, storageId: string = ''): string {
     const cleanPath = path.startsWith('/') ? path : '/' + path;
-    if (!storageId || storageId === 'main') {
-      return `/sites${cleanPath}`;
-    }
-    return `/sites/${storageId}${cleanPath}`;
+    const targetStorage = storageId || 'main';
+    return `/sites/${targetStorage}${cleanPath}`;
   },
 
   async getSubtitles(path: string, storageId: string = ''): Promise<SubtitleTrack[]> {
@@ -212,5 +210,52 @@ export const api = {
     const res = await fetch(`${API_BASE}/system/stats`);
     if (!res.ok) throw new Error('Failed to fetch system stats');
     return res.json();
+  },
+
+  async getTrash(storageId: string = ''): Promise<TrashResponse> {
+    const res = await fetch(`${API_BASE}/trash?storage=${encodeURIComponent(storageId)}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: '휴지통 조회 실패' }));
+      throw new Error(err.error || '휴지통 조회 실패');
+    }
+    return res.json();
+  },
+
+  async restoreTrash(ids: string[], storageId: string = ''): Promise<{ restored: number }> {
+    const res = await fetch(`${API_BASE}/trash/restore`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, storage: storageId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: '복구 실패' }));
+      throw new Error(err.error || '복구 실패');
+    }
+    return res.json();
+  },
+
+  async deleteTrashPermanently(ids: string[], storageId: string = ''): Promise<{ deleted: number }> {
+    const res = await fetch(`${API_BASE}/trash/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, storage: storageId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: '영구 삭제 실패' }));
+      throw new Error(err.error || '영구 삭제 실패');
+    }
+    return res.json();
+  },
+
+  async emptyTrash(storageId: string = ''): Promise<void> {
+    const res = await fetch(`${API_BASE}/trash/empty`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storage: storageId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: '휴지통 비우기 실패' }));
+      throw new Error(err.error || '휴지통 비우기 실패');
+    }
   }
 };

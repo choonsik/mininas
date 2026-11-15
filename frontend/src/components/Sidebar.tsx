@@ -9,10 +9,13 @@ import {
   Zap, 
   Network,
   Clock,
-  HardDrive
+  HardDrive,
+  X,
+  Trash2
 } from 'lucide-react';
 import { SystemStats, StorageInfo } from '../types';
 import { formatBytes } from '../utils/format';
+import { APP_VERSION, BUILD_DATE } from '../version';
 
 interface SidebarProps {
   storages: StorageInfo[];
@@ -21,6 +24,7 @@ interface SidebarProps {
   currentFilter: string;
   onSelectFilter: (filter: string) => void;
   stats: SystemStats | null;
+  onCloseMobile?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -30,6 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentFilter,
   onSelectFilter,
   stats,
+  onCloseMobile,
 }) => {
   const menuItems = [
     { id: 'all', label: '모든 파일', icon: Folder },
@@ -49,8 +54,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside className="w-64 border-r border-[#252530] bg-[#14141a] flex flex-col justify-between p-4 select-none overflow-y-auto">
+    <aside className="w-72 md:w-64 border-r border-[#252530] bg-[#14141a] flex flex-col justify-between p-4 select-none overflow-y-auto h-full shrink-0 shadow-2xl md:shadow-none">
       <div className="space-y-6">
+        {/* Mobile Header with Close button */}
+        {onCloseMobile && (
+          <div className="flex md:hidden items-center justify-between pb-3 border-b border-[#252535]">
+            <span className="font-bold text-sm text-white">저장소 & 탐색</span>
+            <button
+              onClick={onCloseMobile}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#252535] transition"
+              title="닫기"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+
         {/* Storages (Locations) */}
         <div>
           <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-3">
@@ -62,7 +81,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               return (
                 <button
                   key={storage.id}
-                  onClick={() => onSelectStorage(storage.id)}
+                  onClick={() => {
+                    onSelectStorage(storage.id);
+                    onCloseMobile?.();
+                  }}
                   className={`w-full text-left p-2.5 rounded-xl transition border ${
                     isActive
                       ? 'bg-blue-600/15 border-blue-500/30 text-white shadow-sm'
@@ -108,7 +130,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               return (
                 <button
                   key={item.id}
-                  onClick={() => onSelectFilter(item.id)}
+                  onClick={() => {
+                    onSelectFilter(item.id);
+                    onCloseMobile?.();
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${
                     isActive
                       ? 'bg-blue-600/15 text-blue-400 border border-blue-500/25'
@@ -120,6 +145,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               );
             })}
+          </nav>
+        </div>
+
+        {/* Trash */}
+        <div>
+          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-3">
+            관리
+          </span>
+          <nav className="mt-2 space-y-1">
+            <button
+              onClick={() => {
+                onSelectFilter('trash');
+                onCloseMobile?.();
+              }}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${
+                currentFilter === 'trash'
+                  ? 'bg-red-500/15 text-red-400 border border-red-500/25'
+                  : 'text-gray-300 hover:bg-[#1e1e26] hover:text-white'
+              }`}
+            >
+              <Trash2 className={`w-4 h-4 ${currentFilter === 'trash' ? 'text-red-400' : 'text-gray-400'}`} />
+              <span>휴지통</span>
+            </button>
           </nav>
         </div>
       </div>
@@ -153,6 +201,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="font-mono text-gray-300">{formatUptime(stats.uptimeSeconds)}</span>
           </div>
         )}
+
+        <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#242430]">
+          <span className="text-[10px] text-gray-500">빌드 버전</span>
+          <span className="font-mono text-[10px] text-emerald-400 font-semibold">{APP_VERSION} ({BUILD_DATE})</span>
+        </div>
       </div>
     </aside>
   );

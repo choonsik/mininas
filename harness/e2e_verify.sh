@@ -141,5 +141,36 @@ if [[ "$SMI_VTT" != *"WEBVTT"* ]] || [[ "$SMI_VTT" != *"SMI 테스트 자막"* ]
 fi
 echo "  ✅ 9. SRT / SMI 자막 자동 매칭 및 실시간 WebVTT 변환 스트리밍 통과"
 
+# 12. 휴지통(Trash) 소프트 삭제, 목록 조회 및 복구 E2E 검증
+echo "Trash test content" > "$TEST_DIR/s1/trash_sample.txt"
+DEL_RESP=$(curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"storage":"test_s1","paths":["/trash_sample.txt"]}' \
+  "http://localhost:$PORT/api/files/delete")
+if [[ "$DEL_RESP" != *"ok"* ]]; then
+    echo "❌ [FAIL] 휴지통 삭제 요청 실패: $DEL_RESP"
+    exit 1
+fi
+if [ -f "$TEST_DIR/s1/trash_sample.txt" ]; then
+    echo "❌ [FAIL] 소프트 삭제 후 원본 파일이 남아있음"
+    exit 1
+fi
+
+TRASH_LIST=$(curl -s "http://localhost:$PORT/api/trash?storage=test_s1")
+if [[ "$TRASH_LIST" != *"trash_sample.txt"* ]]; then
+    echo "❌ [FAIL] 휴지통 목록 조회 실패: $TRASH_LIST"
+    exit 1
+fi
+
+# ID 추출 후 복구
+TRASH_ID=$(echo "$TRASH_LIST" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+RESTORE_RESP=$(curl -s -X POST -H "Content-Type: application/json" \
+  -d "{\"storage\":\"test_s1\",\"ids\":[\"$TRASH_ID\"]}" \
+  "http://localhost:$PORT/api/trash/restore")
+if [[ "$RESTORE_RESP" != *"ok"* ]] || [ ! -f "$TEST_DIR/s1/trash_sample.txt" ]; then
+    echo "❌ [FAIL] 휴지통 복구 실패: $RESTORE_RESP"
+    exit 1
+fi
+echo "  ✅ 10. 휴지통(Trash) 소프트 삭제, 목록 조회 및 복구 E2E 검증 통과"
+
 echo ""
-echo "🎉 [Harness] 9개 핵심 런타임 E2E 시나리오 ALL PASS!"
+echo "🎉 [Harness] 10개 핵심 런타임 E2E 시나리오 ALL PASS!"

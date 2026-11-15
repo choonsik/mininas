@@ -12,10 +12,12 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Check
+  Check,
+  Menu
 } from 'lucide-react';
 import { SystemStats, StorageInfo, SortField, SortOrder } from '../types';
 import { formatBytes } from '../utils/format';
+import { APP_VERSION, BUILD_DATE } from '../version';
 
 interface HeaderProps {
   stats: SystemStats | null;
@@ -30,6 +32,7 @@ interface HeaderProps {
   sortField: SortField;
   sortOrder: SortOrder;
   onSortChange: (field: SortField) => void;
+  onToggleSidebar?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -45,6 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
   sortField,
   sortOrder,
   onSortChange,
+  onToggleSidebar,
 }) => {
   const disk = activeStorage ? activeStorage.disk : stats?.disk;
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -68,41 +72,56 @@ export const Header: React.FC<HeaderProps> = ({
   ];
 
   return (
-    <header className="h-16 border-b border-[#252530] bg-[#16161d] px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+    <header className="h-16 border-b border-[#252530] bg-[#16161d] px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm gap-2">
       {/* Brand & Hostname */}
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
-          <Server className="w-5 h-5 text-white" />
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className="p-1.5 -ml-1 text-gray-400 hover:text-white md:hidden rounded-lg hover:bg-[#1f1f28] transition"
+            title="메뉴 열기"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
+          <Server className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
         </div>
         <div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-base text-white tracking-tight">MiniNAS</span>
-            <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-sm sm:text-base text-white tracking-tight">MiniNAS</span>
+            <span 
+              className="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+              title={`빌드 버전: ${APP_VERSION} (${BUILD_DATE})`}
+            >
+              {APP_VERSION}
+            </span>
+            <span className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
               Mac mini 2011
             </span>
           </div>
-          <p className="text-xs text-gray-400 font-mono">
+          <p className="text-[11px] text-gray-400 font-mono hidden md:block">
             {stats ? `${stats.hostname} (${stats.os})` : 'Connecting...'}
           </p>
         </div>
       </div>
 
       {/* Search Input */}
-      <div className="flex-1 max-w-md mx-6">
+      <div className="flex-1 max-w-md mx-1 sm:mx-6 min-w-0">
         <div className="relative">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 absolute left-2.5 sm:left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="현재 폴더에서 검색..."
+            placeholder="검색..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-[#1f1f28] border border-[#2e2e3d] rounded-lg pl-10 pr-4 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/60 transition"
+            className="w-full bg-[#1f1f28] border border-[#2e2e3d] rounded-lg pl-8 sm:pl-10 pr-2 sm:pr-4 py-1.5 text-xs sm:text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/60 transition"
           />
         </div>
       </div>
 
       {/* Right: Stats & View controls */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         {/* Hardware Status Chips */}
         {stats && (
           <div className="hidden xl:flex items-center gap-3 text-xs bg-[#1f1f28] border border-[#2a2a38] px-3.5 py-1.5 rounded-lg">

@@ -10,6 +10,7 @@ import { RenameModal } from './components/RenameModal';
 import { FileDetailsModal } from './components/FileDetailsModal';
 import { MoveModal } from './components/MoveModal';
 import { ContextMenu } from './components/ContextMenu';
+import { TrashView } from './components/TrashView';
 import { FileItem, SystemStats, StorageInfo, SortField, SortOrder, ClipboardItem } from './types';
 import { api } from './api';
 import { UploadCloud, CheckCircle, AlertCircle, X, Clipboard, ArrowRight } from 'lucide-react';
@@ -70,6 +71,7 @@ export const App: React.FC = () => {
   // Drag & drop upload state
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ percent: number; label: string } | null>(null);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Show Toast Helper
   const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -225,6 +227,7 @@ export const App: React.FC = () => {
   const handleSelectStorage = (storageId: string) => {
     setActiveStorageId(storageId);
     setCurrentPath('/');
+    setCurrentFilter('all');
     setSelectedPaths(new Set());
     window.history.pushState(
       { storageId, path: '/', view: viewMode },
@@ -344,10 +347,10 @@ export const App: React.FC = () => {
 
   // Single Item Delete
   const handleDeleteSingle = async (item: FileItem) => {
-    if (!confirm(`'${item.name}' 항목을 영구 삭제하시겠습니까?`)) return;
+    if (!confirm(`'${item.name}' 항목을 휴지통으로 이동하시겠습니까?`)) return;
     try {
       await api.deleteItems([item.path], activeStorageId);
-      showToast(`'${item.name}'이(가) 삭제되었습니다.`, 'success');
+      showToast(`'${item.name}'이(가) 휴지통으로 이동되었습니다.`, 'success');
       loadFiles(currentPath, activeStorageId);
       loadStorages();
     } catch (err: any) {
@@ -358,10 +361,10 @@ export const App: React.FC = () => {
   // Multiple Items Delete
   const handleDeleteSelected = async () => {
     if (selectedPaths.size === 0) return;
-    if (!confirm(`선택한 ${selectedPaths.size}개의 항목을 삭제하시겠습니까? (복구할 수 없습니다)`)) return;
+    if (!confirm(`선택한 ${selectedPaths.size}개의 항목을 휴지통으로 이동하시겠습니까?`)) return;
     try {
       await api.deleteItems(Array.from(selectedPaths), activeStorageId);
-      showToast(`${selectedPaths.size}개 항목이 삭제되었습니다.`, 'success');
+      showToast(`${selectedPaths.size}개 항목이 휴지통으로 이동되었습니다.`, 'success');
       loadFiles(currentPath, activeStorageId);
       loadStorages();
     } catch (err: any) {
@@ -565,24 +568,49 @@ export const App: React.FC = () => {
         sortField={sortField}
         sortOrder={sortOrder}
         onSortChange={handleSortChange}
+        onToggleSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
       />
 
       {/* Main Body */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         {/* Sidebar (Hide in Netflix View for full immersion, or keep compact) */}
         {viewMode !== 'netflix' && (
-          <Sidebar
-            storages={storages}
-            activeStorageId={activeStorageId}
-            onSelectStorage={handleSelectStorage}
-            currentFilter={currentFilter}
-            onSelectFilter={setCurrentFilter}
-            stats={stats}
-          />
+          <>
+            {/* Mobile Backdrop */}
+            {isMobileSidebarOpen && (
+              <div
+                className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm transition-opacity"
+                onClick={() => setIsMobileSidebarOpen(false)}
+              />
+            )}
+
+            {/* Sidebar Container: Fixed Drawer on Mobile, Relative Flex Column on Desktop */}
+            <div className={`
+              ${isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-50 flex shadow-2xl animate-slideRight' : 'hidden'}
+              md:relative md:z-0 md:flex h-full
+            `}>
+              <Sidebar
+                storages={storages}
+                activeStorageId={activeStorageId}
+                onSelectStorage={handleSelectStorage}
+                currentFilter={currentFilter}
+                onSelectFilter={setCurrentFilter}
+                stats={stats}
+                onCloseMobile={() => setIsMobileSidebarOpen(false)}
+              />
+            </div>
+          </>
         )}
 
-        {/* Content View: Netflix View or Standard FileList */}
-        {viewMode === 'netflix' ? (
+        {/* Content View: Trash View, Netflix View or Standard FileList */}
+        {currentFilter === 'trash' ? (
+          <TrashView
+            storages={storages}
+            activeStorageId={activeStorageId}
+            onShowToast={showToast}
+            onRefreshStorages={loadStorages}
+          />
+        ) : viewMode === 'netflix' ? (
           <NetflixView
             items={sortedItems}
             currentPath={currentPath}
@@ -729,6 +757,9 @@ export const App: React.FC = () => {
           onOpen={(item) => {
             if (item.isDir) handleNavigate(item.path);
             else handleOpenMedia(item);
+          }}
+          onOpenHosting={(item) => {
+            window.open(api.getHostUrl(item.path, activeStorageId), '_blank');
           }}
           onDownload={(item) => {
             window.location.href = api.getDownloadUrl(item.path, activeStorageId);

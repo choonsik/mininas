@@ -182,6 +182,10 @@ func handleGetStorages(w http.ResponseWriter, r *http.Request) {
 func handleGetFiles(w http.ResponseWriter, r *http.Request) {
 	storageId := r.URL.Query().Get("storage")
 	relPath := r.URL.Query().Get("path")
+	if strings.HasPrefix(filepath.Clean("/"+relPath), "/.trash") {
+		http.Error(w, `{"error":"Access denied"}`, http.StatusForbidden)
+		return
+	}
 	fullPath, err := resolveSafePath(storageId, relPath)
 	if err != nil {
 		http.Error(w, `{"error":"Access denied"}`, http.StatusForbidden)
@@ -474,22 +478,34 @@ func handleRename(w http.ResponseWriter, r *http.Request) {
 
 func handleDelete(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Storage string   `json:"storage"`
-		Paths   []string `json:"paths"`
+		Storage   string   `json:"storage"`
+		Paths     []string `json:"paths"`
+		Permanent bool     `json:"permanent"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, `{"error":"Invalid request"}`, http.StatusBadRequest)
 		return
 	}
 
-	for _, relPath := range body.Paths {
-		fullPath, err := resolveSafePath(body.Storage, relPath)
-		if err != nil {
-			continue
+	if body.Permanent {
+		for _, relPath := range body.Paths {
+			fullPath, err := resolveSafePath(body.Storage, relPath)
+			if err != nil {
+				continue
+			}
+			os.RemoveAll(fullPath)
 		}
-		os.RemoveAll(fullPath)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok"}`))
+		return
 	}
 
+	if err := moveToTrash(body.Storage, body.Paths); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"status":"ok"}`))
 }
 
@@ -811,37 +827,41 @@ func handleSitesHosting(w http.ResponseWriter, r *http.Request) {
 	rawPath := strings.TrimPrefix(r.URL.Path, "/sites")
 	rawPath = strings.TrimPrefix(rawPath, "/")
 
-	if rawPath == "" {
-		http.NotFound(w, r)
-		return
-	}
-
-	parts := strings.SplitN(rawPath, "/", 2)
 	storageId := ""
 	relPath := ""
 
-	// Check if the first segment matches a registered storage ID
-	isKnownStorage := false
-	for _, s := range activeStorages {
-		if s.ID == parts[0] {
-			isKnownStorage = true
-			break
-		}
-	}
-
-	if isKnownStorage {
-		storageId = parts[0]
-		if len(parts) > 1 {
-			relPath = "/" + parts[1]
-		} else {
-			relPath = "/"
-		}
-	} else {
-		// Default to primary storage (e.g. "main")
+	if rawPath == "" {
+		// 기본 저장소 루트 디렉토리 요청 (/sites 또는 /sites/)
 		if len(activeStorages) > 0 {
 			storageId = activeStorages[0].ID
 		}
-		relPath = "/" + rawPath
+		relPath = "/"
+	} else {
+		parts := strings.SplitN(rawPath, "/", 2)
+
+		// Check if the first segment matches a registered storage ID
+		isKnownStorage := false
+		for _, s := range activeStorages {
+			if s.ID == parts[0] {
+				isKnownStorage = true
+				break
+			}
+		}
+
+		if isKnownStorage {
+			storageId = parts[0]
+			if len(parts) > 1 {
+				relPath = "/" + parts[1]
+			} else {
+				relPath = "/"
+			}
+		} else {
+			// Default to primary storage (e.g. "main")
+			if len(activeStorages) > 0 {
+				storageId = activeStorages[0].ID
+			}
+			relPath = "/" + rawPath
+		}
 	}
 
 	fullPath, err := resolveSafePath(storageId, relPath)
@@ -964,6 +984,7 @@ func renderDirectoryListing(w http.ResponseWriter, r *http.Request, fullPath, di
       border-collapse: collapse;
       text-align: left;
       font-size: 13px;
+      table-layout: fixed;
     }
     th {
       color: #94a3b8;
@@ -974,27 +995,52 @@ func renderDirectoryListing(w http.ResponseWriter, r *http.Request, fullPath, di
     td {
       padding: 12px 14px;
       border-bottom: 1px solid #1c1f2b;
+      overflow: hidden;
+    }
+    th.col-name, td.col-name {
+      width: auto;
+    }
+    th.col-size, td.col-size {
+      width: 120px;
+      text-align: right;
+    }
+    th.col-date, td.col-date {
+      width: 160px;
+      text-align: right;
     }
     tr:hover td {
       background: #1c202d;
     }
-    a {
+    a.item-link {
       color: #60a5fa;
       text-decoration: none;
       font-weight: 500;
-      display: inline-flex;
+      display: flex;
       align-items: center;
       gap: 10px;
+      min-width: 0;
+      overflow: hidden;
     }
-    a:hover {
+    a.item-link:hover {
       text-decoration: underline;
       color: #93c5fd;
     }
-    .icon { font-size: 16px; }
+    .icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .name-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+      flex: 1;
+    }
     .size, .date {
       color: #94a3b8;
       font-family: ui-monospace, monospace;
       font-size: 12px;
+      white-space: nowrap;
     }
     .parent-dir {
       margin-bottom: 14px;
@@ -1006,6 +1052,51 @@ func renderDirectoryListing(w http.ResponseWriter, r *http.Request, fullPath, di
     }
     .parent-dir a:hover {
       color: #cbd5e1;
+    }
+    @media (max-width: 860px) {
+      body {
+        padding: 20px 14px;
+      }
+      .container {
+        padding: 20px 16px;
+        border-radius: 14px;
+      }
+      th.col-date, td.col-date {
+        display: none;
+      }
+      th.col-size, td.col-size {
+        width: 85px;
+        font-size: 11px;
+      }
+    }
+    @media (max-width: 520px) {
+      body {
+        padding: 14px 8px;
+      }
+      .container {
+        padding: 14px 10px;
+        border-radius: 12px;
+      }
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        padding-bottom: 10px;
+        margin-bottom: 12px;
+      }
+      h1 {
+        font-size: 14px;
+      }
+      th, td {
+        padding: 8px 4px;
+      }
+      th.col-size, td.col-size {
+        width: 68px;
+        font-size: 10px;
+      }
+      .name-text {
+        font-size: 12px;
+      }
     }
   </style>
 </head>
@@ -1027,9 +1118,9 @@ func renderDirectoryListing(w http.ResponseWriter, r *http.Request, fullPath, di
 	sb.WriteString(`    <table>
       <thead>
         <tr>
-          <th>이름</th>
-          <th style="width: 130px; text-align: right;">크기</th>
-          <th style="width: 170px; text-align: right;">수정일</th>
+          <th class="col-name">이름</th>
+          <th class="col-size">크기</th>
+          <th class="col-date">수정일</th>
         </tr>
       </thead>
       <tbody>
@@ -1079,11 +1170,12 @@ func renderDirectoryListing(w http.ResponseWriter, r *http.Request, fullPath, di
 				sizeStr = "-"
 			}
 			dateStr := it.modTime.Format("2006-01-02 15:04")
+			escapedName := html.EscapeString(displayName)
 			sb.WriteString(fmt.Sprintf(`        <tr>
-          <td><a href="%s"><span class="icon">%s</span> %s</a></td>
-          <td class="size" style="text-align: right;">%s</td>
-          <td class="date" style="text-align: right;">%s</td>
-        </tr>`+"\n", urlName, icon, html.EscapeString(displayName), sizeStr, dateStr))
+          <td class="col-name"><a href="%s" class="item-link" title="%s"><span class="icon">%s</span><span class="name-text">%s</span></a></td>
+          <td class="size col-size">%s</td>
+          <td class="date col-date">%s</td>
+        </tr>`+"\n", urlName, escapedName, icon, escapedName, sizeStr, dateStr))
 		}
 	}
 
@@ -1271,6 +1363,10 @@ func main() {
 	mux.HandleFunc("/api/files/copy", handleCopy)
 	mux.HandleFunc("/api/files/move", handleMove)
 	mux.HandleFunc("/api/system/stats", handleSystemStats)
+	mux.HandleFunc("/api/trash", handleGetTrash)
+	mux.HandleFunc("/api/trash/restore", handleRestoreTrash)
+	mux.HandleFunc("/api/trash/delete", handleDeleteTrash)
+	mux.HandleFunc("/api/trash/empty", handleEmptyTrash)
 
 	// Static website hosting route (serves HTML/sites directly)
 	mux.HandleFunc("/sites/", handleSitesHosting)

@@ -11,7 +11,8 @@ import {
   FolderPlus, 
   Upload, 
   RefreshCw,
-  FolderOpen
+  FolderOpen,
+  Globe
 } from 'lucide-react';
 import { FileItem } from '../types';
 
@@ -26,6 +27,7 @@ interface ContextMenuProps {
   clipboard: { action: 'copy' | 'cut'; paths: string[] } | null;
   onClose: () => void;
   onOpen: (item: FileItem) => void;
+  onOpenHosting?: (item: FileItem) => void;
   onDownload: (item: FileItem) => void;
   onCopy: (item: FileItem) => void;
   onCut: (item: FileItem) => void;
@@ -46,6 +48,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   clipboard,
   onClose,
   onOpen,
+  onOpenHosting,
   onDownload,
   onCopy,
   onCut,
@@ -111,6 +114,16 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             {targetItem.isDir ? <FolderOpen className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
             <span>{targetItem.isDir ? '폴더 열기' : '열기 / 재생'}</span>
           </button>
+
+          {onOpenHosting && (targetItem.isDir || targetItem.ext === '.html' || targetItem.ext === '.htm') && (
+            <button
+              onClick={() => { onClose(); onOpenHosting(targetItem); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-emerald-600/20 text-emerald-400 hover:text-emerald-300 transition"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>{targetItem.isDir ? '폴더 웹 호스팅으로 열기' : '웹페이지로 열기 (새 탭)'}</span>
+            </button>
+          )}
 
           {!targetItem.isDir && (
             <button

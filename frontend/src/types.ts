@@ -97,3 +97,21 @@ export interface ClipboardItem {
   storageName: string;
 }
 
+export interface TrashItem {
+  id: string;
+  storageId: string;
+  originalPath: string;
+  name: string;
+  trashName: string;
+  size: number;
+  isDir: boolean;
+  deletedAt: string;
+}
+
+export interface TrashResponse {
+  items: TrashItem[];
+  totalSize: number;
+  totalCount: number;
+}
+
+

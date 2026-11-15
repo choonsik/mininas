@@ -334,6 +334,19 @@ func TestStaticSiteHosting(t *testing.T) {
 	if !strings.Contains(string(body4), "Index of") || !strings.Contains(string(body4), "readme.txt") {
 		t.Fatalf("Expected directory listing HTML, got: %s", string(body4))
 	}
+
+	// Test 5: Accessing default root /sites/ directly -> should serve primary storage root
+	req5 := httptest.NewRequest("GET", "/sites/", nil)
+	w5 := httptest.NewRecorder()
+	handleSitesHosting(w5, req5)
+	resp5 := w5.Result()
+	if resp5.StatusCode != http.StatusOK {
+		t.Fatalf("Expected 200 for root /sites/, got %d", resp5.StatusCode)
+	}
+	body5, _ := io.ReadAll(resp5.Body)
+	if !strings.Contains(string(body5), "Index of") {
+		t.Fatalf("Expected directory listing HTML for root /sites/, got: %s", string(body5))
+	}
 }
 
 func TestConfigValidation(t *testing.T) {

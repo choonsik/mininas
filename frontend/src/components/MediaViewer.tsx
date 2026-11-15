@@ -293,26 +293,26 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col justify-between animate-fadeIn select-none">
       {/* Top Header */}
-      <div className="h-16 px-6 flex items-center justify-between border-b border-white/10 bg-black/60 z-20">
+      <div className="h-16 px-3 sm:px-6 flex items-center justify-between border-b border-white/10 bg-black/60 z-20 gap-2">
         {/* Left: File Info & Icon */}
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="p-2 rounded-lg bg-white/10 text-white shrink-0">
-            {item.mediaType === 'image' && <ImageIcon className="w-5 h-5 text-emerald-400" />}
-            {item.mediaType === 'video' && <Play className="w-5 h-5 text-violet-400" />}
-            {item.mediaType === 'audio' && <Music className="w-5 h-5 text-pink-400" />}
-            {item.mediaType === 'text' && <FileText className="w-5 h-5 text-amber-400" />}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="p-1.5 sm:p-2 rounded-lg bg-white/10 text-white shrink-0">
+            {item.mediaType === 'image' && <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />}
+            {item.mediaType === 'video' && <Play className="w-4 h-4 sm:w-5 sm:h-5 text-violet-400" />}
+            {item.mediaType === 'audio' && <Music className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400" />}
+            {item.mediaType === 'text' && <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />}
           </div>
           <div className="min-w-0">
-            <h3 className="text-white font-medium text-sm truncate max-w-md sm:max-w-lg" title={item.name}>
-              {truncateMiddle(item.name, 60)}
+            <h3 className="text-white font-medium text-xs sm:text-sm truncate max-w-[140px] sm:max-w-md" title={item.name}>
+              {truncateMiddle(item.name, 40)}
             </h3>
-            <span className="text-xs text-gray-400 font-mono">{formatBytes(item.size)}</span>
+            <span className="text-[10px] sm:text-xs text-gray-400 font-mono">{formatBytes(item.size)}</span>
           </div>
         </div>
 
         {/* Center: Navigation Controls (Prev / Index / Next) */}
         {playlist.length > 1 && (
-          <div className="flex items-center gap-2 bg-white/10 border border-white/10 px-3 py-1.5 rounded-xl shadow-inner">
+          <div className="hidden sm:flex items-center gap-2 bg-white/10 border border-white/10 px-3 py-1.5 rounded-xl shadow-inner">
             <button
               onClick={handlePrev}
               disabled={!hasPrev}
@@ -349,7 +349,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
         )}
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {item.mediaType === 'video' && playlist.length > 1 && (
             <label className="hidden md:flex items-center gap-1.5 text-xs text-gray-300 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-lg cursor-pointer hover:bg-white/10 transition" title="영상 종료 시 다음 파일 자동 재생">
               <input
@@ -365,39 +365,39 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
           {item.mediaType === 'video' && needsConversion && (
             <button
               onClick={() => setShowConvertModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow-sm"
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow-sm"
               title="오디오 AAC 변환 및 내장 자막 추출 (폴더 전체 또는 단일 파일)"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              웹 호환 변환
+              <span className="hidden sm:inline">웹 호환 변환</span>
             </button>
           )}
 
           {(item.ext === '.html' || item.ext === '.htm') && (
             <button
               onClick={() => window.open(api.getHostUrl(item.path, storageId), '_blank')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition shadow-sm"
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition shadow-sm"
               title="새 탭에서 실제 완성된 웹페이지로 렌더링"
             >
-              <Globe className="w-4 h-4" />
-              웹페이지로 열기
+              <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">웹페이지로 열기</span>
             </button>
           )}
 
           <a
             href={api.getDownloadUrl(item.path, storageId)}
             download
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition"
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition"
           >
-            <Download className="w-4 h-4" />
-            다운로드
+            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">다운로드</span>
           </a>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition"
+            className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition"
             title="닫기 (ESC)"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
       </div>
