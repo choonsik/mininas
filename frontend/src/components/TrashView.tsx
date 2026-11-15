@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Trash2, 
   RotateCcw, 
@@ -7,12 +7,9 @@ import {
   Square, 
   Folder, 
   FileText, 
-  RefreshCw, 
-  HardDrive,
-  CheckCircle2,
-  Clock
+  RefreshCw
 } from 'lucide-react';
-import { StorageInfo, TrashItem, TrashResponse } from '../types';
+import { StorageInfo, TrashResponse } from '../types';
 import { api } from '../api';
 import { formatBytes, formatDate } from '../utils/format';
 
@@ -35,13 +32,24 @@ export const TrashView: React.FC<TrashViewProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
+  // Safe fallback to prevent any null reference errors
+  const items = useMemo(() => (Array.isArray(trashData?.items) ? trashData.items : []), [trashData]);
+  const totalCount = trashData?.totalCount ?? items.length;
+  const totalSize = trashData?.totalSize ?? 0;
+
   const loadTrash = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await api.getTrash(selectedStorage === 'all' ? '' : selectedStorage);
-      setTrashData(data);
+      setTrashData({
+        items: Array.isArray(data?.items) ? data.items : [],
+        totalSize: typeof data?.totalSize === 'number' ? data.totalSize : 0,
+        totalCount: typeof data?.totalCount === 'number' ? data.totalCount : (Array.isArray(data?.items) ? data.items.length : 0),
+      });
       setSelectedIds(new Set());
     } catch (err: any) {
+      console.error('Failed to load trash:', err);
+      setTrashData({ items: [], totalSize: 0, totalCount: 0 });
       onShowToast(`휴지통 불러오기 실패: ${err.message}`, 'error');
     } finally {
       setIsLoading(false);
@@ -63,10 +71,10 @@ export const TrashView: React.FC<TrashViewProps> = ({
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.size === trashData.items.length) {
+    if (selectedIds.size === items.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(trashData.items.map(item => item.id)));
+      setSelectedIds(new Set(items.map(item => item.id)));
     }
   };
 
@@ -77,7 +85,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
     try {
       // Group by storage if multiple storages
       const byStorage: Record<string, string[]> = {};
-      trashData.items
+      items
         .filter(item => ids.includes(item.id))
         .forEach(item => {
           const sid = item.storageId || activeStorageId || 'default';
@@ -111,7 +119,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
     setIsProcessing(true);
     try {
       const byStorage: Record<string, string[]> = {};
-      trashData.items
+      items
         .filter(item => ids.includes(item.id))
         .forEach(item => {
           const sid = item.storageId || activeStorageId || 'default';
@@ -137,7 +145,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
 
   // Empty entire trash
   const handleEmptyTrash = async () => {
-    if (trashData.totalCount === 0) return;
+    if (totalCount === 0) return;
     const targetLabel = selectedStorage === 'all' ? '모든 저장소' : (storages.find(s => s.id === selectedStorage)?.name || '선택한 저장소');
     if (!confirm(`[${targetLabel}]의 휴지통을 비우시겠습니까?\n\n모든 파일과 폴더가 영구적으로 삭제되며 복구할 수 없습니다.`)) {
       return;
@@ -174,7 +182,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
               <h1 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
                 휴지통
                 <span className="text-xs font-normal text-gray-400 font-mono">
-                  ({trashData.totalCount}개 항목 · {formatBytes(trashData.totalSize)})
+                  ({totalCount}개 항목 · {formatBytes(totalSize)})
                 </span>
               </h1>
               <p className="text-xs text-gray-400 mt-0.5">
@@ -233,9 +241,9 @@ export const TrashView: React.FC<TrashViewProps> = ({
 
           <button
             onClick={handleEmptyTrash}
-            disabled={trashData.totalCount === 0 || isProcessing}
+            disabled={totalCount === 0 || isProcessing}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border ${
-              trashData.totalCount > 0
+              totalCount > 0
                 ? 'bg-[#1e171b] border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300'
                 : 'bg-[#171720] border-[#252530] text-gray-500 cursor-not-allowed'
             }`}
@@ -253,7 +261,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
             <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
             <span className="text-sm">휴지통을 불러오는 중...</span>
           </div>
-        ) : trashData.items.length === 0 ? (
+        ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-80 text-gray-500 gap-3">
             <div className="w-16 h-16 rounded-full bg-[#181822] flex items-center justify-center border border-[#262635]">
               <Trash2 className="w-8 h-8 text-gray-500 stroke-[1.5]" />
@@ -268,9 +276,9 @@ export const TrashView: React.FC<TrashViewProps> = ({
               <button
                 onClick={handleSelectAll}
                 className="mr-3 text-gray-400 hover:text-white"
-                title={selectedIds.size === trashData.items.length ? "선택 해제" : "모두 선택"}
+                title={selectedIds.size === items.length ? "선택 해제" : "모두 선택"}
               >
-                {selectedIds.size > 0 && selectedIds.size === trashData.items.length ? (
+                {selectedIds.size > 0 && selectedIds.size === items.length ? (
                   <CheckSquare className="w-4 h-4 text-blue-400" />
                 ) : (
                   <Square className="w-4 h-4" />
@@ -285,7 +293,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
 
             {/* Item Rows */}
             <div className="divide-y divide-[#1e1f2b]">
-              {trashData.items.map((item) => {
+              {items.map((item) => {
                 const isSelected = selectedIds.has(item.id);
                 return (
                   <div

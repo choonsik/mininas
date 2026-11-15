@@ -66,13 +66,16 @@ func readTrashMeta(storagePath string) ([]TrashItem, error) {
 	data, err := os.ReadFile(metaPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return []TrashItem{}, nil
+			return make([]TrashItem, 0), nil
 		}
 		return nil, err
 	}
-	var items []TrashItem
+	items := make([]TrashItem, 0)
 	if err := json.Unmarshal(data, &items); err != nil {
-		return []TrashItem{}, nil
+		return make([]TrashItem, 0), nil
+	}
+	if items == nil {
+		items = make([]TrashItem, 0)
 	}
 	return items, nil
 }
@@ -175,7 +178,7 @@ func getTrashItems(storageId string) TrashResponse {
 		targets = []StorageEntry{getStorage(storageId)}
 	}
 
-	var allItems []TrashItem
+	allItems := make([]TrashItem, 0)
 	var totalSize int64
 
 	for _, st := range targets {
