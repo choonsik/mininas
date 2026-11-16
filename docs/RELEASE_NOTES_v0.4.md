@@ -1,6 +1,6 @@
 # MiniNAS v0.4 릴리즈 노트 (Release Notes)
 
-> **버전**: v0.4.0  
+> **버전**: v0.4  
 > **릴리즈 일자**: 2026년 11월 16일  
 > **대상 플랫폼**: 2011 Mac mini (macOS High Sierra 10.13+) 및 최신 macOS  
 > **아키텍처**: Pure Go (CGO=0) + React/TypeScript 단일 내장 바이너리

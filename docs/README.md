@@ -37,13 +37,13 @@ MiniNAS 프로젝트의 아키텍처, 성능 벤치마크, 최적화 연구, 버
 
 ## 버전별 릴리즈 노트 (Release Notes)
 
-- **[RELEASE_NOTES_v0.5.md (v0.5.0 릴리즈 노트)](file:///Users/choonsik/Documents/antigravity/nas/docs/RELEASE_NOTES_v0.5.md)**
+- **[RELEASE_NOTES_v0.5.md (v0.5 릴리즈 노트)](file:///Users/choonsik/Documents/antigravity/nas/docs/RELEASE_NOTES_v0.5.md)**
   - 무손실 동영상 스트리밍 최적화.
   - 프론트엔드 스마트 버퍼링 및 안티 채터링(Anti-Chattering) 4초 안전 버퍼.
   - 실시간 스트리밍 버퍼 HUD.
   - 백엔드 무손실 FastStart 헤더 이동(`media_converter.go`).
 
-- **[RELEASE_NOTES_v0.4.md (v0.4.0 릴리즈 노트)](file:///Users/choonsik/Documents/antigravity/nas/docs/RELEASE_NOTES_v0.4.md)**
+- **[RELEASE_NOTES_v0.4.md (v0.4 릴리즈 노트)](file:///Users/choonsik/Documents/antigravity/nas/docs/RELEASE_NOTES_v0.4.md)**
   - 파일 탐색기와 3대 미디어 허브의 역할 분리.
   - 포토 & 모먼트: 무제한 수집, 용량 제한 철폐, 스마트 스킵 폴더 토글, 원본 종횡비 보존 썸네일.
   - 사이트 쇼케이스: 16:9 반응형 썸네일, 우클릭 핀 고정 지원.
