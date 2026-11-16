@@ -645,45 +645,24 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                 브라우저가 동영상 재생을 지원하지 않습니다.
               </video>
 
-              {/* Anti-Chattering Safe Buffer Overlay */}
+              {/* Compact Floating Buffer Badge (Non-Intrusive, never blocks the video) */}
               {isBuffering && (
-                <div 
-                  onClick={cancelBufferingAndPlay}
-                  className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/75 backdrop-blur-[2px] transition-all animate-fadeIn cursor-pointer"
-                  title="클릭 시 즉시 재생합니다"
-                >
-                  <div 
-                    onClick={(e) => e.stopPropagation()} 
-                    className="flex flex-col sm:flex-row items-center gap-3.5 px-5 py-4 rounded-2xl bg-zinc-900/95 border border-white/20 shadow-2xl max-w-md mx-4 text-center sm:text-left"
+                <div className="absolute top-3 right-3 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/80 backdrop-blur-md border border-cyan-400/30 text-white shadow-xl animate-fadeIn">
+                  <div className="w-3.5 h-3.5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                  <span className="text-xs font-medium text-cyan-200">
+                    {isBoostingBuffer ? '버퍼 충전 중' : '안전 버퍼 충전'}
+                  </span>
+                  <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono">
+                    {bufferAhead.toFixed(1)}s / {safeBufferTarget.toFixed(1)}s
+                  </span>
+                  <button
+                    onClick={cancelBufferingAndPlay}
+                    className="ml-1 px-2 py-0.5 rounded-full bg-white/15 hover:bg-white/25 text-white text-[11px] font-semibold transition flex items-center gap-1 border border-white/20 active:scale-95"
+                    title="기다리지 않고 즉시 재생합니다"
                   >
-                    <div className="w-7 h-7 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs sm:text-sm font-semibold text-white flex items-center justify-center sm:justify-start gap-2">
-                        <span>{isBoostingBuffer ? '⚡ 안전 버퍼 충전 중' : '네트워크 안전 버퍼 충전 중'}</span>
-                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono border border-cyan-400/30">
-                          {bufferAhead.toFixed(1)}s / {safeBufferTarget.toFixed(1)}s
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-gray-400 mt-0.5">
-                        끊김 없는 고화질 재생을 위해 버퍼를 모은 뒤 자동 재생됩니다.
-                      </div>
-                      {/* Smooth Progress Bar */}
-                      <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
-                        <div
-                          className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full transition-all duration-300"
-                          style={{ width: `${Math.min(100, Math.max(5, (bufferAhead / safeBufferTarget) * 100))}%` }}
-                        />
-                      </div>
-                    </div>
-                    {/* Instant Play Button */}
-                    <button
-                      onClick={cancelBufferingAndPlay}
-                      className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold shrink-0 transition flex items-center gap-1 border border-white/10"
-                    >
-                      <Play className="w-3 h-3 fill-current text-cyan-400" />
-                      <span>바로 재생</span>
-                    </button>
-                  </div>
+                    <Play className="w-2.5 h-2.5 fill-current text-cyan-300" />
+                    <span>재생</span>
+                  </button>
                 </div>
               )}
             </div>
