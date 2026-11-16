@@ -45,12 +45,20 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
   // Auto-play next episode/video setting
   const [autoPlayNext, setAutoPlayNext] = useState<boolean>(true);
 
+  // Dynamic Buffer Management (Lossless 100% Quality Streaming)
+  const [bufferAhead, setBufferAhead] = useState<number>(0);
+  const [bufferedPercent, setBufferedPercent] = useState<number>(0);
+  const [isBuffering, setIsBuffering] = useState<boolean>(false);
+  const [safeBufferTarget, setSafeBufferTarget] = useState<number>(4.0);
+  const [isBoostingBuffer, setIsBoostingBuffer] = useState<boolean>(false);
+
   // Conversion state
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [convertTarget, setConvertTarget] = useState<'folder' | 'single'>('folder');
   const [replaceOriginal, setReplaceOriginal] = useState(false);
   const [extractSubtitles, setExtractSubtitles] = useState(true);
   const [convertAudio, setConvertAudio] = useState(true);
+  const [optimizeFastStart, setOptimizeFastStart] = useState(true);
   const [activeJob, setActiveJob] = useState<BatchConvertJob | null>(null);
   const pollTimerRef = useRef<number | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -192,11 +200,66 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
     }
   };
 
-  // When video metadata is loaded, apply default subtitle track
+  // Buffer status calculation & Anti-Chattering safe recovery
+  const updateBufferStatus = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || !video.duration || isNaN(video.duration)) return;
+
+    const currentTime = video.currentTime;
+    let ahead = 0;
+    let maxBufferedEnd = 0;
+
+    for (let i = 0; i < video.buffered.length; i++) {
+      const start = video.buffered.start(i);
+      const end = video.buffered.end(i);
+      if (end > maxBufferedEnd) maxBufferedEnd = end;
+      if (currentTime >= start && currentTime <= end) {
+        ahead = end - currentTime;
+      }
+    }
+
+    setBufferAhead(ahead);
+    setBufferedPercent(Math.min(100, (maxBufferedEnd / video.duration) * 100));
+
+    // Anti-Chattering Safe Buffer Recovery
+    if (isBuffering) {
+      const remainingTime = video.duration - currentTime;
+      const target = Math.min(safeBufferTarget, remainingTime);
+      if (ahead >= target || ahead >= 6.0) {
+        setIsBuffering(false);
+        setIsBoostingBuffer(false);
+        video.play().catch(() => {});
+      }
+    }
+  }, [isBuffering, safeBufferTarget]);
+
+  const handleWaiting = useCallback(() => {
+    setIsBuffering(true);
+    setSafeBufferTarget(4.0);
+  }, []);
+
+  const handlePlaying = useCallback(() => {
+    if (!isBoostingBuffer) {
+      setIsBuffering(false);
+    }
+  }, [isBoostingBuffer]);
+
+  // Manual Trigger: Pre-buffer 10 seconds ahead
+  const handleTriggerBufferBoost = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || isNaN(video.duration)) return;
+    video.pause();
+    setIsBuffering(true);
+    setIsBoostingBuffer(true);
+    setSafeBufferTarget(Math.min(10.0, video.duration - video.currentTime));
+  }, []);
+
+  // When video metadata is loaded, apply default subtitle track & initial buffer check
   const handleVideoLoaded = () => {
     if (selectedSubtitleUrl) {
       selectSubtitle(selectedSubtitleUrl);
     }
+    updateBufferStatus();
   };
 
   // Video ended -> auto play next video if enabled
@@ -262,6 +325,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
         path: targetPath,
         extractSubtitles,
         convertAudio,
+        optimizeFastStart,
         replaceOriginal,
       });
 
@@ -506,18 +570,24 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
               </div>
             )}
 
-            {/* Video Player */}
-            <div className="w-full bg-black rounded-xl overflow-hidden shadow-2xl border border-white/10">
+            {/* Video Player & Streaming Buffer HUD */}
+            <div className="w-full bg-black rounded-xl overflow-hidden shadow-2xl border border-white/10 relative group">
               <video
                 ref={videoRef}
                 key={item.path}
                 crossOrigin="anonymous"
                 src={streamUrl}
+                preload="auto"
                 controls
                 autoPlay
                 playsInline
                 onLoadedMetadata={handleVideoLoaded}
                 onEnded={handleVideoEnded}
+                onWaiting={handleWaiting}
+                onPlaying={handlePlaying}
+                onProgress={updateBufferStatus}
+                onTimeUpdate={updateBufferStatus}
+                onSeeked={updateBufferStatus}
                 className="w-full max-h-[68vh]"
               >
                 {subtitles.map((sub) => (
@@ -531,6 +601,74 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                 ))}
                 브라우저가 동영상 재생을 지원하지 않습니다.
               </video>
+
+              {/* Anti-Chattering Safe Buffer Overlay */}
+              {isBuffering && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/75 backdrop-blur-[2px] transition-all animate-fadeIn pointer-events-none">
+                  <div className="flex flex-col sm:flex-row items-center gap-3.5 px-5 py-4 rounded-2xl bg-zinc-900/90 border border-white/20 shadow-2xl max-w-md mx-4 text-center sm:text-left">
+                    <div className="w-7 h-7 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs sm:text-sm font-semibold text-white flex items-center justify-center sm:justify-start gap-2">
+                        <span>{isBoostingBuffer ? '⚡ 10초 안전 버퍼 충전 중' : '네트워크 안전 버퍼 충전 중'}</span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono border border-cyan-400/30">
+                          {bufferAhead.toFixed(1)}s / {safeBufferTarget.toFixed(1)}s
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-gray-400 mt-0.5">
+                        끊김 없는 고화질 재생을 위해 안전 버퍼를 확보한 뒤 자동 재생됩니다.
+                      </div>
+                      {/* Smooth Progress Bar */}
+                      <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full transition-all duration-300"
+                          style={{ width: `${Math.min(100, Math.max(5, (bufferAhead / safeBufferTarget) * 100))}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Streaming Buffer Realtime Status HUD */}
+            <div className="flex flex-wrap items-center justify-between w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-300 gap-2.5 shadow-sm">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="flex items-center gap-1.5 font-medium text-gray-300">
+                  <span className="relative flex h-2 w-2">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                      bufferAhead >= 15 ? 'bg-emerald-400' : bufferAhead >= 4 ? 'bg-amber-400' : 'bg-rose-400'
+                    }`} />
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                      bufferAhead >= 15 ? 'bg-emerald-500' : bufferAhead >= 4 ? 'bg-amber-500' : 'bg-rose-500'
+                    }`} />
+                  </span>
+                  실시간 버퍼:
+                </span>
+                <span className={`font-mono font-bold px-2 py-0.5 rounded text-[11px] border ${
+                  bufferAhead >= 15
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    : bufferAhead >= 4
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                }`}>
+                  {bufferAhead.toFixed(1)}초 확보 ({bufferAhead >= 15 ? '매우 쾌적' : bufferAhead >= 4 ? '안전' : '버퍼 부족'})
+                </span>
+                <span className="text-[11px] text-gray-400 hidden sm:inline">
+                  (전체 대비 {bufferedPercent.toFixed(1)}% 로드됨)
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleTriggerBufferBoost}
+                  disabled={isBuffering}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-300 text-xs font-medium transition active:scale-95 disabled:opacity-50"
+                  title="네트워크가 느릴 때 미리 10초 분량의 버퍼를 확보한 뒤 끊김 없이 재생합니다."
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>⚡ 10초 안전 버퍼 충전</span>
+                </button>
+              </div>
             </div>
 
             {/* Interactive Subtitle Control Bar */}
@@ -755,6 +893,22 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                   <span>
                     <strong className="text-white block font-medium">오디오 AAC 변환 (EAC3 ➔ AAC)</strong>
                     <span className="text-[11px] text-gray-400">비디오는 그대로 복사(무손실), 소리만 표준 변환</span>
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={optimizeFastStart}
+                    onChange={(e) => setOptimizeFastStart(e.target.checked)}
+                    className="rounded bg-black/40 border-white/20 text-cyan-400 focus:ring-0"
+                  />
+                  <span>
+                    <strong className="text-white block font-medium flex items-center gap-1.5">
+                      <span>무손실 스트리밍 최적화 (FastStart)</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-mono">100% 무손실</span>
+                    </strong>
+                    <span className="text-[11px] text-gray-400">화질 손실 없이 메타데이터를 앞으로 이동하여 버퍼링 및 Seek 즉각 반응</span>
                   </span>
                 </label>
               </div>

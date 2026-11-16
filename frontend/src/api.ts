@@ -197,6 +197,7 @@ export const api = {
     path: string;
     extractSubtitles: boolean;
     convertAudio: boolean;
+    optimizeFastStart?: boolean;
     replaceOriginal: boolean;
   }): Promise<BatchConvertJob> {
     const res = await fetch(`${API_BASE}/media/batch-convert`, {

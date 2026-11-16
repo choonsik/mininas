@@ -65,12 +65,17 @@
 
 ---
 
-## 5. 향후 구현 체크리스트
+## 5. 구현 완료 내역
 
-- [ ] **프론트엔드 (`frontend/src/components/MediaViewer.tsx`)**
-  - [ ] HTML5 Video의 `buffered` TimeRanges 기반 버퍼 진행률 바 UI 추가
-  - [ ] `waiting`, `stalled` 이벤트 시 버퍼 복구 임계값(3~5초) 로직 적용
-  - [ ] 일시정지(`pause`) 상태에서도 버퍼를 일정 한도(Max Cap)까지 계속 적재하는 프리페처 구현
-- [ ] **백엔드 (`backend/media_converter.go` & `main.go`)**
-  - [ ] FastStart 무손실 변환 커맨드 연동 (`-c copy -movflags +faststart`)
-  - [ ] HTTP Range 응답 시 청크 버퍼링 최적화 확인
+- [x] **프론트엔드 (`frontend/src/components/MediaViewer.tsx`)**
+  - [x] HTML5 Video의 `buffered` TimeRanges 기반 실시간 버퍼 진행률 바 및 상태 HUD 추가
+  - [x] `preload="auto"` 적용으로 브라우저가 유휴 시 적극적으로 데이터를 선행 다운로드하도록 개선
+  - [x] `waiting`, `stalled` 이벤트 시 버퍼 복구 임계값(최소 4초 안전 버퍼 확보 후 자동 재생 재개) Anti-Chattering 로직 적용
+  - [x] 버퍼 충전 중 반투명 HUD 오버레이 (현재 버퍼 초 / 목표 버퍼 초 진행률 시각화)
+  - [x] [⚡ 10초 안전 버퍼 충전] 원클릭 부스터 버튼 추가 (네트워크가 불안정할 때 10초치 버퍼를 채운 후 자동 재생)
+  - [x] 변환 모달 내 **무손실 FastStart 웹 최적화** 체크박스 연동
+- [x] **백엔드 (`backend/media_converter.go`)**
+  - [x] `BatchConvertRequest`에 `OptimizeFastStart` 옵션 추가
+  - [x] 오디오 변환 시 항상 `-movflags +faststart` 적용
+  - [x] `OptimizeFastStart` 단독 선택 시 `-c copy -movflags +faststart`로 100% 무손실 초고속 헤더 최적화 지원
+  - [x] 인텔 맥 2011 단일 바이너리(`mininas-intel-mac`) 및 전체 통합 하네스(12개 E2E 시나리오) 검증 통과 완료

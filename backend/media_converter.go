@@ -42,6 +42,7 @@ type BatchConvertRequest struct {
 	Path             string `json:"path"` // file path or directory path
 	ExtractSubtitles bool   `json:"extractSubtitles"`
 	ConvertAudio     bool   `json:"convertAudio"`
+	OptimizeFastStart bool  `json:"optimizeFastStart"`
 	ReplaceOriginal  bool   `json:"replaceOriginal"`
 }
 
@@ -378,8 +379,8 @@ func runBatchConversion(job *BatchConvertJob, tool string, files []string, req B
 			}
 		}
 
-		// 2. Convert Audio to AAC if requested
-		if req.ConvertAudio {
+		// 2. Video Optimization (FastStart) and/or Audio to AAC
+		if req.ConvertAudio || req.OptimizeFastStart {
 			var outVideoPath string
 			var tempPath string
 
@@ -391,11 +392,18 @@ func runBatchConversion(job *BatchConvertJob, tool string, files []string, req B
 				tempPath = outVideoPath
 			}
 
-			// Ultra-fast stream copy for video, encode only audio to AAC
-			cmd := exec.Command(tool, "-y", "-i", file, "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", tempPath)
+			var cmd *exec.Cmd
+			if req.ConvertAudio {
+				// Ultra-fast stream copy for video, encode only audio to AAC, apply FastStart
+				cmd = exec.Command(tool, "-y", "-i", file, "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", tempPath)
+			} else {
+				// 100% Lossless stream copy for both video & audio, apply FastStart moov header
+				cmd = exec.Command(tool, "-y", "-i", file, "-c", "copy", "-movflags", "+faststart", tempPath)
+			}
+
 			err := cmd.Run()
 			if err != nil {
-				log.Printf("Conversion error for %s: %v", file, err)
+				log.Printf("Conversion/Optimization error for %s: %v", file, err)
 				jobsMutex.Lock()
 				job.Errors = append(job.Errors, fmt.Sprintf("%s: %v", filepath.Base(file), err))
 				jobsMutex.Unlock()

@@ -6,7 +6,7 @@ set -e
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RELEASE_DIR="$ROOT_DIR/release"
-PACKAGE_NAME="mininas-v0.4-intel-mac"
+PACKAGE_NAME="mininas-v0.5-intel-mac"
 BUNDLE_DIR="$RELEASE_DIR/$PACKAGE_NAME"
 ARCHIVE_FILE="$RELEASE_DIR/${PACKAGE_NAME}.tar.gz"
 
