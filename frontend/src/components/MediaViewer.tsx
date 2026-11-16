@@ -49,8 +49,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
   const [bufferAhead, setBufferAhead] = useState<number>(0);
   const [bufferedPercent, setBufferedPercent] = useState<number>(0);
   const [isBuffering, setIsBuffering] = useState<boolean>(false);
-  const [safeBufferTarget, setSafeBufferTarget] = useState<number>(4.0);
-  const [isBoostingBuffer, setIsBoostingBuffer] = useState<boolean>(false);
+  const [safeBufferTarget, setSafeBufferTarget] = useState<number>(3.5);
 
   // Conversion state
   const [showConvertModal, setShowConvertModal] = useState(false);
@@ -61,8 +60,6 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
   const [optimizeFastStart, setOptimizeFastStart] = useState(true);
   const [activeJob, setActiveJob] = useState<BatchConvertJob | null>(null);
   const pollTimerRef = useRef<number | null>(null);
-  const boostIntervalRef = useRef<number | null>(null);
-  const boostTimeoutRef = useRef<number | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Compute viewable playlist (non-directory files)
@@ -145,7 +142,6 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
       if (pollTimerRef.current) {
         clearInterval(pollTimerRef.current);
       }
-      clearBoostTimers();
     };
   }, [item, storageId]);
 
@@ -212,26 +208,13 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
     applySubtitleTrack(url);
   };
 
-  const clearBoostTimers = useCallback(() => {
-    if (boostIntervalRef.current) {
-      clearInterval(boostIntervalRef.current);
-      boostIntervalRef.current = null;
-    }
-    if (boostTimeoutRef.current) {
-      clearTimeout(boostTimeoutRef.current);
-      boostTimeoutRef.current = null;
-    }
-  }, []);
-
   const cancelBufferingAndPlay = useCallback(() => {
-    clearBoostTimers();
     setIsBuffering(false);
-    setIsBoostingBuffer(false);
     const video = videoRef.current;
     if (video) {
       video.play().catch(() => {});
     }
-  }, [clearBoostTimers]);
+  }, []);
 
   // Buffer status calculation & Anti-Chattering safe recovery
   const updateBufferStatus = useCallback(() => {
@@ -254,18 +237,16 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
     setBufferAhead(ahead);
     setBufferedPercent(Math.min(100, (maxBufferedEnd / video.duration) * 100));
 
-    // Anti-Chattering Safe Buffer Recovery
+    // Anti-Chattering Safe Buffer Recovery (Auto resume once safe buffer is collected)
     if (isBuffering) {
       const remainingTime = video.duration - currentTime;
       const target = Math.min(safeBufferTarget, remainingTime);
-      if (ahead >= target || ahead >= 5.0) {
-        clearBoostTimers();
+      if (ahead >= target || ahead >= 4.0) {
         setIsBuffering(false);
-        setIsBoostingBuffer(false);
         video.play().catch(() => {});
       }
     }
-  }, [isBuffering, safeBufferTarget, clearBoostTimers]);
+  }, [isBuffering, safeBufferTarget]);
 
   const handleWaiting = useCallback(() => {
     setIsBuffering(true);
@@ -273,37 +254,8 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
   }, []);
 
   const handlePlaying = useCallback(() => {
-    if (!isBoostingBuffer) {
-      clearBoostTimers();
-      setIsBuffering(false);
-    }
-  }, [isBoostingBuffer, clearBoostTimers]);
-
-  // Manual Trigger: Safe Buffer Boost with Auto-Timeout fail-safe
-  const handleTriggerBufferBoost = useCallback(() => {
-    const video = videoRef.current;
-    if (!video || isNaN(video.duration)) return;
-
-    clearBoostTimers();
-    video.pause();
-    setIsBuffering(true);
-    setIsBoostingBuffer(true);
-
-    // Set a realistic target: current ahead + 3.0s (capped at 6s)
-    const currentAhead = bufferAhead;
-    const target = Math.min(6.0, Math.max(3.5, currentAhead + 3.0));
-    setSafeBufferTarget(target);
-
-    // Active polling timer while paused so buffer calculations continue
-    boostIntervalRef.current = window.setInterval(() => {
-      updateBufferStatus();
-    }, 250);
-
-    // Strict Fail-Safe: Never get stuck in loading! Auto resume after max 2.5s regardless
-    boostTimeoutRef.current = window.setTimeout(() => {
-      cancelBufferingAndPlay();
-    }, 2500);
-  }, [bufferAhead, updateBufferStatus, cancelBufferingAndPlay, clearBoostTimers]);
+    setIsBuffering(false);
+  }, []);
 
   // When video metadata is loaded, apply default subtitle track & initial buffer check
   const handleVideoLoaded = () => {
@@ -358,7 +310,6 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
       if (pollTimerRef.current) {
         clearInterval(pollTimerRef.current);
       }
-      clearBoostTimers();
     };
   }, [activeJob, item, storageId]);
 
@@ -660,7 +611,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                 <div className="absolute top-3 right-3 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/80 backdrop-blur-md border border-cyan-400/30 text-white shadow-xl animate-fadeIn">
                   <div className="w-3.5 h-3.5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin shrink-0" />
                   <span className="text-xs font-medium text-cyan-200">
-                    {isBoostingBuffer ? '버퍼 충전 중' : '안전 버퍼 충전'}
+                    안전 버퍼 충전 중
                   </span>
                   <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono">
                     {bufferAhead.toFixed(1)}s / {safeBufferTarget.toFixed(1)}s
@@ -677,7 +628,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
               )}
             </div>
 
-            {/* Streaming Buffer Realtime Status HUD */}
+            {/* Streaming Buffer Realtime Status HUD (Clean, Information-Only) */}
             <div className="flex flex-wrap items-center justify-between w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-300 gap-2.5 shadow-sm">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <span className="flex items-center gap-1.5 font-medium text-gray-300">
@@ -705,16 +656,11 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleTriggerBufferBoost}
-                  disabled={isBuffering}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-cyan-500/20 border border-white/15 hover:border-cyan-400/40 text-gray-300 hover:text-cyan-300 text-xs font-normal transition active:scale-95 disabled:opacity-50"
-                  title="자동으로 버퍼가 관리되므로 평소에는 누르실 필요가 없으며, 네트워크가 매우 불안정할 때만 선택적으로 사용하세요."
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>(선택) 버퍼 모으기</span>
-                </button>
+              <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-cyan-300/80 font-mono">
+                  100% 무손실 원본
+                </span>
+                <span className="hidden md:inline">자동 스마트 버퍼링 작동 중</span>
               </div>
             </div>
 
