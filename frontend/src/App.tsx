@@ -13,11 +13,22 @@ import { TrashView } from './components/TrashView';
 import { SitesHubView } from './components/SitesHubView';
 import { CinemaHubView } from './components/CinemaHubView';
 import { PhotosHubView } from './components/PhotosHubView';
-import { FileItem, SystemStats, StorageInfo, SortField, SortOrder, ClipboardItem, NavTab } from './types';
+import { FileItem, SystemStats, StorageInfo, SortField, SortOrder, ClipboardItem, NavTab, ThemeMode } from './types';
 import { api } from './api';
 import { UploadCloud, CheckCircle, AlertCircle, X, Clipboard, ArrowRight } from 'lucide-react';
 
 export const App: React.FC = () => {
+  // Theme state
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    return (localStorage.getItem('mininas_theme') as ThemeMode) || 'macos';
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.remove('theme-macos', 'theme-console', 'theme-studio');
+    document.documentElement.classList.add(`theme-${theme}`);
+    localStorage.setItem('mininas_theme', theme);
+  }, [theme]);
+
   // Storage state
   const [storages, setStorages] = useState<StorageInfo[]>([]);
   const [activeStorageId, setActiveStorageId] = useState<string>(() => {
@@ -622,7 +633,7 @@ export const App: React.FC = () => {
 
   return (
     <div 
-      className="flex flex-col h-screen w-screen bg-[#121217] overflow-hidden"
+      className="flex flex-col h-screen w-screen bg-surface-base text-content-primary overflow-hidden"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -642,6 +653,8 @@ export const App: React.FC = () => {
         sortOrder={sortOrder}
         onSortChange={handleSortChange}
         onToggleSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
+        theme={theme}
+        onThemeChange={setTheme}
       />
 
       {/* Main Body */}
@@ -712,11 +725,11 @@ export const App: React.FC = () => {
         ) : (
           <div className="flex-1 flex flex-col h-full overflow-hidden">
             {returnBanner && (
-              <div className="bg-emerald-950/70 border-b border-emerald-500/40 px-4 py-2 flex items-center justify-between text-xs text-emerald-200 z-10 shrink-0 shadow-sm animate-slideDown">
+              <div className="bg-surface-card border-b border-surface-border px-4 py-2 flex items-center justify-between text-xs text-content-secondary z-10 shrink-0">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent" />
                   <span>
-                    <strong className="text-white">{returnBanner.label}</strong>에서 이동한 폴더입니다.
+                    <strong className="text-content-primary font-medium">{returnBanner.label}</strong>에서 이동한 폴더입니다.
                   </span>
                 </div>
                 <button
@@ -724,9 +737,9 @@ export const App: React.FC = () => {
                     handleSelectTab(returnBanner.fromTab);
                     setReturnBanner(null);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition shadow-sm"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-base hover:bg-surface-cardHover text-content-primary border border-surface-border text-xs transition"
                 >
-                  <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                  <ArrowRight className="w-3 h-3 rotate-180" />
                   <span>{returnBanner.label}로 돌아가기</span>
                 </button>
               </div>
@@ -832,19 +845,19 @@ export const App: React.FC = () => {
 
       {/* Status Toast Notification */}
       {toastMessage && (
-        <div className={`fixed bottom-6 left-6 z-50 px-4 py-3 rounded-xl border shadow-2xl flex items-center gap-2.5 text-xs font-medium animate-slideUp ${
+        <div className={`fixed bottom-5 left-5 z-50 px-3.5 py-2.5 rounded-md border shadow-lg flex items-center gap-2 text-xs font-normal ${
           toastMessage.type === 'success'
-            ? 'bg-emerald-950/90 border-emerald-700/60 text-emerald-200'
+            ? 'bg-surface-card border-surface-border text-content-primary'
             : toastMessage.type === 'error'
-            ? 'bg-red-950/90 border-red-700/60 text-red-200'
-            : 'bg-[#1c1c2b]/95 border-[#303046] text-gray-200'
+            ? 'bg-surface-card border-red-500/40 text-red-300'
+            : 'bg-surface-card border-surface-border text-content-primary'
         }`}>
-          {toastMessage.type === 'success' && <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />}
-          {toastMessage.type === 'error' && <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />}
+          {toastMessage.type === 'success' && <CheckCircle className="w-3.5 h-3.5 text-accent shrink-0" />}
+          {toastMessage.type === 'error' && <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />}
           <span>{toastMessage.text}</span>
           <button 
             onClick={() => setToastMessage(null)}
-            className="ml-2 p-0.5 text-gray-400 hover:text-white rounded"
+            className="ml-2 p-0.5 text-content-muted hover:text-content-primary rounded"
           >
             <X className="w-3 h-3" />
           </button>

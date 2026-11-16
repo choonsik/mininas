@@ -7,11 +7,10 @@ import {
   Layers, 
   Download, 
   Play, 
-  ExternalLink,
-  Film,
-  Music,
-  Image as ImageIcon,
-  Folder
+  Film, 
+  Music, 
+  Image as ImageIcon, 
+  Folder 
 } from 'lucide-react';
 import { FileItem } from '../types';
 import { formatBytes, formatDate } from '../utils/format';
@@ -35,92 +34,87 @@ export const FileDetailsModal: React.FC<FileDetailsModalProps> = ({
   if (!item) return null;
 
   const getItemIcon = () => {
-    if (item.isDir) return <Folder className="w-8 h-8 text-blue-400" />;
+    if (item.isDir) return <Folder className="w-6 h-6 text-accent" />;
     switch (item.mediaType) {
-      case 'video': return <Film className="w-8 h-8 text-violet-400" />;
-      case 'image': return <ImageIcon className="w-8 h-8 text-emerald-400" />;
-      case 'audio': return <Music className="w-8 h-8 text-pink-400" />;
-      default: return <FileText className="w-8 h-8 text-amber-400" />;
+      case 'video': return <Film className="w-6 h-6 text-indigo-400" />;
+      case 'image': return <ImageIcon className="w-6 h-6 text-emerald-400" />;
+      case 'audio': return <Music className="w-6 h-6 text-pink-400" />;
+      default: return <FileText className="w-6 h-6 text-amber-400" />;
     }
   };
 
   const downloadUrl = api.getDownloadUrl(item.path, storageId);
-  const streamUrl = api.getStreamUrl(item.path, storageId);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-[2px]">
       <div 
-        className="bg-[#1c1c26] border border-[#2e2e40] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-scaleUp"
+        className="bg-surface-card border border-surface-border rounded-lg w-full max-w-md shadow-xl overflow-hidden text-content-primary"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a3b] bg-[#161620]">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[#232332]">
-              {getItemIcon()}
-            </div>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-surface-border bg-surface-header">
+          <div className="flex items-center gap-2.5">
+            {getItemIcon()}
             <div>
-              <h2 className="text-base font-bold text-white leading-tight">
-                {item.isDir ? '폴더 정보' : '파일 상세 정보'}
+              <h2 className="text-sm font-semibold leading-tight">
+                {item.isDir ? '폴더 정보' : '파일 정보'}
               </h2>
-              <span className="text-xs text-gray-400 font-mono">
+              <span className="text-[11px] text-content-muted font-mono">
                 {storageName}
               </span>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-white hover:bg-[#28283a] rounded-lg transition"
+            className="p-1 text-content-muted hover:text-content-primary hover:bg-surface-cardHover rounded transition"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-4 text-sm">
-          {/* File Name */}
-          <div className="bg-[#14141c] p-3.5 rounded-xl border border-[#252536]">
-            <span className="text-xs font-semibold text-gray-400 block mb-1">이름</span>
-            <p className="text-gray-100 font-medium break-all select-all">
+        <div className="p-5 space-y-3 text-xs">
+          <div className="bg-surface-base p-3 rounded border border-surface-borderSubtle">
+            <span className="text-[11px] text-content-muted block mb-0.5">이름</span>
+            <p className="font-medium break-all select-all text-content-primary">
               {item.name}
             </p>
           </div>
 
-          {/* Properties Grid */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-[#14141c] p-3 rounded-xl border border-[#252536] flex items-start gap-2.5">
-              <HardDrive className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="bg-surface-base p-2.5 rounded border border-surface-borderSubtle flex items-start gap-2">
+              <HardDrive className="w-3.5 h-3.5 text-content-muted shrink-0 mt-0.5" />
               <div>
-                <span className="text-[11px] text-gray-400 block">크기</span>
-                <span className="text-gray-200 font-medium font-mono text-xs">
-                  {item.isDir ? '디렉토리' : `${formatBytes(item.size)} (${item.size.toLocaleString()} bytes)`}
+                <span className="text-[10px] text-content-muted block">크기</span>
+                <span className="font-mono text-[11px]">
+                  {item.isDir ? '디렉토리' : formatBytes(item.size)}
                 </span>
               </div>
             </div>
 
-            <div className="bg-[#14141c] p-3 rounded-xl border border-[#252536] flex items-start gap-2.5">
-              <Layers className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+            <div className="bg-surface-base p-2.5 rounded border border-surface-borderSubtle flex items-start gap-2">
+              <Layers className="w-3.5 h-3.5 text-content-muted shrink-0 mt-0.5" />
               <div>
-                <span className="text-[11px] text-gray-400 block">유형</span>
-                <span className="text-gray-200 font-medium text-xs capitalize">
+                <span className="text-[10px] text-content-muted block">종류</span>
+                <span className="text-[11px] capitalize">
                   {item.isDir ? '폴더' : `${item.mediaType} (${item.ext || '없음'})`}
                 </span>
               </div>
             </div>
 
-            <div className="bg-[#14141c] p-3 rounded-xl border border-[#252536] flex items-start gap-2.5 col-span-2">
-              <Calendar className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="bg-surface-base p-2.5 rounded border border-surface-borderSubtle flex items-start gap-2 col-span-2">
+              <Calendar className="w-3.5 h-3.5 text-content-muted shrink-0 mt-0.5" />
               <div>
-                <span className="text-[11px] text-gray-400 block">최종 수정 일시</span>
-                <span className="text-gray-200 font-medium text-xs">
+                <span className="text-[10px] text-content-muted block">수정일시</span>
+                <span className="text-[11px]">
                   {formatDate(item.modTime)}
                 </span>
               </div>
             </div>
 
-            <div className="bg-[#14141c] p-3 rounded-xl border border-[#252536] col-span-2">
-              <span className="text-[11px] text-gray-400 block mb-0.5">전체 경로</span>
-              <p className="text-gray-300 font-mono text-xs break-all select-all">
+            <div className="bg-surface-base p-2.5 rounded border border-surface-borderSubtle col-span-2">
+              <span className="text-[10px] text-content-muted block mb-0.5">경로</span>
+              <p className="font-mono text-[11px] text-content-secondary break-all select-all">
                 {item.path}
               </p>
             </div>
@@ -128,7 +122,7 @@ export const FileDetailsModal: React.FC<FileDetailsModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 border-t border-[#2a2a3b] bg-[#161620] flex items-center justify-between gap-3">
+        <div className="px-5 py-3 border-t border-surface-border bg-surface-header flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             {!item.isDir && (item.mediaType === 'video' || item.mediaType === 'audio' || item.mediaType === 'image') && onOpenMedia && (
               <button
@@ -136,26 +130,26 @@ export const FileDetailsModal: React.FC<FileDetailsModalProps> = ({
                   onClose();
                   onOpenMedia(item);
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition"
+                className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium bg-accent hover:bg-accent-hover text-white rounded transition"
               >
-                <Play className="w-3.5 h-3.5 fill-white" />
-                미디어 열기
+                <Play className="w-3 h-3 fill-white" />
+                열기
               </button>
             )}
             {!item.isDir && (
               <a
                 href={downloadUrl}
                 download
-                className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-[#262638] hover:bg-[#34344d] text-gray-200 rounded-lg transition"
+                className="flex items-center gap-1.5 px-3 py-1 text-xs text-content-secondary hover:text-content-primary bg-surface-base hover:bg-surface-cardHover border border-surface-border rounded transition"
               >
-                <Download className="w-3.5 h-3.5" />
+                <Download className="w-3 h-3" />
                 다운로드
               </a>
             )}
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 text-xs font-semibold text-gray-400 hover:text-white bg-[#222230] hover:bg-[#2b2b3d] rounded-lg transition"
+            className="px-3 py-1 text-xs text-content-secondary hover:text-content-primary rounded transition"
           >
             닫기
           </button>

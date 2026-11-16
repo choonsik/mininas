@@ -3,18 +3,16 @@ import {
   Folder, 
   Image as ImageIcon, 
   Film, 
-  Globe,
-  Zap, 
-  Network,
-  Clock,
+  Globe, 
   HardDrive,
   X,
   Trash2,
-  FolderTree
+  FolderTree,
+  Server
 } from 'lucide-react';
 import { SystemStats, StorageInfo, NavTab } from '../types';
 import { formatBytes } from '../utils/format';
-import { APP_VERSION, BUILD_DATE } from '../version';
+import { APP_VERSION } from '../version';
 
 interface SidebarProps {
   storages: StorageInfo[];
@@ -35,10 +33,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   stats,
   onCloseMobile,
 }) => {
-  const hubItems: { id: NavTab; label: string; icon: React.ElementType; badge?: string }[] = [
-    { id: 'cinema', label: '시네마 (Cinema)', icon: Film, badge: 'OTT' },
-    { id: 'photos', label: '포토 & 모먼트', icon: ImageIcon, badge: '사진/영상' },
-    { id: 'sites', label: '웹 사이트 (Sites)', icon: Globe, badge: 'HTML' },
+  const hubItems: { id: NavTab; label: string; icon: React.ElementType }[] = [
+    { id: 'cinema', label: '시네마', icon: Film },
+    { id: 'photos', label: '포토 & 앨범', icon: ImageIcon },
+    { id: 'sites', label: '웹 사이트', icon: Globe },
   ];
 
   const formatUptime = (sec: number) => {
@@ -50,70 +48,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside className="w-72 md:w-64 border-r border-[#252530] bg-[#14141a] flex flex-col justify-between p-4 select-none overflow-y-auto h-full shrink-0 shadow-2xl md:shadow-none">
-      <div className="space-y-6">
+    <aside className="w-64 border-r border-surface-border bg-surface-sidebar flex flex-col justify-between p-3 select-none overflow-y-auto h-full shrink-0">
+      <div className="space-y-5">
         {/* Mobile Header with Close button */}
         {onCloseMobile && (
-          <div className="flex md:hidden items-center justify-between pb-3 border-b border-[#252535]">
-            <span className="font-bold text-sm text-white">메뉴 & 저장소</span>
+          <div className="flex md:hidden items-center justify-between pb-2 border-b border-surface-border">
+            <span className="font-medium text-xs text-content-primary">내비게이션</span>
             <button
               onClick={onCloseMobile}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#252535] transition"
+              className="p-1 rounded text-content-muted hover:text-content-primary hover:bg-surface-cardHover transition"
               title="닫기"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
-        {/* 1. Media & Sharing Hubs */}
+        {/* 1. Storages (Locations) */}
         <div>
-          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-3">
-            미디어 & 공유 허브
-          </span>
-          <nav className="mt-2 space-y-1">
-            {hubItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    onSelectTab(item.id);
-                    onCloseMobile?.();
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition ${
-                    isActive
-                      ? 'bg-blue-600/15 text-blue-400 border border-blue-500/25 shadow-sm'
-                      : 'text-gray-300 hover:bg-[#1e1e26] hover:text-white border border-transparent'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-blue-400' : 'text-gray-400'}`} />
-                    <span>{item.label}</span>
-                  </div>
-                  {item.badge && (
-                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                      isActive ? 'bg-blue-500/20 text-blue-300' : 'bg-[#22222e] text-gray-400'
-                    }`}>
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* 2. Storages (Locations) */}
-        <div>
-          <div className="flex items-center justify-between px-3">
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-              파일 탐색기 (저장소)
+          <div className="flex items-center justify-between px-2 mb-1.5">
+            <span className="text-[11px] font-medium text-content-muted">
+              저장소
             </span>
-            <FolderTree className="w-3.5 h-3.5 text-gray-500" />
+            <FolderTree className="w-3 h-3 text-content-muted" />
           </div>
-          <nav className="mt-2 space-y-1.5">
+          <nav className="space-y-1">
             {storages.map((storage) => {
               const isActive = activeTab === 'files' && activeStorageId === storage.id;
               return (
@@ -124,30 +83,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onSelectStorage(storage.id);
                     onCloseMobile?.();
                   }}
-                  className={`w-full text-left p-2.5 rounded-xl transition border ${
+                  className={`w-full text-left px-2.5 py-2 rounded-md transition text-xs ${
                     isActive
-                      ? 'bg-blue-600/15 border-blue-500/30 text-white shadow-sm'
-                      : 'bg-[#191922] border-[#252533] text-gray-300 hover:bg-[#20202c] hover:border-[#323245]'
+                      ? 'bg-surface-card border border-surface-border text-content-primary shadow-sm font-medium'
+                      : 'text-content-secondary hover:bg-surface-cardHover hover:text-content-primary'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <div className={`p-1.5 rounded-lg ${isActive ? 'bg-blue-600 text-white' : 'bg-[#252535] text-blue-400'}`}>
-                      <HardDrive className="w-4 h-4" />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 truncate">
+                      <HardDrive className={`w-3.5 h-3.5 ${isActive ? 'text-accent' : 'text-content-muted'}`} />
+                      <span className="truncate">{storage.name}</span>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold truncate leading-tight">
-                        {storage.name}
-                      </div>
-                      <div className="text-[10px] text-gray-400 truncate mt-0.5 font-mono">
-                        남음 {formatBytes(storage.disk.freeBytes)}
-                      </div>
-                    </div>
+                    <span className="text-[10px] font-mono text-content-muted ml-2 shrink-0">
+                      {formatBytes(storage.disk.freeBytes)} 남음
+                    </span>
                   </div>
 
-                  {/* Tiny progress bar */}
-                  <div className="w-full h-1 bg-[#282835] rounded-full overflow-hidden mt-2">
+                  {/* Slim gauge */}
+                  <div className="w-full h-1 bg-surface-borderSubtle rounded-full overflow-hidden mt-1.5">
                     <div
-                      className={`h-full rounded-full ${storage.disk.usedPercent > 85 ? 'bg-red-500' : 'bg-blue-500'}`}
+                      className={`h-full rounded-full transition-all duration-300 ${storage.disk.usedPercent > 85 ? 'bg-red-500' : 'bg-accent'}`}
                       style={{ width: `${Math.min(storage.disk.usedPercent, 100)}%` }}
                     />
                   </div>
@@ -157,65 +112,75 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
+        {/* 2. Media Hubs */}
+        <div>
+          <span className="text-[11px] font-medium text-content-muted px-2 block mb-1.5">
+            미디어
+          </span>
+          <nav className="space-y-0.5">
+            {hubItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    onSelectTab(item.id);
+                    onCloseMobile?.();
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs transition ${
+                    isActive
+                      ? 'bg-surface-card border border-surface-border text-content-primary font-medium'
+                      : 'text-content-secondary hover:bg-surface-cardHover hover:text-content-primary'
+                  }`}
+                >
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-accent' : 'text-content-muted'}`} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
         {/* 3. System & Management */}
         <div>
-          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-3">
-            시스템 관리
+          <span className="text-[11px] font-medium text-content-muted px-2 block mb-1.5">
+            시스템
           </span>
-          <nav className="mt-2 space-y-1">
+          <nav className="space-y-0.5">
             <button
               onClick={() => {
                 onSelectTab('trash');
                 onCloseMobile?.();
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition ${
+              className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs transition ${
                 activeTab === 'trash'
-                  ? 'bg-red-500/15 text-red-400 border border-red-500/25'
-                  : 'text-gray-300 hover:bg-[#1e1e26] hover:text-white border border-transparent'
+                  ? 'bg-surface-card border border-surface-border text-content-primary font-medium'
+                  : 'text-content-secondary hover:bg-surface-cardHover hover:text-content-primary'
               }`}
             >
-              <Trash2 className={`w-4 h-4 ${activeTab === 'trash' ? 'text-red-400' : 'text-gray-400'}`} />
-              <span>휴지통 (Trash)</span>
+              <Trash2 className={`w-3.5 h-3.5 ${activeTab === 'trash' ? 'text-accent' : 'text-content-muted'}`} />
+              <span>휴지통</span>
             </button>
           </nav>
         </div>
       </div>
 
-      {/* Mac mini hardware info badge */}
-      <div className="mt-6 bg-[#181820] border border-[#242430] rounded-xl p-3 text-xs space-y-2 text-gray-400">
-        <div className="flex items-center justify-between text-gray-300 font-medium pb-1.5 border-b border-[#282834]">
-          <span className="flex items-center gap-1.5 text-[11px]">
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
-            저전력 홈 서버
-          </span>
-          <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-            ONLINE
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="flex items-center gap-1">
-            <Network className="w-3 h-3 text-blue-400" />
-            이더넷
-          </span>
-          <span className="font-mono text-gray-300">1 Gbps LAN</span>
-        </div>
-
-        {stats && stats.uptimeSeconds > 0 && (
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3 text-purple-400" />
-              가동 시간
-            </span>
-            <span className="font-mono text-gray-300">{formatUptime(stats.uptimeSeconds)}</span>
+      {/* Clean, quiet System Info footer */}
+      {stats && (
+        <div className="pt-3 border-t border-surface-border text-[11px] text-content-muted space-y-1">
+          <div className="flex items-center justify-between">
+            <span>호스트</span>
+            <span className="font-mono text-content-secondary">{stats.hostname}</span>
           </div>
-        )}
-
-        <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#242430]">
-          <span className="text-[10px] text-gray-500">빌드 버전</span>
-          <span className="font-mono text-[10px] text-emerald-400 font-semibold">{APP_VERSION} ({BUILD_DATE})</span>
+          {stats.uptimeSeconds > 0 && (
+            <div className="flex items-center justify-between">
+              <span>가동 시간</span>
+              <span className="font-mono text-content-secondary">{formatUptime(stats.uptimeSeconds)}</span>
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </aside>
   );
 };

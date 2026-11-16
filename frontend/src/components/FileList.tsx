@@ -23,9 +23,7 @@ import {
   Info,
   ArrowUp,
   ArrowDown,
-  Sparkles,
-  MoreVertical,
-  X
+  MoreVertical
 } from 'lucide-react';
 import { FileItem, BreadcrumbItem, ClipboardItem, SortField, SortOrder } from '../types';
 import { formatBytes, formatDate, truncateMiddle } from '../utils/format';
@@ -91,8 +89,6 @@ export const FileList: React.FC<FileListProps> = ({
   onOpenMoveModal,
   onPaste,
   onCancelClipboard,
-  onCopyItem,
-  onCutItem,
   onItemContextMenu,
   onBackgroundContextMenu,
   sortField,
@@ -112,14 +108,14 @@ export const FileList: React.FC<FileListProps> = ({
   ];
 
   const getFileIcon = (item: FileItem, sizeClass = "w-6 h-6") => {
-    if (item.isDir) return <Folder className={`${sizeClass} text-blue-400 fill-blue-400/20`} />;
+    if (item.isDir) return <Folder className={`${sizeClass} text-accent fill-accent/15`} />;
     switch (item.mediaType) {
       case 'image': return <ImageIcon className={`${sizeClass} text-emerald-400`} />;
-      case 'video': return <Film className={`${sizeClass} text-violet-400`} />;
+      case 'video': return <Film className={`${sizeClass} text-indigo-400`} />;
       case 'audio': return <Music className={`${sizeClass} text-pink-400`} />;
       case 'text': return <FileText className={`${sizeClass} text-amber-400`} />;
       case 'archive': return <Archive className={`${sizeClass} text-orange-400`} />;
-      default: return <File className={`${sizeClass} text-gray-400`} />;
+      default: return <File className={`${sizeClass} text-content-muted`} />;
     }
   };
 
@@ -146,31 +142,31 @@ export const FileList: React.FC<FileListProps> = ({
   const renderSortArrow = (field: SortField) => {
     if (sortField !== field) return null;
     return sortOrder === 'asc' ? (
-      <ArrowUp className="w-3 h-3 text-blue-400" />
+      <ArrowUp className="w-3 h-3 text-accent" />
     ) : (
-      <ArrowDown className="w-3 h-3 text-blue-400" />
+      <ArrowDown className="w-3 h-3 text-accent" />
     );
   };
 
   return (
     <div 
-      className="flex-1 flex flex-col h-full bg-[#121217] overflow-hidden"
+      className="flex-1 flex flex-col h-full bg-surface-base overflow-hidden"
       onContextMenu={onBackgroundContextMenu}
     >
       {/* Top Toolbar: Breadcrumb & Actions */}
-      <div className="h-14 border-b border-[#22222d] px-3 sm:px-6 flex items-center justify-between bg-[#15151c]/60 backdrop-blur shrink-0 gap-2">
-        {/* Breadcrumb Path & Active Filter Indicator */}
-        <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none min-w-0">
-          <nav className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm shrink-0">
+      <div className="h-12 border-b border-surface-border px-4 sm:px-5 flex items-center justify-between bg-surface-base shrink-0 gap-3">
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center gap-1 overflow-x-auto py-1 scrollbar-none min-w-0">
+          <nav className="flex items-center gap-1 text-xs shrink-0">
             {breadcrumbs.map((crumb, idx) => (
               <React.Fragment key={crumb.path}>
-                {idx > 0 && <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-gray-500 shrink-0" />}
+                {idx > 0 && <ChevronRight className="w-3 h-3 text-content-muted shrink-0" />}
                 <button
                   onClick={() => onNavigate(crumb.path)}
-                  className={`px-1.5 sm:px-2 py-1 rounded hover:bg-[#232330] transition shrink-0 truncate max-w-[120px] sm:max-w-none ${
+                  className={`px-1.5 py-0.5 rounded transition shrink-0 truncate max-w-[140px] sm:max-w-none ${
                     idx === breadcrumbs.length - 1
-                      ? 'font-semibold text-white'
-                      : 'text-gray-400 hover:text-gray-200'
+                      ? 'font-medium text-content-primary'
+                      : 'text-content-secondary hover:text-content-primary'
                   }`}
                 >
                   {crumb.name}
@@ -180,39 +176,41 @@ export const FileList: React.FC<FileListProps> = ({
           </nav>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {/* Action Controls */}
+        <div className="flex items-center gap-2 shrink-0">
           {hasSelection ? (
-            <div className="flex items-center gap-1 sm:gap-1.5 bg-blue-600/10 border border-blue-500/20 px-2 sm:px-2.5 py-1 rounded-lg">
-              <span className="text-[11px] sm:text-xs text-blue-400 font-medium whitespace-nowrap">
-                {selectedPaths.size}개<span className="hidden sm:inline"> 선택</span>
+            <div className="flex items-center gap-1.5 bg-surface-card border border-surface-border px-2 py-1 rounded-md text-xs">
+              <span className="text-content-secondary font-medium px-1">
+                {selectedPaths.size}개 선택
               </span>
+
+              <div className="w-px h-3.5 bg-surface-border mx-0.5" />
 
               <button
                 onClick={onOpenMoveModal}
-                className="flex items-center gap-1 text-xs bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black px-2 sm:px-2.5 py-1 rounded font-medium transition"
-                title="선택한 항목을 특정 폴더로 이동"
+                className="flex items-center gap-1 text-content-secondary hover:text-content-primary px-1.5 py-0.5 rounded transition"
+                title="폴더로 이동"
               >
                 <Scissors className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">폴더로 이동...</span>
+                <span className="hidden md:inline">이동</span>
               </button>
 
               <button
                 onClick={onCopySelected}
-                className="flex items-center gap-1 text-xs bg-[#242436] hover:bg-[#32324a] text-gray-200 px-2 sm:px-2.5 py-1 rounded font-medium transition"
+                className="flex items-center gap-1 text-content-secondary hover:text-content-primary px-1.5 py-0.5 rounded transition"
                 title="선택 항목 복사"
               >
-                <Copy className="w-3.5 h-3.5 text-blue-400" />
-                <span className="hidden sm:inline">복사</span>
+                <Copy className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">복사</span>
               </button>
 
               <button
                 onClick={onCutSelected}
-                className="flex items-center gap-1 text-xs bg-[#242436] hover:bg-[#32324a] text-gray-200 px-2 sm:px-2.5 py-1 rounded font-medium transition"
-                title="선택 항목 잘라내기 (이동)"
+                className="flex items-center gap-1 text-content-secondary hover:text-content-primary px-1.5 py-0.5 rounded transition"
+                title="선택 항목 잘라내기"
               >
-                <Scissors className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden sm:inline">잘라내기</span>
+                <Scissors className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">잘라내기</span>
               </button>
 
               <button
@@ -220,16 +218,16 @@ export const FileList: React.FC<FileListProps> = ({
                   const paths = Array.from(selectedPaths);
                   window.location.href = api.getZipDownloadUrl(paths, storageId);
                 }}
-                className="flex items-center gap-1 text-xs bg-[#242436] hover:bg-[#32324a] text-gray-200 px-2 sm:px-2.5 py-1 rounded font-medium transition"
-                title="선택 항목 ZIP 압축 다운로드"
+                className="flex items-center gap-1 text-content-secondary hover:text-content-primary px-1.5 py-0.5 rounded transition"
+                title="ZIP 압축 다운로드"
               >
-                <ZipIcon className="w-3.5 h-3.5 text-emerald-400" />
+                <ZipIcon className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">ZIP</span>
               </button>
 
               <button
                 onClick={onDeleteSelected}
-                className="flex items-center gap-1 text-xs bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white px-2 sm:px-2.5 py-1 rounded font-medium transition"
+                className="flex items-center gap-1 text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded transition"
                 title="선택 항목 삭제"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -238,52 +236,53 @@ export const FileList: React.FC<FileListProps> = ({
 
               <button
                 onClick={onClearSelection}
-                className="text-xs text-gray-400 hover:text-white px-1 sm:px-1.5 py-1"
+                className="text-content-muted hover:text-content-primary px-1 py-0.5 transition"
                 title="선택 해제"
               >
                 취소
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-2">
               {clipboard && (
-                <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 px-1.5 sm:px-2 py-0.5 rounded-lg animate-fadeIn">
-                  <span className="text-[10px] sm:text-[11px] text-amber-300 font-medium px-0.5 sm:px-1 whitespace-nowrap">
-                    {clipboard.action === 'cut' ? '✂️' : '📋'} {clipboard.paths.length}개
+                <div className="flex items-center gap-1.5 bg-surface-card border border-surface-border px-2 py-1 rounded-md text-xs">
+                  <span className="text-content-secondary font-mono text-[11px]">
+                    {clipboard.paths.length}개 대기
                   </span>
                   <button
                     onClick={onPaste}
-                    className="flex items-center gap-1 text-xs bg-amber-500 hover:bg-amber-400 text-black px-2 sm:px-2.5 py-1 rounded font-bold shadow-sm transition"
-                    title={`${clipboard.paths.length}개 항목 붙여넣기`}
+                    className="flex items-center gap-1 text-accent font-medium hover:underline px-1 py-0.5"
+                    title="붙여넣기"
                   >
-                    <Clipboard className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    <span className="hidden sm:inline">붙여넣기</span>
+                    <Clipboard className="w-3 h-3" />
+                    <span>붙여넣기</span>
                   </button>
                   <button
                     onClick={onCancelClipboard}
-                    className="text-xs text-gray-400 hover:text-white px-1 sm:px-1.5 py-1 rounded transition"
-                    title="이동/복사 취소 (ESC)"
+                    className="text-content-muted hover:text-content-primary px-1"
+                    title="취소"
                   >
-                    취소
+                    ×
                   </button>
                 </div>
               )}
 
               <button
                 onClick={onNewFolder}
-                className="flex items-center gap-1 sm:gap-1.5 text-xs bg-[#1f1f2a] hover:bg-[#282837] text-gray-200 border border-[#2b2b3a] px-2.5 sm:px-3 py-1.5 rounded-lg font-medium transition"
+                className="flex items-center gap-1.5 text-xs text-content-secondary hover:text-content-primary bg-surface-card hover:bg-surface-cardHover border border-surface-border px-2.5 py-1 rounded-md transition"
                 title="새 폴더 생성"
               >
-                <FolderPlus className="w-3.5 h-3.5 text-blue-400" />
+                <FolderPlus className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">새 폴더</span>
               </button>
+
               <button
                 onClick={onUploadClick}
-                className="flex items-center gap-1 sm:gap-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white px-2.5 sm:px-3.5 py-1.5 rounded-lg font-medium shadow-sm transition"
+                className="flex items-center gap-1.5 text-xs text-white bg-accent hover:bg-accent-hover px-2.5 py-1 rounded-md transition font-medium"
                 title="파일 업로드"
               >
                 <Upload className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">파일 업로드</span>
+                <span className="hidden sm:inline">업로드</span>
               </button>
             </div>
           )}
@@ -291,38 +290,26 @@ export const FileList: React.FC<FileListProps> = ({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-6 scrollbar-thin scrollbar-thumb-[#252535]">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-5">
         {items.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-3 py-12">
-            {searchQuery.trim() ? (
-              <>
-                <div className="w-16 h-16 rounded-2xl bg-[#181822] flex items-center justify-center border border-[#232332]">
-                  <Folder className="w-8 h-8 text-gray-600" />
-                </div>
-                <p className="text-sm font-medium text-gray-300">검색 결과가 없습니다: '{searchQuery}'</p>
-                {onClearSearch && (
-                  <button
-                    type="button"
-                    onClick={onClearSearch}
-                    className="px-3.5 py-1.5 rounded-lg bg-[#222230] hover:bg-[#2c2c3d] text-gray-300 hover:text-white text-xs font-medium transition border border-[#2f2f42]"
-                  >
-                    검색 초기화
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="w-16 h-16 rounded-2xl bg-[#181822] flex items-center justify-center border border-[#232332]">
-                  <Folder className="w-8 h-8 text-gray-600" />
-                </div>
-                <p className="text-sm font-medium">폴더가 비어 있습니다</p>
-                <p className="text-xs text-gray-600">파일을 드래그하여 업로드하거나 상단 버튼을 사용하세요</p>
-              </>
+          <div className="h-full flex flex-col items-center justify-center text-content-muted space-y-2 py-16">
+            <Folder className="w-10 h-10 stroke-[1.25] text-content-muted opacity-40 mb-1" />
+            <p className="text-xs font-medium text-content-secondary">
+              {searchQuery.trim() ? `검색 결과가 없습니다: '${searchQuery}'` : '폴더가 비어 있습니다'}
+            </p>
+            {searchQuery.trim() && onClearSearch && (
+              <button
+                type="button"
+                onClick={onClearSearch}
+                className="px-2.5 py-1 rounded bg-surface-card hover:bg-surface-cardHover text-content-secondary text-xs transition border border-surface-border"
+              >
+                검색 초기화
+              </button>
             )}
           </div>
         ) : viewMode === 'grid' ? (
-          /* Unified File Explorer Grid View */
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2.5 sm:gap-4">
+          /* Clean Grid View */
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-9 gap-3">
             {items.map((item) => {
               const isSelected = selectedPaths.has(item.path);
               const isCut = clipboard?.action === 'cut' && clipboard.paths.includes(item.path);
@@ -334,11 +321,11 @@ export const FileList: React.FC<FileListProps> = ({
                     e.stopPropagation();
                     onItemContextMenu(e, item);
                   }}
-                  className={`group relative flex flex-col items-center p-2.5 sm:p-3.5 rounded-xl border transition cursor-pointer select-none overflow-hidden ${
+                  className={`group relative flex flex-col items-center p-3 rounded-lg border transition cursor-pointer select-none ${
                     isSelected
-                      ? 'bg-blue-600/10 border-blue-500/50 shadow-md shadow-blue-500/10'
-                      : 'bg-[#171720]/80 border-[#232330] hover:bg-[#1f1f2b] hover:border-[#333346]'
-                  } ${isCut ? 'opacity-50 border-dashed border-amber-500' : ''}`}
+                      ? 'bg-accent-subtle border-accent/40 text-content-primary'
+                      : 'bg-surface-card/40 border-transparent hover:bg-surface-cardHover hover:border-surface-border text-content-primary'
+                  } ${isCut ? 'opacity-40' : ''}`}
                 >
                   {/* Selection Checkbox */}
                   <button
@@ -346,23 +333,23 @@ export const FileList: React.FC<FileListProps> = ({
                       e.stopPropagation();
                       onToggleSelect(item.path);
                     }}
-                    className={`absolute top-2 left-2 p-1 rounded transition z-10 ${
+                    className={`absolute top-2 left-2 p-0.5 rounded transition z-10 ${
                       isSelected
-                        ? 'opacity-100 text-blue-400'
-                        : 'opacity-70 sm:opacity-0 sm:group-hover:opacity-100 text-gray-500 hover:text-white'
+                        ? 'opacity-100 text-accent'
+                        : 'opacity-0 group-hover:opacity-60 text-content-muted hover:opacity-100'
                     }`}
                   >
-                    {isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                    {isSelected ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
                   </button>
 
-                  {/* Icon or Image/Video Preview with Aspect Ratio Preserved */}
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 my-1.5 sm:my-2 flex items-center justify-center relative self-center mx-auto rounded-lg overflow-hidden bg-[#101018]">
+                  {/* Icon or Thumbnail */}
+                  <div className="w-14 h-14 my-1 flex items-center justify-center relative self-center mx-auto rounded overflow-hidden">
                     {item.mediaType === 'image' ? (
                       <img
                         src={api.getStreamUrl(item.path, storageId)}
                         alt={item.name}
                         loading="lazy"
-                        className="w-full h-full object-contain mx-auto"
+                        className="w-full h-full object-contain"
                       />
                     ) : item.mediaType === 'video' ? (
                       <VideoThumbnail
@@ -374,63 +361,52 @@ export const FileList: React.FC<FileListProps> = ({
                         showPlayBadge={false}
                       />
                     ) : (
-                      getFileIcon(item, 'w-10 h-10 sm:w-12 sm:h-12')
+                      getFileIcon(item, 'w-10 h-10')
                     )}
                   </div>
 
                   {/* File Name */}
                   <span 
-                    className="text-xs text-gray-200 font-medium text-center truncate w-full px-1 group-hover:text-white"
+                    className="text-xs font-normal text-center truncate w-full px-0.5 mt-1"
                     title={item.name}
                   >
-                    {truncateMiddle(item.name, 22)}
+                    {truncateMiddle(item.name, 20)}
                   </span>
 
                   {/* File Metadata */}
-                  <div className="flex items-center gap-1 text-[10px] text-gray-400 font-mono mt-0.5 sm:mt-1 truncate max-w-full px-1">
-                    <span>{item.isDir ? '폴더' : formatBytes(item.size)}</span>
-                  </div>
+                  <span className="text-[10px] text-content-muted font-mono mt-0.5 truncate">
+                    {item.isDir ? '폴더' : formatBytes(item.size)}
+                  </span>
 
-                  {/* Hover Quick Actions */}
-                  <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition z-10">
-                    {!item.isDir && (
-                      <button
-                        onClick={(e) => handleDownloadSingle(item, e)}
-                        className="p-1 rounded bg-[#2a2a38]/90 text-gray-300 hover:text-blue-400 hover:bg-[#38384a] shadow-sm transition"
-                        title="다운로드"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onItemContextMenu(e, item);
-                      }}
-                      className="p-1 rounded bg-[#2a2a38]/90 text-gray-300 hover:text-white hover:bg-[#38384a] shadow-sm transition"
-                      title="더보기 메뉴 (상세/이름변경/삭제 등)"
-                    >
-                      <MoreVertical className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  {/* Hover Menu Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onItemContextMenu(e, item);
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded text-content-muted hover:text-content-primary opacity-0 group-hover:opacity-100 transition z-10"
+                    title="추가 작업"
+                  >
+                    <MoreVertical className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               );
             })}
           </div>
         ) : (
           /* List View */
-          <div className="bg-[#171720] border border-[#252533] rounded-xl overflow-hidden">
-            <div className="flex items-center px-3 sm:px-4 py-2.5 bg-[#1b1b24] border-b border-[#252533] text-xs font-semibold text-gray-400 select-none">
-              <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3 pr-2">
+          <div className="border border-surface-border rounded-lg overflow-hidden bg-surface-card/30">
+            <div className="flex items-center px-4 py-2 border-b border-surface-border text-xs text-content-muted select-none bg-surface-base">
+              <div className="flex-1 min-w-0 flex items-center gap-3 pr-2">
                 <button
                   onClick={onSelectAll}
-                  className="text-gray-400 hover:text-white shrink-0"
+                  className="text-content-muted hover:text-content-primary shrink-0"
                 >
-                  {isAllSelected ? <CheckSquare className="w-4 h-4 text-blue-400" /> : <Square className="w-4 h-4" />}
+                  {isAllSelected ? <CheckSquare className="w-3.5 h-3.5 text-accent" /> : <Square className="w-3.5 h-3.5" />}
                 </button>
                 <button
                   onClick={() => onSortChange('name')}
-                  className="flex items-center gap-1 hover:text-white transition"
+                  className="flex items-center gap-1 hover:text-content-primary transition"
                 >
                   <span>이름</span>
                   {renderSortArrow('name')}
@@ -440,7 +416,7 @@ export const FileList: React.FC<FileListProps> = ({
               <div className="hidden sm:block w-24 shrink-0 text-right pr-4">
                 <button
                   onClick={() => onSortChange('size')}
-                  className="inline-flex items-center gap-1 hover:text-white transition"
+                  className="inline-flex items-center gap-1 hover:text-content-primary transition"
                 >
                   <span>크기</span>
                   {renderSortArrow('size')}
@@ -450,19 +426,19 @@ export const FileList: React.FC<FileListProps> = ({
               <div className="hidden lg:block w-36 shrink-0 text-right pr-4">
                 <button
                   onClick={() => onSortChange('date')}
-                  className="inline-flex items-center gap-1 hover:text-white transition"
+                  className="inline-flex items-center gap-1 hover:text-content-primary transition"
                 >
                   <span>수정 날짜</span>
                   {renderSortArrow('date')}
                 </button>
               </div>
 
-              <div className="w-36 shrink-0 text-right text-gray-500 font-normal">
+              <div className="w-28 shrink-0 text-right">
                 작업
               </div>
             </div>
 
-            <div className="divide-y divide-[#21212c]">
+            <div className="divide-y divide-surface-borderSubtle">
               {items.map((item) => {
                 const isSelected = selectedPaths.has(item.path);
                 const isCut = clipboard?.action === 'cut' && clipboard.paths.includes(item.path);
@@ -474,73 +450,47 @@ export const FileList: React.FC<FileListProps> = ({
                       e.stopPropagation();
                       onItemContextMenu(e, item);
                     }}
-                    className={`flex items-center px-3 sm:px-4 py-2 sm:py-2.5 text-xs cursor-pointer transition select-none ${
+                    className={`flex items-center px-4 py-2 text-xs cursor-pointer transition select-none ${
                       isSelected
-                        ? 'bg-blue-500/10 text-white'
-                        : 'hover:bg-[#1e1e28] text-gray-200'
-                    } ${isCut ? 'opacity-50' : ''}`}
+                        ? 'bg-accent-subtle text-content-primary'
+                        : 'hover:bg-surface-cardHover text-content-secondary hover:text-content-primary'
+                    } ${isCut ? 'opacity-40' : ''}`}
                   >
-                    <div className="flex-1 min-w-0 flex items-center gap-2.5 sm:gap-3 pr-2">
+                    <div className="flex-1 min-w-0 flex items-center gap-3 pr-2">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onToggleSelect(item.path);
                         }}
-                        className="text-gray-400 hover:text-white shrink-0"
+                        className="text-content-muted hover:text-content-primary shrink-0"
                       >
-                        {isSelected ? <CheckSquare className="w-4 h-4 text-blue-400" /> : <Square className="w-4 h-4" />}
+                        {isSelected ? <CheckSquare className="w-3.5 h-3.5 text-accent" /> : <Square className="w-3.5 h-3.5" />}
                       </button>
-                      <span className="shrink-0 flex items-center justify-center w-7 h-7 rounded bg-[#101018] overflow-hidden">
-                        {item.mediaType === 'image' ? (
-                          <img
-                            src={api.getStreamUrl(item.path, storageId)}
-                            alt=""
-                            loading="lazy"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : item.mediaType === 'video' ? (
-                          <VideoThumbnail
-                            relPath={item.path}
-                            storageId={storageId}
-                            ext={item.ext}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            showPlayBadge={false}
-                          />
-                        ) : (
-                          getFileIcon(item, 'w-4 h-4 sm:w-5 sm:h-5')
-                        )}
+                      <span className="shrink-0 flex items-center justify-center w-5 h-5">
+                        {getFileIcon(item, 'w-4 h-4')}
                       </span>
-                      <div className="min-w-0 flex-1 flex flex-col">
-                        <div className="flex items-center gap-1.5 truncate">
-                          <span className="font-medium truncate text-gray-100" title={item.name}>
-                            {item.name}
-                          </span>
-                        </div>
-                        {/* Mobile metadata row */}
-                        <div className="sm:hidden flex items-center gap-2 text-[10px] text-gray-400 font-mono mt-0.5">
-                          <span>{item.isDir ? '폴더' : formatBytes(item.size)}</span>
-                          <span>•</span>
-                          <span>{formatDate(item.modTime).slice(5)}</span>
-                        </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="truncate block font-normal" title={item.name}>
+                          {item.name}
+                        </span>
                       </div>
                     </div>
 
-                    <div className="hidden sm:block w-24 shrink-0 text-right text-gray-400 font-mono pr-4">
-                      {item.isDir ? '-' : formatBytes(item.size)}
+                    <div className="hidden sm:block w-24 shrink-0 text-right text-content-muted font-mono pr-4 text-[11px]">
+                      {item.isDir ? '—' : formatBytes(item.size)}
                     </div>
 
-                    <div className="hidden lg:block w-36 shrink-0 text-right text-gray-400 pr-4">
+                    <div className="hidden lg:block w-36 shrink-0 text-right text-content-muted pr-4 text-[11px]">
                       {formatDate(item.modTime)}
                     </div>
 
-                    <div className="w-36 shrink-0 flex items-center justify-end gap-1">
+                    <div className="w-28 shrink-0 flex items-center justify-end gap-1">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onShowDetails(item);
                         }}
-                        className="p-1 text-gray-400 hover:text-gray-200 hover:bg-[#282835] rounded transition"
+                        className="p-1 text-content-muted hover:text-content-primary rounded transition"
                         title="상세 정보"
                       >
                         <Info className="w-3.5 h-3.5" />
@@ -551,8 +501,8 @@ export const FileList: React.FC<FileListProps> = ({
                             e.stopPropagation();
                             window.open(api.getHostUrl(item.path, storageId), '_blank');
                           }}
-                          className="p-1 text-emerald-400 hover:text-white hover:bg-emerald-600/40 rounded transition"
-                          title="웹페이지로 열기 (새 탭)"
+                          className="p-1 text-content-muted hover:text-content-primary rounded transition"
+                          title="웹페이지로 열기"
                         >
                           <Globe className="w-3.5 h-3.5" />
                         </button>
@@ -560,7 +510,7 @@ export const FileList: React.FC<FileListProps> = ({
                       {!item.isDir && (
                         <button
                           onClick={(e) => handleDownloadSingle(item, e)}
-                          className="p-1 text-gray-400 hover:text-blue-400 hover:bg-[#282835] rounded transition"
+                          className="p-1 text-content-muted hover:text-content-primary rounded transition"
                           title="다운로드"
                         >
                           <Download className="w-3.5 h-3.5" />
@@ -571,7 +521,7 @@ export const FileList: React.FC<FileListProps> = ({
                           e.stopPropagation();
                           onRename(item);
                         }}
-                        className="p-1 text-gray-400 hover:text-gray-200 hover:bg-[#282835] rounded transition"
+                        className="p-1 text-content-muted hover:text-content-primary rounded transition"
                         title="이름 변경"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -581,7 +531,7 @@ export const FileList: React.FC<FileListProps> = ({
                           e.stopPropagation();
                           onDeleteSingle(item);
                         }}
-                        className="p-1 text-gray-400 hover:text-red-400 hover:bg-red-500/20 rounded transition"
+                        className="p-1 text-content-muted hover:text-red-400 rounded transition"
                         title="삭제"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

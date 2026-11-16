@@ -2,23 +2,100 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  color-scheme: dark;
+/* 1. Default / macOS Native Theme */
+:root, .theme-macos {
+  --surface-base: #0f1115;
+  --surface-header: #14171d;
+  --surface-sidebar: #121419;
+  --surface-card: #181b22;
+  --surface-card-hover: #1f232c;
+  --surface-border: #23262f;
+  --surface-border-subtle: #1b1e26;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-subtle: rgba(59, 130, 246, 0.12);
+  --content-primary: #f3f4f6;
+  --content-secondary: #9ca3af;
+  --content-muted: #6b7280;
+  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", sans-serif;
+  --radius: 6px;
+  --radius-sm: 4px;
 }
 
-/* Custom Scrollbar */
+/* 2. Hardware Console Theme */
+.theme-console {
+  --surface-base: #0a0c0e;
+  --surface-header: #0e1115;
+  --surface-sidebar: #0c0e12;
+  --surface-card: #11141a;
+  --surface-card-hover: #161b22;
+  --surface-border: #1e2630;
+  --surface-border-subtle: #151c24;
+  --accent: #10b981;
+  --accent-hover: #059669;
+  --accent-subtle: rgba(16, 185, 129, 0.12);
+  --content-primary: #e2e8f0;
+  --content-secondary: #94a3b8;
+  --content-muted: #64748b;
+  --font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+  --radius: 2px;
+  --radius-sm: 2px;
+}
+
+/* 3. Studio Minimal Theme */
+.theme-studio {
+  --surface-base: #000000;
+  --surface-header: #050505;
+  --surface-sidebar: #000000;
+  --surface-card: #0a0a0a;
+  --surface-card-hover: #141414;
+  --surface-border: #1c1c1c;
+  --surface-border-subtle: #111111;
+  --accent: #ffffff;
+  --accent-hover: #e5e5e5;
+  --accent-subtle: rgba(255, 255, 255, 0.12);
+  --content-primary: #ffffff;
+  --content-secondary: #888888;
+  --content-muted: #555555;
+  --font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --radius: 0px;
+  --radius-sm: 0px;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--surface-base);
+  color: var(--content-primary);
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dynamic Text Selection */
+::selection {
+  background: var(--accent-subtle);
+  color: var(--content-primary);
+}
+
+/* Clean Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #18181f;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #333342;
-  border-radius: 4px;
+  background: var(--surface-border);
+  border-radius: var(--radius-sm);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #47475c;
+  background: var(--content-muted);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }

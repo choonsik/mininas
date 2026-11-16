@@ -12,7 +12,6 @@ import {
   Upload, 
   RefreshCw,
   FolderOpen,
-  Globe,
   Pin
 } from 'lucide-react';
 import { FileItem } from '../types';
@@ -89,9 +88,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
   if (!position) return null;
 
-  // Adjust position to stay inside window viewport
-  const menuWidth = 190;
-  const menuHeight = targetItem ? 260 : 160;
+  const menuWidth = 180;
+  const menuHeight = targetItem ? 250 : 150;
   const adjustedX = position.x + menuWidth > window.innerWidth ? window.innerWidth - menuWidth - 10 : position.x;
   const adjustedY = position.y + menuHeight > window.innerHeight ? window.innerHeight - menuHeight - 10 : position.y;
 
@@ -99,87 +97,87 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     <div
       ref={menuRef}
       style={{ top: `${adjustedY}px`, left: `${adjustedX}px` }}
-      className="fixed z-50 min-w-[190px] bg-[#1a1a24] border border-[#2e2e42] rounded-xl shadow-2xl py-1.5 text-xs text-gray-200 select-none backdrop-blur-md animate-scaleUp"
+      className="fixed z-50 min-w-[180px] bg-surface-card border border-surface-border rounded-md shadow-xl py-1 text-xs text-content-primary select-none"
       onClick={(e) => e.stopPropagation()}
     >
       {targetItem ? (
         <>
-          <div className="px-3 py-1.5 border-b border-[#28283a] text-gray-400 font-mono truncate max-w-[180px]">
+          <div className="px-3 py-1 border-b border-surface-border text-content-muted font-mono truncate max-w-[170px] text-[11px]">
             {targetItem.name}
           </div>
 
           <button
             onClick={() => { onClose(); onOpen(targetItem); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-blue-600 hover:text-white transition"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
           >
-            {targetItem.isDir ? <FolderOpen className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            {targetItem.isDir ? <FolderOpen className="w-3.5 h-3.5 text-content-muted" /> : <Play className="w-3.5 h-3.5 text-content-muted" />}
             <span>{targetItem.isDir ? '폴더 열기' : '열기 / 재생'}</span>
           </button>
 
           {onPinToSites && (targetItem.isDir || targetItem.ext === '.html' || targetItem.ext === '.htm') && (
             <button
               onClick={() => { onClose(); onPinToSites(targetItem); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-emerald-600/20 text-emerald-300 hover:text-emerald-200 transition"
+              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
             >
-              <Pin className="w-3.5 h-3.5 text-emerald-400" />
-              <span>사이트 허브에 고정 (Pin)</span>
+              <Pin className="w-3.5 h-3.5 text-content-muted" />
+              <span>사이트 허브에 고정</span>
             </button>
           )}
 
           {!targetItem.isDir && (
             <button
               onClick={() => { onClose(); onDownload(targetItem); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] transition"
+              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
             >
-              <Download className="w-3.5 h-3.5 text-gray-400" />
+              <Download className="w-3.5 h-3.5 text-content-muted" />
               <span>다운로드</span>
             </button>
           )}
 
-          <div className="h-px bg-[#262638] my-1" />
+          <div className="h-px bg-surface-border my-1" />
 
           {onMoveTo && (
             <button
               onClick={() => { onClose(); onMoveTo(targetItem); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] text-amber-400 transition"
+              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
             >
-              <Scissors className="w-3.5 h-3.5" />
+              <Scissors className="w-3.5 h-3.5 text-content-muted" />
               <span>폴더로 이동...</span>
             </button>
           )}
 
           <button
             onClick={() => { onClose(); onCut(targetItem); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] transition"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
           >
-            <Scissors className="w-3.5 h-3.5 text-gray-400" />
+            <Scissors className="w-3.5 h-3.5 text-content-muted" />
             <span className="flex-1">잘라내기</span>
-            <span className="text-[10px] text-gray-500 font-mono">⌘X</span>
+            <span className="text-[10px] text-content-muted font-mono">⌘X</span>
           </button>
 
           <button
             onClick={() => { onClose(); onCopy(targetItem); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] transition"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
           >
-            <Copy className="w-3.5 h-3.5 text-gray-400" />
+            <Copy className="w-3.5 h-3.5 text-content-muted" />
             <span className="flex-1">복사</span>
-            <span className="text-[10px] text-gray-500 font-mono">⌘C</span>
+            <span className="text-[10px] text-content-muted font-mono">⌘C</span>
           </button>
 
           {clipboard && (
             <div className="flex items-center">
               <button
                 onClick={() => { onClose(); onPaste(); }}
-                className="flex-1 flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] text-blue-400 transition"
+                className="flex-1 flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover text-accent transition"
               >
                 <Clipboard className="w-3.5 h-3.5" />
                 <span className="flex-1">붙여넣기</span>
-                <span className="text-[10px] text-blue-400/70 font-mono">⌘V</span>
+                <span className="text-[10px] text-accent/70 font-mono">⌘V</span>
               </button>
               {onCancelClipboard && (
                 <button
                   onClick={() => { onClose(); onCancelClipboard(); }}
-                  className="px-2 py-2 text-gray-400 hover:text-white hover:bg-[#28283a] transition text-[11px]"
+                  className="px-2 py-1.5 text-content-muted hover:text-content-primary hover:bg-surface-cardHover transition text-[11px]"
                   title="클립보드 취소"
                 >
                   취소
@@ -188,33 +186,33 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             </div>
           )}
 
-          <div className="h-px bg-[#262638] my-1" />
+          <div className="h-px bg-surface-border my-1" />
 
           <button
             onClick={() => { onClose(); onRename(targetItem); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] transition"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
           >
-            <Edit3 className="w-3.5 h-3.5 text-gray-400" />
+            <Edit3 className="w-3.5 h-3.5 text-content-muted" />
             <span>이름 변경</span>
           </button>
 
           <button
             onClick={() => { onClose(); onDetails(targetItem); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] transition"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
           >
-            <Info className="w-3.5 h-3.5 text-gray-400" />
+            <Info className="w-3.5 h-3.5 text-content-muted" />
             <span>상세 정보</span>
           </button>
 
-          <div className="h-px bg-[#262638] my-1" />
+          <div className="h-px bg-surface-border my-1" />
 
           <button
             onClick={() => { onClose(); onDelete(targetItem); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-red-400 hover:bg-red-500/20 hover:text-red-300 transition"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-red-400 hover:bg-red-500/10 transition"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span className="flex-1">삭제</span>
-            <span className="text-[10px] text-red-400/60 font-mono">Del</span>
+            <span className="text-[10px] text-red-400/70 font-mono">Del</span>
           </button>
         </>
       ) : (
@@ -222,17 +220,17 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         <>
           <button
             onClick={() => { onClose(); onNewFolder(); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] transition"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
           >
-            <FolderPlus className="w-3.5 h-3.5 text-blue-400" />
+            <FolderPlus className="w-3.5 h-3.5 text-content-muted" />
             <span>새 폴더 만들기</span>
           </button>
 
           <button
             onClick={() => { onClose(); onUpload(); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] transition"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
           >
-            <Upload className="w-3.5 h-3.5 text-emerald-400" />
+            <Upload className="w-3.5 h-3.5 text-content-muted" />
             <span>파일 업로드</span>
           </button>
 
@@ -240,16 +238,16 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             <div className="flex items-center">
               <button
                 onClick={() => { onClose(); onPaste(); }}
-                className="flex-1 flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] text-blue-400 transition"
+                className="flex-1 flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover text-accent transition"
               >
                 <Clipboard className="w-3.5 h-3.5" />
                 <span className="flex-1">붙여넣기 ({clipboard.paths.length}개)</span>
-                <span className="text-[10px] text-blue-400/70 font-mono">⌘V</span>
+                <span className="text-[10px] text-accent/70 font-mono">⌘V</span>
               </button>
               {onCancelClipboard && (
                 <button
                   onClick={() => { onClose(); onCancelClipboard(); }}
-                  className="px-2 py-2 text-gray-400 hover:text-white hover:bg-[#28283a] transition text-[11px]"
+                  className="px-2 py-1.5 text-content-muted hover:text-content-primary hover:bg-surface-cardHover transition text-[11px]"
                   title="클립보드 취소"
                 >
                   취소
@@ -258,13 +256,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             </div>
           )}
 
-          <div className="h-px bg-[#262638] my-1" />
+          <div className="h-px bg-surface-border my-1" />
 
           <button
             onClick={() => { onClose(); onRefresh(); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#28283a] transition"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
           >
-            <RefreshCw className="w-3.5 h-3.5 text-gray-400" />
+            <RefreshCw className="w-3.5 h-3.5 text-content-muted" />
             <span>새로고침</span>
           </button>
         </>

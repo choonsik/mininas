@@ -32,7 +32,6 @@ export const TrashView: React.FC<TrashViewProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  // Safe fallback to prevent any null reference errors
   const items = useMemo(() => (Array.isArray(trashData?.items) ? trashData.items : []), [trashData]);
   const totalCount = trashData?.totalCount ?? items.length;
   const totalSize = trashData?.totalSize ?? 0;
@@ -60,7 +59,6 @@ export const TrashView: React.FC<TrashViewProps> = ({
     loadTrash();
   }, [loadTrash]);
 
-  // Toggle selection
   const handleToggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -78,28 +76,12 @@ export const TrashView: React.FC<TrashViewProps> = ({
     }
   };
 
-  // Restore items
   const handleRestore = async (ids: string[]) => {
     if (ids.length === 0) return;
     setIsProcessing(true);
     try {
-      // Group by storage if multiple storages
-      const byStorage: Record<string, string[]> = {};
-      items
-        .filter(item => ids.includes(item.id))
-        .forEach(item => {
-          const sid = item.storageId || activeStorageId || 'default';
-          if (!byStorage[sid]) byStorage[sid] = [];
-          byStorage[sid].push(item.id);
-        });
-
-      let totalRestored = 0;
-      for (const [sId, sIds] of Object.entries(byStorage)) {
-        const res = await api.restoreTrash(sIds, sId);
-        totalRestored += res.restored;
-      }
-
-      onShowToast(`${totalRestored}개 항목이 복구되었습니다.`, 'success');
+      await api.restoreTrash(ids);
+      onShowToast(`${ids.length}개 항목을 원래 위치로 복구했습니다.`, 'success');
       loadTrash();
       onRefreshStorages();
     } catch (err: any) {
@@ -109,31 +91,16 @@ export const TrashView: React.FC<TrashViewProps> = ({
     }
   };
 
-  // Delete items permanently
   const handleDeletePermanently = async (ids: string[]) => {
     if (ids.length === 0) return;
-    if (!confirm(`선택한 ${ids.length}개 항목을 영구 삭제하시겠습니까?\n이 작업은 되돌릴 수 없으며 디스크에서 완전히 삭제됩니다.`)) {
+    if (!confirm(`선택한 ${ids.length}개 항목을 완전히 영구 삭제하시겠습니까? 복구할 수 없습니다.`)) {
       return;
     }
 
     setIsProcessing(true);
     try {
-      const byStorage: Record<string, string[]> = {};
-      items
-        .filter(item => ids.includes(item.id))
-        .forEach(item => {
-          const sid = item.storageId || activeStorageId || 'default';
-          if (!byStorage[sid]) byStorage[sid] = [];
-          byStorage[sid].push(item.id);
-        });
-
-      let totalDeleted = 0;
-      for (const [sId, sIds] of Object.entries(byStorage)) {
-        const res = await api.deleteTrashPermanently(sIds, sId);
-        totalDeleted += res.deleted;
-      }
-
-      onShowToast(`${totalDeleted}개 항목이 영구 삭제되었습니다.`, 'success');
+      await api.deleteTrashPermanently(ids);
+      onShowToast(`${ids.length}개 항목을 영구 삭제했습니다.`, 'success');
       loadTrash();
       onRefreshStorages();
     } catch (err: any) {
@@ -143,7 +110,6 @@ export const TrashView: React.FC<TrashViewProps> = ({
     }
   };
 
-  // Empty entire trash
   const handleEmptyTrash = async () => {
     if (totalCount === 0) return;
     const targetLabel = selectedStorage === 'all' ? '모든 저장소' : (storages.find(s => s.id === selectedStorage)?.name || '선택한 저장소');
@@ -170,36 +136,24 @@ export const TrashView: React.FC<TrashViewProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0c0d12] text-gray-200 overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-surface-base text-content-primary overflow-hidden">
       {/* Top Header */}
-      <div className="p-4 md:p-6 border-b border-[#232330] bg-[#12131a] flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
-              <Trash2 className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
-                휴지통
-                <span className="text-xs font-normal text-gray-400 font-mono">
-                  ({totalCount}개 항목 · {formatBytes(totalSize)})
-                </span>
-              </h1>
-              <p className="text-xs text-gray-400 mt-0.5">
-                삭제된 파일이 임시 보관되며, 필요할 때 언제든 원래 위치로 복구할 수 있습니다.
-              </p>
-            </div>
-          </div>
+      <div className="h-12 border-b border-surface-border px-4 sm:px-5 flex items-center justify-between bg-surface-base shrink-0 gap-3">
+        <div className="flex items-center gap-2">
+          <Trash2 className="w-4 h-4 text-content-muted" />
+          <span className="text-xs font-semibold text-content-primary">휴지통</span>
+          <span className="text-[11px] text-content-muted font-mono">
+            ({totalCount}개 · {formatBytes(totalSize)})
+          </span>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center flex-wrap gap-2">
-          {/* Storage selector if more than 1 storage */}
+        {/* Action Controls */}
+        <div className="flex items-center gap-2">
           {storages.length > 1 && (
             <select
               value={selectedStorage}
               onChange={(e) => setSelectedStorage(e.target.value)}
-              className="bg-[#1b1c24] border border-[#2d2e3d] text-xs text-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-blue-500"
+              className="bg-surface-card border border-surface-border text-xs text-content-primary rounded-md px-2 py-1 focus:outline-none focus:border-accent"
             >
               <option value="all">모든 저장소</option>
               {storages.map(s => (
@@ -211,10 +165,10 @@ export const TrashView: React.FC<TrashViewProps> = ({
           <button
             onClick={() => loadTrash()}
             disabled={isLoading || isProcessing}
-            className="p-1.5 rounded-lg border border-[#2d2e3d] hover:bg-[#20212c] text-gray-400 hover:text-white transition"
+            className="p-1 rounded-md text-content-muted hover:text-content-primary hover:bg-surface-cardHover transition disabled:opacity-40"
             title="새로고침"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
 
           {selectedIds.size > 0 && (
@@ -222,18 +176,18 @@ export const TrashView: React.FC<TrashViewProps> = ({
               <button
                 onClick={() => handleRestore(Array.from(selectedIds))}
                 disabled={isProcessing}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition shadow-sm"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-accent hover:bg-accent-hover text-white transition"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="w-3 h-3" />
                 <span>선택 복구 ({selectedIds.size})</span>
               </button>
 
               <button
                 onClick={() => handleDeletePermanently(Array.from(selectedIds))}
                 disabled={isProcessing}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-600/80 hover:bg-red-600 text-white transition shadow-sm"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-3 h-3" />
                 <span>영구 삭제 ({selectedIds.size})</span>
               </button>
             </>
@@ -242,116 +196,103 @@ export const TrashView: React.FC<TrashViewProps> = ({
           <button
             onClick={handleEmptyTrash}
             disabled={totalCount === 0 || isProcessing}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border ${
-              totalCount > 0
-                ? 'bg-[#1e171b] border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300'
-                : 'bg-[#171720] border-[#252530] text-gray-500 cursor-not-allowed'
-            }`}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-content-secondary hover:text-red-400 hover:bg-surface-cardHover transition disabled:opacity-40"
           >
-            <AlertTriangle className="w-3.5 h-3.5" />
+            <AlertTriangle className="w-3 h-3" />
             <span>휴지통 비우기</span>
           </button>
         </div>
       </div>
 
       {/* Main Content / Table */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-5">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-400 gap-3">
-            <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
-            <span className="text-sm">휴지통을 불러오는 중...</span>
+          <div className="flex flex-col items-center justify-center h-64 text-content-muted gap-2">
+            <RefreshCw className="w-5 h-5 animate-spin text-accent" />
+            <span className="text-xs">휴지통을 불러오는 중...</span>
           </div>
         ) : items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-80 text-gray-500 gap-3">
-            <div className="w-16 h-16 rounded-full bg-[#181822] flex items-center justify-center border border-[#262635]">
-              <Trash2 className="w-8 h-8 text-gray-500 stroke-[1.5]" />
-            </div>
-            <p className="text-sm font-medium text-gray-400">휴지통이 비어 있습니다.</p>
-            <p className="text-xs text-gray-500">파일을 삭제하면 언제든 여기서 다시 복구할 수 있습니다.</p>
+          <div className="flex flex-col items-center justify-center h-72 text-content-muted space-y-2">
+            <Trash2 className="w-10 h-10 stroke-[1.25] text-content-muted opacity-40 mb-1" />
+            <p className="text-xs font-medium text-content-secondary">휴지통이 비어 있습니다</p>
           </div>
         ) : (
-          <div className="bg-[#14151e] border border-[#242433] rounded-2xl overflow-hidden shadow-lg">
+          <div className="border border-surface-border rounded-lg overflow-hidden bg-surface-card/30">
             {/* Table Header */}
-            <div className="flex items-center px-4 py-3 bg-[#191a26] border-b border-[#242433] text-xs font-semibold text-gray-400 select-none">
+            <div className="flex items-center px-4 py-2 border-b border-surface-border text-xs text-content-muted select-none bg-surface-base">
               <button
                 onClick={handleSelectAll}
-                className="mr-3 text-gray-400 hover:text-white"
+                className="mr-3 text-content-muted hover:text-content-primary"
                 title={selectedIds.size === items.length ? "선택 해제" : "모두 선택"}
               >
                 {selectedIds.size > 0 && selectedIds.size === items.length ? (
-                  <CheckSquare className="w-4 h-4 text-blue-400" />
+                  <CheckSquare className="w-3.5 h-3.5 text-accent" />
                 ) : (
-                  <Square className="w-4 h-4" />
+                  <Square className="w-3.5 h-3.5" />
                 )}
               </button>
               <div className="flex-1 min-w-0">이름</div>
-              <div className="hidden md:block w-52 shrink-0 px-2">원래 위치</div>
-              <div className="hidden sm:block w-36 shrink-0 text-right px-2">삭제 날짜</div>
-              <div className="w-24 shrink-0 text-right px-2">크기</div>
-              <div className="w-24 shrink-0 text-center">동작</div>
+              <div className="hidden md:block w-48 shrink-0 px-2">원래 위치</div>
+              <div className="hidden sm:block w-32 shrink-0 text-right px-2">삭제 날짜</div>
+              <div className="w-20 shrink-0 text-right px-2">크기</div>
+              <div className="w-20 shrink-0 text-center">동작</div>
             </div>
 
             {/* Item Rows */}
-            <div className="divide-y divide-[#1e1f2b]">
+            <div className="divide-y divide-surface-borderSubtle">
               {items.map((item) => {
                 const isSelected = selectedIds.has(item.id);
                 return (
                   <div
                     key={item.id}
-                    className={`flex items-center px-4 py-3 text-xs transition group ${
-                      isSelected ? 'bg-blue-600/10' : 'hover:bg-[#1a1b26]'
+                    className={`flex items-center px-4 py-2 text-xs transition select-none ${
+                      isSelected ? 'bg-accent-subtle text-content-primary' : 'hover:bg-surface-cardHover text-content-secondary hover:text-content-primary'
                     }`}
                   >
-                    {/* Checkbox */}
                     <button
                       onClick={() => handleToggleSelect(item.id)}
-                      className="mr-3 text-gray-400 hover:text-white shrink-0"
+                      className="mr-3 text-content-muted hover:text-content-primary shrink-0"
                     >
                       {isSelected ? (
-                        <CheckSquare className="w-4 h-4 text-blue-400" />
+                        <CheckSquare className="w-3.5 h-3.5 text-accent" />
                       ) : (
-                        <Square className="w-4 h-4" />
+                        <Square className="w-3.5 h-3.5" />
                       )}
                     </button>
 
-                    {/* Name & Icon */}
-                    <div className="flex-1 min-w-0 flex items-center gap-2.5 pr-2">
+                    <div className="flex-1 min-w-0 flex items-center gap-2 pr-2">
                       <div className="shrink-0">
                         {item.isDir ? (
-                          <Folder className="w-4 h-4 text-amber-400 fill-amber-400/20" />
+                          <Folder className="w-4 h-4 text-accent" />
                         ) : (
-                          <FileText className="w-4 h-4 text-blue-400" />
+                          <FileText className="w-4 h-4 text-content-muted" />
                         )}
                       </div>
-                      <span className="font-medium text-gray-200 truncate" title={item.name}>
+                      <span className="font-normal truncate" title={item.name}>
                         {item.name}
                       </span>
                     </div>
 
-                    {/* Original Path */}
-                    <div className="hidden md:block w-52 shrink-0 px-2 text-gray-400 font-mono truncate" title={item.originalPath}>
-                      <span className="text-[10px] bg-[#222332] px-1.5 py-0.5 rounded text-gray-400 mr-1.5">
-                        {getStorageName(item.storageId)}
+                    <div className="hidden md:block w-48 shrink-0 px-2 text-content-muted font-mono truncate text-[11px]" title={item.originalPath}>
+                      <span className="text-[10px] text-content-muted mr-1">
+                        [{getStorageName(item.storageId)}]
                       </span>
                       {item.originalPath}
                     </div>
 
-                    {/* Deleted Date */}
-                    <div className="hidden sm:block w-36 shrink-0 text-right px-2 text-gray-400 font-mono text-[11px]">
+                    <div className="hidden sm:block w-32 shrink-0 text-right px-2 text-content-muted text-[11px]">
                       {formatDate(item.deletedAt)}
                     </div>
 
-                    {/* Size */}
-                    <div className="w-24 shrink-0 text-right px-2 font-mono text-gray-400 text-[11px]">
+                    <div className="w-20 shrink-0 text-right px-2 font-mono text-content-muted text-[11px]">
                       {formatBytes(item.size)}
                     </div>
 
-                    {/* Actions */}
-                    <div className="w-24 shrink-0 flex items-center justify-center gap-1.5">
+                    <div className="w-20 shrink-0 flex items-center justify-center gap-1">
                       <button
                         onClick={() => handleRestore([item.id])}
                         disabled={isProcessing}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition"
+                        className="p-1 rounded text-content-muted hover:text-accent hover:bg-surface-card transition"
                         title="원래 위치로 복구"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
@@ -359,7 +300,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
                       <button
                         onClick={() => handleDeletePermanently([item.id])}
                         disabled={isProcessing}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition"
+                        className="p-1 rounded text-content-muted hover:text-red-400 hover:bg-surface-card transition"
                         title="영구 삭제"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

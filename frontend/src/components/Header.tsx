@@ -1,26 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   HardDrive, 
-  Cpu, 
   Activity, 
   LayoutGrid, 
   List, 
   RefreshCw, 
   Search,
   Server,
-  Film,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
   Check,
   Menu,
-  ImageIcon,
-  Globe,
-  Trash2
+  Palette
 } from 'lucide-react';
-import { SystemStats, StorageInfo, SortField, SortOrder, NavTab, MediaFilter } from '../types';
+import { SystemStats, StorageInfo, SortField, SortOrder, NavTab, ThemeMode } from '../types';
 import { formatBytes } from '../utils/format';
-import { APP_VERSION, BUILD_DATE } from '../version';
+import { APP_VERSION } from '../version';
 
 interface HeaderProps {
   stats: SystemStats | null;
@@ -36,6 +32,8 @@ interface HeaderProps {
   sortOrder: SortOrder;
   onSortChange: (field: SortField) => void;
   onToggleSidebar?: () => void;
+  theme: ThemeMode;
+  onThemeChange: (theme: ThemeMode) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -52,15 +50,22 @@ export const Header: React.FC<HeaderProps> = ({
   sortOrder,
   onSortChange,
   onToggleSidebar,
+  theme,
+  onThemeChange,
 }) => {
   const disk = activeStorage ? activeStorage.disk : stats?.disk;
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [isThemeOpen, setIsThemeOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
+  const themeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
         setIsSortOpen(false);
+      }
+      if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
+        setIsThemeOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -71,163 +76,148 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'name', label: '이름순' },
     { id: 'date', label: '수정일순' },
     { id: 'size', label: '크기순' },
-    { id: 'type', label: '파일 형식순' },
+    { id: 'type', label: '종류순' },
+  ];
+
+  const themeOptions: { id: ThemeMode; label: string; desc: string }[] = [
+    { id: 'macos', label: 'macOS Native', desc: 'Apple 데스크톱 유틸리티' },
+    { id: 'console', label: 'Hardware Console', desc: '산업용 계측기 콘솔' },
+    { id: 'studio', label: 'Studio Minimal', desc: '흑백 초미니멀' },
   ];
 
   return (
-    <header className="h-16 border-b border-[#252530] bg-[#16161d] px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm gap-2">
-      {/* Brand & Hostname */}
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+    <header className="h-14 border-b border-surface-border bg-surface-header px-4 sm:px-5 flex items-center justify-between sticky top-0 z-30 select-none">
+      {/* Brand & System Title */}
+      <div className="flex items-center gap-3 shrink-0">
         {onToggleSidebar && (
           <button
             onClick={onToggleSidebar}
-            className="p-1.5 -ml-1 text-gray-400 hover:text-white md:hidden rounded-lg hover:bg-[#1f1f28] transition"
-            title="메뉴 열기"
+            className="p-1.5 -ml-1 text-content-secondary hover:text-content-primary md:hidden rounded hover:bg-surface-cardHover transition"
+            title="사이드바 열기"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-4 h-4" />
           </button>
         )}
-        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
-          <Server className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-        </div>
-        <div>
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-sm sm:text-base text-white tracking-tight">MiniNAS</span>
-            <span 
-              className="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-              title={`빌드 버전: ${APP_VERSION} (${BUILD_DATE})`}
-            >
-              {APP_VERSION}
-            </span>
-            <span className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              Mac mini 2011
-            </span>
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded bg-surface-card border border-surface-border flex items-center justify-center text-content-primary shrink-0">
+            <Server className="w-3.5 h-3.5 text-accent" />
           </div>
-          <p className="text-[11px] text-gray-400 font-mono hidden md:block">
-            {stats ? `${stats.hostname} (${stats.os})` : 'Connecting...'}
-          </p>
+          <div className="flex items-baseline gap-2">
+            <span className="font-semibold text-sm text-content-primary tracking-tight">MiniNAS</span>
+            <span className="text-[11px] font-mono text-content-muted">v{APP_VERSION}</span>
+          </div>
         </div>
       </div>
 
-      {/* Center: Search input & Media Filter Chips or Hub Header Badge */}
-      <div className="flex-1 max-w-xl mx-1 sm:mx-6 min-w-0">
+      {/* Center: Search input */}
+      <div className="flex-1 max-w-md mx-4 min-w-0">
         {activeTab === 'files' ? (
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className="relative flex-1 max-w-md">
-              <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 absolute left-2.5 sm:left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="현재 폴더 내 빠른 필터/검색..."
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full bg-[#1f1f28] border border-[#2e2e3d] rounded-lg pl-8 sm:pl-10 pr-2 sm:pr-4 py-1.5 text-xs sm:text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/60 transition"
-              />
-            </div>
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-content-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="파일 필터 및 검색..."
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="w-full bg-surface-base border border-surface-border focus:border-accent rounded pl-8 pr-3 py-1 text-xs text-content-primary placeholder-content-muted focus:outline-none transition"
+            />
           </div>
         ) : (
-          <div className="flex items-center justify-center">
-            {activeTab === 'cinema' && (
-              <span className="flex items-center gap-2 text-xs sm:text-sm text-red-400 font-semibold px-3 py-1 rounded-full bg-red-950/30 border border-red-800/40">
-                <Film className="w-3.5 h-3.5" />
-                시네마 허브 (Cinema)
-              </span>
-            )}
-            {activeTab === 'photos' && (
-              <span className="flex items-center gap-2 text-xs sm:text-sm text-amber-400 font-semibold px-3 py-1 rounded-full bg-amber-950/30 border border-amber-800/40">
-                <ImageIcon className="w-3.5 h-3.5" />
-                포토 & 모먼트 (Photos)
-              </span>
-            )}
-            {activeTab === 'sites' && (
-              <span className="flex items-center gap-2 text-xs sm:text-sm text-emerald-400 font-semibold px-3 py-1 rounded-full bg-emerald-950/30 border border-emerald-800/40">
-                <Globe className="w-3.5 h-3.5" />
-                웹 사이트 쇼케이스 (Sites)
-              </span>
-            )}
-            {activeTab === 'trash' && (
-              <span className="flex items-center gap-2 text-xs sm:text-sm text-gray-300 font-semibold px-3 py-1 rounded-full bg-gray-800/50 border border-gray-700/50">
-                <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                휴지통 (Trash)
-              </span>
-            )}
+          <div className="text-center">
+            <span className="text-xs font-medium text-content-secondary">
+              {activeTab === 'cinema' && '시네마'}
+              {activeTab === 'photos' && '사진 및 비디오'}
+              {activeTab === 'sites' && '웹 사이트'}
+              {activeTab === 'trash' && '휴지통'}
+            </span>
           </div>
         )}
       </div>
 
-      {/* Right: Stats & View controls */}
-      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+      {/* Right: Stats, Theme & View controls */}
+      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
         {/* Hardware Status Chips */}
         {stats && (
-          <div className="hidden xl:flex items-center gap-3 text-xs bg-[#1f1f28] border border-[#2a2a38] px-3.5 py-1.5 rounded-lg">
-            {/* Disk */}
+          <div className="hidden lg:flex items-center gap-3 text-[11px] text-content-secondary px-2.5 py-1 rounded bg-surface-base border border-surface-borderSubtle">
             {disk && (
-              <div className="flex items-center gap-2" title={`${activeStorage?.name || '디스크'}: 총 ${formatBytes(disk.totalBytes)} 중 ${formatBytes(disk.usedBytes)} 사용`}>
-                <HardDrive className="w-3.5 h-3.5 text-blue-400" />
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-gray-400 leading-none truncate max-w-[70px]">
-                    {activeStorage ? activeStorage.name : '디스크'}
-                  </span>
-                  <span className="font-mono text-gray-200 font-medium">
-                    {disk.usedPercent.toFixed(0)}%
-                  </span>
-                </div>
-                <div className="w-10 h-1.5 bg-[#2c2c3b] rounded-full overflow-hidden ml-1">
-                  <div 
-                    className={`h-full rounded-full ${disk.usedPercent > 85 ? 'bg-red-500' : 'bg-blue-500'}`}
-                    style={{ width: `${Math.min(disk.usedPercent, 100)}%` }}
-                  />
-                </div>
+              <div className="flex items-center gap-1.5" title={`저장소: ${formatBytes(disk.usedBytes)} / ${formatBytes(disk.totalBytes)}`}>
+                <HardDrive className="w-3 h-3 text-content-muted" />
+                <span className="font-mono">{disk.usedPercent.toFixed(0)}%</span>
               </div>
             )}
-
-            <div className="w-px h-5 bg-[#2f2f3d]" />
-
-            {/* RAM */}
-            <div className="flex items-center gap-2" title={`메모리: ${formatBytes(stats.memory.usedBytes)} / ${formatBytes(stats.memory.totalBytes)}`}>
-              <Activity className="w-3.5 h-3.5 text-emerald-400" />
-              <div className="flex flex-col">
-                <span className="text-[10px] text-gray-400 leading-none">RAM</span>
-                <span className="font-mono text-gray-200 font-medium">{stats.memory.usedPercent.toFixed(0)}%</span>
-              </div>
+            <div className="w-px h-3 bg-surface-border" />
+            <div className="flex items-center gap-1.5" title={`RAM: ${formatBytes(stats.memory.usedBytes)} / ${formatBytes(stats.memory.totalBytes)}`}>
+              <Activity className="w-3 h-3 text-content-muted" />
+              <span className="font-mono">RAM {stats.memory.usedPercent.toFixed(0)}%</span>
             </div>
-
-            <div className="w-px h-5 bg-[#2f2f3d]" />
-
-            {/* CPU */}
-            <div className="flex items-center gap-2">
-              <Cpu className="w-3.5 h-3.5 text-purple-400" />
-              <div className="flex flex-col">
-                <span className="text-[10px] text-gray-400 leading-none">CPU</span>
-                <span className="font-mono text-gray-200 font-medium">{stats.cpuPercent.toFixed(1)}%</span>
-              </div>
+            <div className="w-px h-3 bg-surface-border" />
+            <div className="flex items-center gap-1.5" title="CPU 부하">
+              <span className="font-mono">CPU {stats.cpuPercent.toFixed(0)}%</span>
             </div>
           </div>
         )}
+
+        {/* Theme Switcher Dropdown */}
+        <div className="relative" ref={themeRef}>
+          <button
+            onClick={() => setIsThemeOpen(!isThemeOpen)}
+            className="flex items-center gap-1.5 px-2 py-1 text-xs text-content-secondary hover:text-content-primary bg-surface-base hover:bg-surface-cardHover border border-surface-border rounded transition"
+            title="테마 스타일 변경"
+          >
+            <Palette className="w-3.5 h-3.5 text-accent" />
+            <span className="hidden sm:inline font-medium">
+              {theme === 'macos' ? 'macOS' : theme === 'console' ? 'Console' : 'Studio'}
+            </span>
+          </button>
+
+          {isThemeOpen && (
+            <div className="absolute right-0 mt-1 w-44 bg-surface-card border border-surface-border rounded shadow-xl py-1 z-40 text-xs">
+              <div className="px-3 py-1 text-[10px] text-content-muted font-medium border-b border-surface-borderSubtle">
+                디자인 스타일 선택
+              </div>
+              {themeOptions.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => {
+                    onThemeChange(opt.id);
+                    setIsThemeOpen(false);
+                  }}
+                  className="w-full px-3 py-1.5 text-left flex items-start justify-between text-content-primary hover:bg-surface-cardHover transition"
+                >
+                  <div>
+                    <div className="font-medium">{opt.label}</div>
+                    <div className="text-[10px] text-content-muted">{opt.desc}</div>
+                  </div>
+                  {theme === opt.id && (
+                    <Check className="w-3.5 h-3.5 text-accent mt-0.5 shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Sorting Dropdown (Only in 'files' mode) */}
         {activeTab === 'files' && (
           <div className="relative" ref={sortRef}>
             <button
               onClick={() => setIsSortOpen(!isSortOpen)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-300 hover:text-white bg-[#1f1f28] hover:bg-[#282838] border border-[#2a2a38] rounded-lg transition"
+              className="flex items-center gap-1.5 px-2 py-1 text-xs text-content-secondary hover:text-content-primary bg-surface-base hover:bg-surface-cardHover border border-surface-border rounded transition"
               title="정렬 기준"
             >
-              <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+              <ArrowUpDown className="w-3.5 h-3.5 text-content-muted" />
               <span className="hidden sm:inline">
                 {sortOptions.find(o => o.id === sortField)?.label}
               </span>
               {sortOrder === 'asc' ? (
-                <ArrowUp className="w-3 h-3 text-blue-400" />
+                <ArrowUp className="w-3 h-3 text-accent" />
               ) : (
-                <ArrowDown className="w-3 h-3 text-blue-400" />
+                <ArrowDown className="w-3 h-3 text-accent" />
               )}
             </button>
 
             {isSortOpen && (
-              <div className="absolute right-0 mt-1 w-36 bg-[#1c1c28] border border-[#2e2e42] rounded-xl shadow-xl py-1 z-40 text-xs animate-scaleUp">
-                <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                  정렬 방식
-                </div>
+              <div className="absolute right-0 mt-1 w-32 bg-surface-card border border-surface-border rounded shadow-lg py-1 z-40 text-xs">
                 {sortOptions.map((opt) => (
                   <button
                     key={opt.id}
@@ -235,11 +225,11 @@ export const Header: React.FC<HeaderProps> = ({
                       onSortChange(opt.id);
                       setIsSortOpen(false);
                     }}
-                    className="w-full px-3 py-2 text-left flex items-center justify-between text-gray-200 hover:bg-[#28283a] transition"
+                    className="w-full px-3 py-1.5 text-left flex items-center justify-between text-content-primary hover:bg-surface-cardHover transition"
                   >
                     <span>{opt.label}</span>
                     {sortField === opt.id && (
-                      <Check className="w-3.5 h-3.5 text-blue-400" />
+                      <Check className="w-3 h-3 text-accent" />
                     )}
                   </button>
                 ))}
@@ -250,20 +240,20 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* View mode toggle (Only in 'files' mode) */}
         {activeTab === 'files' && (
-          <div className="flex items-center bg-[#1f1f28] border border-[#2a2a38] rounded-lg p-0.5">
+          <div className="flex items-center bg-surface-base border border-surface-border rounded p-0.5">
             <button
               onClick={() => onViewModeChange('grid')}
-              className={`p-1.5 rounded-md transition ${viewMode === 'grid' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
-              title="격자 보기"
+              className={`p-1 rounded transition ${viewMode === 'grid' ? 'bg-surface-cardHover text-content-primary' : 'text-content-muted hover:text-content-primary'}`}
+              title="아이콘 보기"
             >
-              <LayoutGrid className="w-4 h-4" />
+              <LayoutGrid className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => onViewModeChange('list')}
-              className={`p-1.5 rounded-md transition ${viewMode === 'list' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
+              className={`p-1 rounded transition ${viewMode === 'list' ? 'bg-surface-cardHover text-content-primary' : 'text-content-muted hover:text-content-primary'}`}
               title="목록 보기"
             >
-              <List className="w-4 h-4" />
+              <List className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
@@ -272,10 +262,10 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onRefresh}
           disabled={isRefreshing}
-          className="p-2 text-gray-400 hover:text-gray-200 hover:bg-[#1f1f28] rounded-lg border border-transparent hover:border-[#2a2a38] transition disabled:opacity-50"
+          className="p-1.5 text-content-muted hover:text-content-primary hover:bg-surface-cardHover rounded transition disabled:opacity-40"
           title="새로고침"
         >
-          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-blue-400' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-accent' : ''}`} />
         </button>
       </div>
     </header>

@@ -34,33 +34,30 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#1c1c24] border border-[#2d2d3d] rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] flex items-center justify-center p-4">
+      <div className="bg-surface-card border border-surface-border rounded-lg max-w-sm w-full p-5 shadow-xl relative text-content-primary">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white p-1"
+          className="absolute top-4 right-4 text-content-muted hover:text-content-primary p-1 rounded transition"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
-        <h3 className="text-white font-semibold text-lg">파일 업로드</h3>
-        <p className="text-gray-400 text-xs mt-1">
-          업로드 위치: <span className="text-blue-400 font-mono">{targetPath || '/'}</span>
+        <h3 className="font-semibold text-sm">파일 업로드</h3>
+        <p className="text-[11px] text-content-muted mt-0.5 truncate">
+          위치: <span className="font-mono text-content-secondary">{targetPath || '/'}</span>
         </p>
 
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className="mt-5 border-2 border-dashed border-[#38384d] hover:border-blue-500 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer bg-[#15151c]/60 hover:bg-[#1f1f2a] transition group"
+          className="mt-4 border border-dashed border-surface-border hover:border-accent rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer bg-surface-base hover:bg-surface-cardHover transition"
         >
-          <div className="w-14 h-14 rounded-2xl bg-blue-600/10 group-hover:bg-blue-600/20 text-blue-400 flex items-center justify-center mb-3 transition">
-            <UploadCloud className="w-8 h-8" />
-          </div>
-          <p className="text-sm font-medium text-gray-200">
-            클릭하여 파일을 선택하거나 여기로 드래그하세요
+          <UploadCloud className="w-8 h-8 text-content-muted mb-2 stroke-[1.25]" />
+          <p className="text-xs font-normal text-content-secondary">
+            클릭하여 파일 선택 또는 드래그 앤 드롭
           </p>
-          <p className="text-xs text-gray-500 mt-1">대용량 동영상, 사진, 문서 지원</p>
 
           <input
             type="file"

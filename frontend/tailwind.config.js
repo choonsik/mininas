@@ -8,14 +8,33 @@ export default {
   theme: {
     extend: {
       colors: {
-        mac: {
-          bg: '#1e1e24',
-          card: '#282830',
-          hover: '#32323c',
-          accent: '#0a84ff',
-          text: '#f5f5f7',
-          muted: '#86868b',
+        surface: {
+          base: 'var(--surface-base)',
+          header: 'var(--surface-header)',
+          sidebar: 'var(--surface-sidebar)',
+          card: 'var(--surface-card)',
+          cardHover: 'var(--surface-card-hover)',
+          border: 'var(--surface-border)',
+          borderSubtle: 'var(--surface-border-subtle)',
+        },
+        accent: {
+          DEFAULT: 'var(--accent)',
+          hover: 'var(--accent-hover)',
+          subtle: 'var(--accent-subtle)',
+        },
+        content: {
+          primary: 'var(--content-primary)',
+          secondary: 'var(--content-secondary)',
+          muted: 'var(--content-muted)',
         }
+      },
+      borderRadius: {
+        none: '0px',
+        sm: 'var(--radius-sm)',
+        DEFAULT: 'var(--radius)',
+        md: 'var(--radius)',
+        lg: 'calc(var(--radius) * 1.5)',
+        xl: 'calc(var(--radius) * 2)',
       }
     },
   },
