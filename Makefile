@@ -20,6 +20,26 @@ deploy:
 	@chmod +x deploy/*.sh deploy/templates/*.sh
 	@bash deploy/remote-deploy.sh $(TARGET)
 
+# GitHub Releases 배포 (태그 기준 아카이브 .tar.gz 및 릴리즈 노트 업로드)
+release-gh: package
+	@TAG=$$(git describe --tags --exact-match 2>/dev/null || echo ""); \
+	if [ -z "$$TAG" ]; then \
+		echo "❌ 현재 커밋에 태그가 없습니다. git tag 후 실행하세요."; \
+		exit 1; \
+	fi; \
+	ARCHIVE="release/mininas-$${TAG}-intel-mac.tar.gz"; \
+	if [ ! -f "$$ARCHIVE" ]; then \
+		ARCHIVE=$$(ls -t release/*.tar.gz 2>/dev/null | head -n 1); \
+	fi; \
+	NOTES="docs/RELEASE_NOTES_$${TAG}.md"; \
+	echo "🚀 GitHub 릴리즈 업로드: $$TAG ($$ARCHIVE)"; \
+	if [ -f "$$NOTES" ]; then \
+		gh release create "$$TAG" "$$ARCHIVE" --title "MiniNAS $$TAG" --notes-file "$$NOTES" 2>/dev/null || gh release upload "$$TAG" "$$ARCHIVE" --clobber; \
+	else \
+		gh release create "$$TAG" "$$ARCHIVE" --title "MiniNAS $$TAG" --generate-notes 2>/dev/null || gh release upload "$$TAG" "$$ARCHIVE" --clobber; \
+	fi; \
+	echo "✅ GitHub Release 등록 완료: https://github.com/choonsik/mininas/releases/tag/$$TAG"
+
 # 2011 Mac mini (Intel x86_64) 단일 바이너리 빌드
 build-intel:
 	@echo "📦 1/2: 프론트엔드 빌드 중..."
