@@ -43,6 +43,12 @@ The goal is clear, simple, and unambiguous communication.
   - Standard: `If the build fails, read the error log.`
   - Avoid: `Read the error log if the build fails.`
 
+### 2.6 Minimize Decorative Emojis (No AI Slop)
+- Do not use decorative or cliché emojis (e.g., 🚀, 🌟, ✨, 📌, 💡, 🔥, ⚡, 🛡️, 🎯, 🧪, 📦) in headings, lists, or titles.
+- Do not use emojis as heading prefixes or bullet markers.
+- Maintain a clean, professional technical writing tone.
+- Restrict emoji or symbol usage only to functional status indicators (e.g., pass/fail in test logs or UI badge states) when strictly necessary.
+
 ---
 
 ## 3. GitHub Application Guidelines
@@ -53,6 +59,7 @@ The goal is clear, simple, and unambiguous communication.
   - Capitalize the first letter.
   - Do not put a period at the end.
   - Keep under 50-72 characters.
+  - Do not include emojis in commit titles.
 - **Body** (when needed):
   - State what changed and why in 1-3 short sentences.
   - Follow ASD-STE100 sentence length rules (under 20 words per sentence).
@@ -68,8 +75,11 @@ The goal is clear, simple, and unambiguous communication.
     4. Confirm that the dashboard status is `Online`.
 
 ### 3.3 Korean Communication Standard
-When writing PR comments, issue replies, or documentation in Korean, apply the same ASD-STE100 philosophy:
+When writing PR comments, issue replies, release notes, or documentation in Korean, apply the same ASD-STE100 philosophy:
 - 1문장 1의미의 단문 위주로 작성합니다.
 - 불필요한 피동 표현(~되어지다, ~에 의해 처리되다)을 배제하고 능동형으로 서술합니다.
 - 모호한 한자어 및 복잡한 수식어를 줄이고, 직관적이고 명확한 실무 용어를 사용합니다.
 - 작업 절차는 번호 매기기 목록으로 단계당 하나의 행동만 기술합니다.
+- **장식용 이모지 최소화 (AI Slop 배제)**:
+  - 제목(Header), 목록 머리글(Bullet), 커밋 메시지, 본문에 의미 없는 장식용 이모지(🌟, 🚀, 📌, 💡, ⚡, 🛡️ 등)를 사용하지 않습니다.
+  - 과장된 수식어와 이모지 도배를 배제하고, 절제되고 신뢰성 있는 엔지니어링 문서 톤앤매너를 유지합니다.

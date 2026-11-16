@@ -7,7 +7,7 @@
 
 ---
 
-## 📌 릴리즈 개요
+## 릴리즈 개요
 
 MiniNAS v0.5는 **"화질 손실 없이(100% 원본 유지), 네트워크 상태에 따른 동영상 끊김(버퍼링) 현상을 개선"**한 미디어 스트리밍 최적화 릴리즈입니다.
 
@@ -15,7 +15,7 @@ MiniNAS v0.5는 **"화질 손실 없이(100% 원본 유지), 네트워크 상태
 
 ---
 
-## 🌟 주요 변경 사항 (What's New)
+## 주요 변경 사항
 
 ### 1. 프론트엔드 스마트 버퍼링 & 안티 채터링 (Anti-Chattering)
 * **적극적 선행 다운로드 (`preload="auto"`)**:
@@ -26,10 +26,8 @@ MiniNAS v0.5는 **"화질 손실 없이(100% 원본 유지), 네트워크 상태
 * **반투명 충전 HUD 오버레이**:
   * 버퍼 고갈 시 화면 중앙에 현재 충전 상태(`현재 X.Xs / 목표 4.0s`)를 시각화합니다.
 * **실시간 스트리밍 버퍼 HUD 상태 바**:
-  * 비디오 플레이어 하단에 현재 확보된 버퍼 초수(예: `34.2초 확보됨`) 및 상태 뱃지(🟢 매우 쾌적 / 🟡 안전 / 🔴 버퍼 부족)를 실시간 표시합니다.
+  * 비디오 플레이어 하단에 현재 확보된 버퍼 초수(예: `34.2초 확보됨`) 및 상태 배지(매우 쾌적 / 안전 / 버퍼 부족)를 실시간 표시합니다.
   * 전체 영상 길이 대비 다운로드 완료 구간 비율(%)을 표시합니다.
-* **[⚡ 10초 안전 버퍼 충전] 원클릭 부스터**:
-  * 외부 LTE나 신호가 불안정한 Wi-Fi 환경에서 원클릭으로 10초 분량의 버퍼를 미리 채운 뒤 연속 감상하는 수동 부스터를 지원합니다.
 
 ### 2. 백엔드 무손실 FastStart 웹 최적화 (`media_converter.go`)
 * **100% 무손실 FastStart 헤더 이동 (`-c copy -movflags +faststart`)**:
@@ -41,15 +39,17 @@ MiniNAS v0.5는 **"화질 손실 없이(100% 원본 유지), 네트워크 상태
   * 오디오 변환 시에도 항상 FastStart를 기본 적용합니다.
 
 ### 3. 상세 기술 문서 및 벤치마크 보고서 추가
-* **[docs/VIDEO_STREAMING_OPTIMIZATION.md](file:///Users/choonsik/Documents/antigravity/nas/docs/VIDEO_STREAMING_OPTIMIZATION.md)**:
+* **[docs/VIDEO_STREAMING_OPTIMIZATION.md](docs/VIDEO_STREAMING_OPTIMIZATION.md)**:
   * 버퍼링의 역설, 무손실 스트리밍 4단계 솔루션, Seek 메커니즘 분석.
-* **[docs/BENCHMARK_STREAMING_OPTIMIZATION.md](file:///Users/choonsik/Documents/antigravity/nas/docs/BENCHMARK_STREAMING_OPTIMIZATION.md)**:
+* **[docs/BENCHMARK_STREAMING_OPTIMIZATION.md](docs/BENCHMARK_STREAMING_OPTIMIZATION.md)**:
   * 기존 방식 대비 정량적 지표 비교 (TTFF, Seek 지연, 채터링 횟수 등) 및 네트워크 시나리오별 벤치마크, 개발자 도구(DevTools) 실전 검증 가이드 수록.
+* **[docs/README.md](docs/README.md)**:
+  * 전체 기술 문서 인덱스 및 규격서 링크.
 
 ---
 
-## 🛡️ 시스템 검증 및 안정성
-* **하네스 테스트(Test Harness) 4단계 ALL GREEN**:
+## 시스템 검증 및 안정성
+* **하네스 테스트(Test Harness) 4단계 통과**:
   * 프론트엔드 빌드 및 TypeScript 정적 타입 검사 100% 통과
   * 백엔드 API & 경로 탈출 보안 유닛 테스트 100% 통과
   * 2011 Mac mini (macOS 10.13 High Sierra) 호환성 정적 검사 통과
