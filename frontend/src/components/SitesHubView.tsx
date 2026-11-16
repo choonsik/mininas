@@ -56,7 +56,9 @@ const SitePreviewThumbnail: React.FC<{ url: string; title: string }> = ({ url, t
           title={title}
           tabIndex={-1}
           loading="lazy"
-          className="w-full h-full border-none select-none"
+          scrolling="no"
+          className="w-full h-full border-none select-none overflow-hidden"
+          style={{ overflow: 'hidden' }}
         />
       </div>
 
