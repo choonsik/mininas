@@ -152,17 +152,6 @@ export const FileDetailsModal: React.FC<FileDetailsModalProps> = ({
                 다운로드
               </a>
             )}
-            {!item.isDir && (item.ext === '.html' || item.ext === '.htm') && (
-              <a
-                href={api.getHostUrl(item.path, storageId)}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50 rounded-lg transition"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                웹 호스팅 열기
-              </a>
-            )}
           </div>
           <button
             onClick={onClose}

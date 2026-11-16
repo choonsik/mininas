@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { FileList } from './components/FileList';
-import { NetflixView } from './components/NetflixView';
 import { MediaViewer } from './components/MediaViewer';
 import { UploadModal } from './components/UploadModal';
 import { NewFolderModal } from './components/NewFolderModal';
@@ -11,7 +10,10 @@ import { FileDetailsModal } from './components/FileDetailsModal';
 import { MoveModal } from './components/MoveModal';
 import { ContextMenu } from './components/ContextMenu';
 import { TrashView } from './components/TrashView';
-import { FileItem, SystemStats, StorageInfo, SortField, SortOrder, ClipboardItem } from './types';
+import { SitesHubView } from './components/SitesHubView';
+import { CinemaHubView } from './components/CinemaHubView';
+import { PhotosHubView } from './components/PhotosHubView';
+import { FileItem, SystemStats, StorageInfo, SortField, SortOrder, ClipboardItem, NavTab } from './types';
 import { api } from './api';
 import { UploadCloud, CheckCircle, AlertCircle, X, Clipboard, ArrowRight } from 'lucide-react';
 
@@ -31,13 +33,19 @@ export const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [stats, setStats] = useState<SystemStats | null>(null);
 
-  // Filters & Search & ViewMode
-  const [currentFilter, setCurrentFilter] = useState<string>('all');
+  // Active Hub & Search & ViewMode
+  const [activeTab, setActiveTab] = useState<NavTab>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get('tab') as NavTab;
+    if (t === 'cinema' || t === 'photos' || t === 'sites' || t === 'trash') return t;
+    return 'files';
+  });
+  const [returnBanner, setReturnBanner] = useState<{ fromTab: NavTab; label: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'netflix'>(() => {
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
     const params = new URLSearchParams(window.location.search);
     const v = params.get('view');
-    return v === 'list' || v === 'netflix' ? v : 'grid';
+    return v === 'list' ? 'list' : 'grid';
   });
 
   // Sorting
@@ -52,6 +60,7 @@ export const App: React.FC = () => {
 
   // Modals & Viewers
   const [activeMediaItem, setActiveMediaItem] = useState<FileItem | null>(null);
+  const [cinemaPlaylist, setCinemaPlaylist] = useState<FileItem[]>([]);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isNewFolderOpen, setIsNewFolderOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<FileItem | null>(null);
@@ -86,14 +95,10 @@ export const App: React.FC = () => {
     return storages.find(s => s.id === activeStorageId) || storages[0] || null;
   }, [storages, activeStorageId]);
 
-  // Check if current directory has video files
-  const hasVideos = useMemo(() => {
-    return items.some(item => !item.isDir && item.mediaType === 'video');
-  }, [items]);
-
   // Build URL helper
-  const buildUrl = (storageId: string, path: string, view: string = viewMode, playName?: string) => {
+  const buildUrl = (storageId: string, path: string, view: string = viewMode, playName?: string, tab: NavTab = activeTab) => {
     const params = new URLSearchParams();
+    if (tab && tab !== 'files') params.set('tab', tab);
     if (storageId) params.set('storage', storageId);
     if (path && path !== '/') params.set('path', path);
     if (view && view !== 'grid') params.set('view', view);
@@ -121,7 +126,7 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Load files
+  // Load files (Current directory explorer)
   const loadFiles = useCallback(async (path: string, storageId: string) => {
     setIsLoading(true);
     try {
@@ -151,10 +156,11 @@ export const App: React.FC = () => {
     const initialStorage = params.get('storage') || activeStorageId;
     const initialPath = params.get('path') || currentPath;
     const initialView = (params.get('view') as any) || viewMode;
+    const initialTab = (params.get('tab') as NavTab) || activeTab;
     window.history.replaceState(
-      { storageId: initialStorage, path: initialPath, view: initialView },
+      { tab: initialTab, storageId: initialStorage, path: initialPath, view: initialView },
       '',
-      buildUrl(initialStorage, initialPath, initialView)
+      buildUrl(initialStorage, initialPath, initialView, undefined, initialTab)
     );
   }, []);
 
@@ -163,6 +169,11 @@ export const App: React.FC = () => {
     const handlePopState = (e: PopStateEvent) => {
       const state = e.state;
       if (state) {
+        if (state.tab) {
+          setActiveTab(state.tab);
+        } else {
+          setActiveTab('files');
+        }
         if (state.storageId) {
           setActiveStorageId(state.storageId);
         }
@@ -180,6 +191,10 @@ export const App: React.FC = () => {
         } else {
           setActiveMediaItem(null);
         }
+      } else {
+        const params = new URLSearchParams(window.location.search);
+        const t = (params.get('tab') as NavTab) || 'files';
+        setActiveTab(t);
       }
     };
 
@@ -203,7 +218,7 @@ export const App: React.FC = () => {
   }, [currentPath, activeStorageId, loadFiles]);
 
   // Handle URL changes on view mode change
-  const handleViewModeChange = (mode: 'grid' | 'list' | 'netflix') => {
+  const handleViewModeChange = (mode: 'grid' | 'list') => {
     setViewMode(mode);
     window.history.replaceState(
       { storageId: activeStorageId, path: currentPath, view: mode },
@@ -212,27 +227,60 @@ export const App: React.FC = () => {
     );
   };
 
+  // Handle switching active tab/hub
+  const handleSelectTab = (tab: NavTab) => {
+    setActiveTab(tab);
+    if (tab !== 'files') {
+      setReturnBanner(null);
+    }
+    window.history.pushState(
+      { tab, storageId: activeStorageId, path: currentPath, view: viewMode },
+      '',
+      buildUrl(activeStorageId, currentPath, viewMode, undefined, tab)
+    );
+  };
+
   // Handle directory navigation
   const handleNavigate = (path: string) => {
     setCurrentPath(path);
     setSelectedPaths(new Set());
     window.history.pushState(
-      { storageId: activeStorageId, path, view: viewMode },
+      { tab: 'files', storageId: activeStorageId, path, view: viewMode },
       '',
-      buildUrl(activeStorageId, path, viewMode)
+      buildUrl(activeStorageId, path, viewMode, undefined, 'files')
+    );
+  };
+
+  // Handle cross-storage navigation
+  const handleNavigateToStorage = (storageId: string, path: string = '/', fromHub?: { tab: NavTab; label: string }) => {
+    setActiveTab('files');
+    if (fromHub) {
+      setReturnBanner({ fromTab: fromHub.tab, label: fromHub.label });
+    }
+    setActiveStorageId(storageId);
+    setCurrentPath(path);
+    setSelectedPaths(new Set());
+    loadFiles(path, storageId);
+    window.history.pushState(
+      { tab: 'files', storageId, path, view: viewMode },
+      '',
+      buildUrl(storageId, path, viewMode, undefined, 'files')
     );
   };
 
   // Handle switching active storage
   const handleSelectStorage = (storageId: string) => {
+    setActiveTab('files');
+    setReturnBanner(null);
+    setSearchQuery('');
     setActiveStorageId(storageId);
     setCurrentPath('/');
-    setCurrentFilter('all');
     setSelectedPaths(new Set());
+    loadFiles('/', storageId);
     window.history.pushState(
-      { storageId, path: '/', view: viewMode },
+      { tab: 'files', storageId, path: '/', view: viewMode },
       '',
-      buildUrl(storageId, '/', viewMode)
+      buildUrl(storageId, '/', viewMode, undefined, 'files')
     );
   };
 
@@ -249,10 +297,11 @@ export const App: React.FC = () => {
   // Handle closing media viewer
   const handleCloseMedia = () => {
     setActiveMediaItem(null);
+    setCinemaPlaylist([]);
     window.history.pushState(
-      { storageId: activeStorageId, path: currentPath, view: viewMode },
+      { storageId: activeStorageId, path: currentPath, view: viewMode, tab: activeTab },
       '',
-      buildUrl(activeStorageId, currentPath, viewMode)
+      buildUrl(activeStorageId, currentPath, viewMode, undefined, activeTab)
     );
   };
 
@@ -492,6 +541,15 @@ export const App: React.FC = () => {
   }, [selectedPaths, clipboard, currentPath, activeStorageId]);
 
   // Context Menu handlers
+  const handlePinToSites = async (item: FileItem) => {
+    try {
+      await api.pinSite(activeStorageId, item.path);
+      showToast(`'${item.name}' 항목이 사이트 허브에 고정되었습니다.`, 'success');
+    } catch (err: any) {
+      showToast(`사이트 고정 실패: ${err.message}`, 'error');
+    }
+  };
+
   const handleItemContextMenu = (e: React.MouseEvent, item: FileItem) => {
     e.preventDefault();
     e.stopPropagation();
@@ -511,13 +569,10 @@ export const App: React.FC = () => {
 
   // Filtered, searched, and sorted items
   const sortedItems = useMemo(() => {
-    // 1. Filter
+    // 1. Search Query (Quick inline filter)
     const filtered = items.filter(item => {
-      if (currentFilter !== 'all' && !item.isDir && item.mediaType !== currentFilter) {
+      if (searchQuery.trim() && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false;
-      }
-      if (searchQuery.trim()) {
-        return item.name.toLowerCase().includes(searchQuery.toLowerCase());
       }
       return true;
     });
@@ -545,7 +600,7 @@ export const App: React.FC = () => {
 
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [items, currentFilter, searchQuery, sortField, sortOrder]);
+  }, [items, searchQuery, sortField, sortOrder]);
 
   return (
     <div 
@@ -558,13 +613,13 @@ export const App: React.FC = () => {
       <Header
         stats={stats}
         activeStorage={activeStorage}
+        activeTab={activeTab}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         viewMode={viewMode}
         onViewModeChange={handleViewModeChange}
         onRefresh={() => loadFiles(currentPath, activeStorageId)}
         isRefreshing={isLoading}
-        hasVideos={hasVideos}
         sortField={sortField}
         sortOrder={sortOrder}
         onSortChange={handleSortChange}
@@ -573,95 +628,126 @@ export const App: React.FC = () => {
 
       {/* Main Body */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Sidebar (Hide in Netflix View for full immersion, or keep compact) */}
-        {viewMode !== 'netflix' && (
-          <>
-            {/* Mobile Backdrop */}
-            {isMobileSidebarOpen && (
-              <div
-                className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm transition-opacity"
-                onClick={() => setIsMobileSidebarOpen(false)}
-              />
-            )}
-
-            {/* Sidebar Container: Fixed Drawer on Mobile, Relative Flex Column on Desktop */}
-            <div className={`
-              ${isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-50 flex shadow-2xl animate-slideRight' : 'hidden'}
-              md:relative md:z-0 md:flex h-full
-            `}>
-              <Sidebar
-                storages={storages}
-                activeStorageId={activeStorageId}
-                onSelectStorage={handleSelectStorage}
-                currentFilter={currentFilter}
-                onSelectFilter={setCurrentFilter}
-                stats={stats}
-                onCloseMobile={() => setIsMobileSidebarOpen(false)}
-              />
-            </div>
-          </>
+        {/* Mobile Backdrop */}
+        {isMobileSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm transition-opacity"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
         )}
 
-        {/* Content View: Trash View, Netflix View or Standard FileList */}
-        {currentFilter === 'trash' ? (
+        {/* Sidebar Container: Fixed Drawer on Mobile, Relative Flex Column on Desktop */}
+        <div className={`
+          ${isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-50 flex shadow-2xl animate-slideRight' : 'hidden'}
+          md:relative md:z-0 md:flex h-full
+        `}>
+          <Sidebar
+            storages={storages}
+            activeStorageId={activeStorageId}
+            onSelectStorage={handleSelectStorage}
+            activeTab={activeTab}
+            onSelectTab={handleSelectTab}
+            stats={stats}
+            onCloseMobile={() => setIsMobileSidebarOpen(false)}
+          />
+        </div>
+
+        {/* Content View: Trash View, Cinema Hub, Photos Hub, Sites Hub, Netflix View or Standard FileList */}
+        {activeTab === 'trash' ? (
           <TrashView
             storages={storages}
             activeStorageId={activeStorageId}
             onShowToast={showToast}
             onRefreshStorages={loadStorages}
           />
-        ) : viewMode === 'netflix' ? (
-          <NetflixView
-            items={sortedItems}
-            currentPath={currentPath}
-            storageId={activeStorageId}
-            storageName={activeStorage?.name || '저장소'}
-            onNavigate={handleNavigate}
-            onOpenMedia={handleOpenMedia}
-            onExitNetflixView={() => handleViewModeChange('grid')}
-            onShowDetails={setDetailItem}
-            onRename={setRenameTarget}
-            onDeleteSingle={handleDeleteSingle}
-            onCopySingle={(item) => handleCopyItems([item.path])}
-            onCutSingle={(item) => handleCutItems([item.path])}
-            onMoveSingle={(item) => handleOpenMoveModal([item.path])}
-            onContextMenu={handleItemContextMenu}
+        ) : activeTab === 'cinema' ? (
+          <CinemaHubView
+            storages={storages}
+            onPlayMovie={(item, sId, playlist) => {
+              setActiveStorageId(sId);
+              setCinemaPlaylist(playlist);
+              setActiveMediaItem(item);
+            }}
+            onNavigateToStorage={(sId, path) => {
+              handleNavigateToStorage(sId, path, { tab: 'cinema', label: '시네마 (Cinema)' });
+            }}
+            onShowToast={showToast}
+          />
+        ) : activeTab === 'photos' ? (
+          <PhotosHubView
+            storages={storages}
+            onOpenPhoto={(item, sId, playlist) => {
+              setActiveStorageId(sId);
+              setCinemaPlaylist(playlist);
+              setActiveMediaItem(item);
+            }}
+            onShowToast={showToast}
+          />
+        ) : activeTab === 'sites' ? (
+          <SitesHubView
+            storages={storages}
+            onNavigateToStorage={(sId, path) => {
+              handleNavigateToStorage(sId, path, { tab: 'sites', label: '웹 사이트 (Sites)' });
+            }}
+            onShowToast={showToast}
           />
         ) : (
-          <FileList
-            items={sortedItems}
-            currentPath={currentPath}
-            storageId={activeStorageId}
-            storageName={activeStorage?.name || '저장소'}
-            onNavigate={handleNavigate}
-            viewMode={viewMode}
-            selectedPaths={selectedPaths}
-            onToggleSelect={handleToggleSelect}
-            onSelectAll={() => setSelectedPaths(new Set(items.map(i => i.path)))}
-            onClearSelection={() => setSelectedPaths(new Set())}
-            onOpenMedia={handleOpenMedia}
-            onNewFolder={() => setIsNewFolderOpen(true)}
-            onUploadClick={() => setIsUploadOpen(true)}
-            onRename={setRenameTarget}
-            onDeleteSelected={handleDeleteSelected}
-            onDeleteSingle={handleDeleteSingle}
-            onShowDetails={setDetailItem}
-            clipboard={clipboard}
-            onCopySelected={() => handleCopyItems(Array.from(selectedPaths))}
-            onCutSelected={() => handleCutItems(Array.from(selectedPaths))}
-            onOpenMoveModal={() => handleOpenMoveModal()}
-            onPaste={handlePaste}
-            onCancelClipboard={handleCancelClipboard}
-            onCopyItem={(item) => handleCopyItems([item.path])}
-            onCutItem={(item) => handleCutItems([item.path])}
-            onItemContextMenu={handleItemContextMenu}
-            onBackgroundContextMenu={handleBackgroundContextMenu}
-            hasVideos={hasVideos}
-            onSwitchToNetflix={() => handleViewModeChange('netflix')}
-            sortField={sortField}
-            sortOrder={sortOrder}
-            onSortChange={handleSortChange}
-          />
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
+            {returnBanner && (
+              <div className="bg-emerald-950/70 border-b border-emerald-500/40 px-4 py-2 flex items-center justify-between text-xs text-emerald-200 z-10 shrink-0 shadow-sm animate-slideDown">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>
+                    <strong className="text-white">{returnBanner.label}</strong>에서 이동한 폴더입니다.
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    handleSelectTab(returnBanner.fromTab);
+                    setReturnBanner(null);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition shadow-sm"
+                >
+                  <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                  <span>{returnBanner.label}로 돌아가기</span>
+                </button>
+              </div>
+            )}
+            <FileList
+              items={sortedItems}
+              currentPath={currentPath}
+              storageId={activeStorageId}
+              storageName={activeStorage?.name || '저장소'}
+              onNavigate={handleNavigate}
+              viewMode={viewMode}
+              selectedPaths={selectedPaths}
+              onToggleSelect={handleToggleSelect}
+              onSelectAll={() => setSelectedPaths(new Set(items.map(i => i.path)))}
+              onClearSelection={() => setSelectedPaths(new Set())}
+              onOpenMedia={handleOpenMedia}
+              onNewFolder={() => setIsNewFolderOpen(true)}
+              onUploadClick={() => setIsUploadOpen(true)}
+              onRename={setRenameTarget}
+              onDeleteSelected={handleDeleteSelected}
+              onDeleteSingle={handleDeleteSingle}
+              onShowDetails={setDetailItem}
+              clipboard={clipboard}
+              onCopySelected={() => handleCopyItems(Array.from(selectedPaths))}
+              onCutSelected={() => handleCutItems(Array.from(selectedPaths))}
+              onOpenMoveModal={() => handleOpenMoveModal()}
+              onPaste={handlePaste}
+              onCancelClipboard={handleCancelClipboard}
+              onCopyItem={(item) => handleCopyItems([item.path])}
+              onCutItem={(item) => handleCutItems([item.path])}
+              onItemContextMenu={handleItemContextMenu}
+              onBackgroundContextMenu={handleBackgroundContextMenu}
+              sortField={sortField}
+              sortOrder={sortOrder}
+              onSortChange={handleSortChange}
+              searchQuery={searchQuery}
+              onClearSearch={() => setSearchQuery('')}
+            />
+          </div>
         )}
       </div>
 
@@ -758,9 +844,7 @@ export const App: React.FC = () => {
             if (item.isDir) handleNavigate(item.path);
             else handleOpenMedia(item);
           }}
-          onOpenHosting={(item) => {
-            window.open(api.getHostUrl(item.path, activeStorageId), '_blank');
-          }}
+          onPinToSites={handlePinToSites}
           onDownload={(item) => {
             window.location.href = api.getDownloadUrl(item.path, activeStorageId);
           }}
@@ -802,7 +886,7 @@ export const App: React.FC = () => {
         item={activeMediaItem} 
         storageId={activeStorageId}
         onClose={handleCloseMedia}
-        items={sortedItems}
+        items={cinemaPlaylist.length > 0 ? cinemaPlaylist : sortedItems}
         onNavigateMedia={handleOpenMedia}
       />
 

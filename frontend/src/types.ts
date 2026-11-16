@@ -1,3 +1,6 @@
+export type NavTab = 'files' | 'cinema' | 'photos' | 'sites' | 'trash';
+export type MediaFilter = 'all' | 'image' | 'video';
+
 export interface StorageInfo {
   id: string;
   name: string;
@@ -97,6 +100,21 @@ export interface ClipboardItem {
   storageName: string;
 }
 
+export interface SiteItem {
+  id: string;
+  title: string;
+  storageId: string;
+  storageName: string;
+  relPath: string;
+  url: string;
+  isDir: boolean;
+  hasIndex?: boolean;
+  isPinned?: boolean;
+  docCount?: number;
+  size: number;
+  modTime: string;
+}
+
 export interface TrashItem {
   id: string;
   storageId: string;
@@ -113,5 +131,31 @@ export interface TrashResponse {
   totalSize: number;
   totalCount: number;
 }
+
+export interface CinemaItem {
+  id: string;
+  title: string;
+  name: string;
+  storageId: string;
+  storageName: string;
+  relPath: string;
+  size: number;
+  modTime: string;
+  ext: string;
+  hasSubtitle: boolean;
+}
+
+export interface PhotoItem {
+  id: string;
+  name: string;
+  storageId: string;
+  storageName: string;
+  relPath: string;
+  size: number;
+  modTime: string;
+  ext: string;
+  mediaType: 'image' | 'video';
+}
+
 
 

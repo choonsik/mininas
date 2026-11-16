@@ -13,22 +13,25 @@ import {
   ArrowUp,
   ArrowDown,
   Check,
-  Menu
+  Menu,
+  ImageIcon,
+  Globe,
+  Trash2
 } from 'lucide-react';
-import { SystemStats, StorageInfo, SortField, SortOrder } from '../types';
+import { SystemStats, StorageInfo, SortField, SortOrder, NavTab, MediaFilter } from '../types';
 import { formatBytes } from '../utils/format';
 import { APP_VERSION, BUILD_DATE } from '../version';
 
 interface HeaderProps {
   stats: SystemStats | null;
   activeStorage: StorageInfo | null;
+  activeTab: NavTab;
   searchQuery: string;
   onSearchChange: (q: string) => void;
-  viewMode: 'grid' | 'list' | 'netflix';
-  onViewModeChange: (m: 'grid' | 'list' | 'netflix') => void;
+  viewMode: 'grid' | 'list';
+  onViewModeChange: (m: 'grid' | 'list') => void;
   onRefresh: () => void;
   isRefreshing: boolean;
-  hasVideos?: boolean;
   sortField: SortField;
   sortOrder: SortOrder;
   onSortChange: (field: SortField) => void;
@@ -38,13 +41,13 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   stats,
   activeStorage,
+  activeTab,
   searchQuery,
   onSearchChange,
   viewMode,
   onViewModeChange,
   onRefresh,
   isRefreshing,
-  hasVideos,
   sortField,
   sortOrder,
   onSortChange,
@@ -106,18 +109,49 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Search Input */}
-      <div className="flex-1 max-w-md mx-1 sm:mx-6 min-w-0">
-        <div className="relative">
-          <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 absolute left-2.5 sm:left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="검색..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-[#1f1f28] border border-[#2e2e3d] rounded-lg pl-8 sm:pl-10 pr-2 sm:pr-4 py-1.5 text-xs sm:text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/60 transition"
-          />
-        </div>
+      {/* Center: Search input & Media Filter Chips or Hub Header Badge */}
+      <div className="flex-1 max-w-xl mx-1 sm:mx-6 min-w-0">
+        {activeTab === 'files' ? (
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 absolute left-2.5 sm:left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="현재 폴더 내 빠른 필터/검색..."
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="w-full bg-[#1f1f28] border border-[#2e2e3d] rounded-lg pl-8 sm:pl-10 pr-2 sm:pr-4 py-1.5 text-xs sm:text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/60 transition"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center">
+            {activeTab === 'cinema' && (
+              <span className="flex items-center gap-2 text-xs sm:text-sm text-red-400 font-semibold px-3 py-1 rounded-full bg-red-950/30 border border-red-800/40">
+                <Film className="w-3.5 h-3.5" />
+                시네마 허브 (Cinema)
+              </span>
+            )}
+            {activeTab === 'photos' && (
+              <span className="flex items-center gap-2 text-xs sm:text-sm text-amber-400 font-semibold px-3 py-1 rounded-full bg-amber-950/30 border border-amber-800/40">
+                <ImageIcon className="w-3.5 h-3.5" />
+                포토 & 모먼트 (Photos)
+              </span>
+            )}
+            {activeTab === 'sites' && (
+              <span className="flex items-center gap-2 text-xs sm:text-sm text-emerald-400 font-semibold px-3 py-1 rounded-full bg-emerald-950/30 border border-emerald-800/40">
+                <Globe className="w-3.5 h-3.5" />
+                웹 사이트 쇼케이스 (Sites)
+              </span>
+            )}
+            {activeTab === 'trash' && (
+              <span className="flex items-center gap-2 text-xs sm:text-sm text-gray-300 font-semibold px-3 py-1 rounded-full bg-gray-800/50 border border-gray-700/50">
+                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                휴지통 (Trash)
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Right: Stats & View controls */}
@@ -170,83 +204,69 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
-        {/* Sorting Dropdown */}
-        <div className="relative" ref={sortRef}>
-          <button
-            onClick={() => setIsSortOpen(!isSortOpen)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-300 hover:text-white bg-[#1f1f28] hover:bg-[#282838] border border-[#2a2a38] rounded-lg transition"
-            title="정렬 기준"
-          >
-            <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
-            <span className="hidden sm:inline">
-              {sortOptions.find(o => o.id === sortField)?.label}
-            </span>
-            {sortOrder === 'asc' ? (
-              <ArrowUp className="w-3 h-3 text-blue-400" />
-            ) : (
-              <ArrowDown className="w-3 h-3 text-blue-400" />
-            )}
-          </button>
+        {/* Sorting Dropdown (Only in 'files' mode) */}
+        {activeTab === 'files' && (
+          <div className="relative" ref={sortRef}>
+            <button
+              onClick={() => setIsSortOpen(!isSortOpen)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-300 hover:text-white bg-[#1f1f28] hover:bg-[#282838] border border-[#2a2a38] rounded-lg transition"
+              title="정렬 기준"
+            >
+              <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+              <span className="hidden sm:inline">
+                {sortOptions.find(o => o.id === sortField)?.label}
+              </span>
+              {sortOrder === 'asc' ? (
+                <ArrowUp className="w-3 h-3 text-blue-400" />
+              ) : (
+                <ArrowDown className="w-3 h-3 text-blue-400" />
+              )}
+            </button>
 
-          {isSortOpen && (
-            <div className="absolute right-0 mt-1 w-36 bg-[#1c1c28] border border-[#2e2e42] rounded-xl shadow-xl py-1 z-40 text-xs animate-scaleUp">
-              <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                정렬 방식
+            {isSortOpen && (
+              <div className="absolute right-0 mt-1 w-36 bg-[#1c1c28] border border-[#2e2e42] rounded-xl shadow-xl py-1 z-40 text-xs animate-scaleUp">
+                <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                  정렬 방식
+                </div>
+                {sortOptions.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => {
+                      onSortChange(opt.id);
+                      setIsSortOpen(false);
+                    }}
+                    className="w-full px-3 py-2 text-left flex items-center justify-between text-gray-200 hover:bg-[#28283a] transition"
+                  >
+                    <span>{opt.label}</span>
+                    {sortField === opt.id && (
+                      <Check className="w-3.5 h-3.5 text-blue-400" />
+                    )}
+                  </button>
+                ))}
               </div>
-              {sortOptions.map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() => {
-                    onSortChange(opt.id);
-                    setIsSortOpen(false);
-                  }}
-                  className="w-full px-3 py-2 text-left flex items-center justify-between text-gray-200 hover:bg-[#28283a] transition"
-                >
-                  <span>{opt.label}</span>
-                  {sortField === opt.id && (
-                    <Check className="w-3.5 h-3.5 text-blue-400" />
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* View mode toggle */}
-        <div className="flex items-center bg-[#1f1f28] border border-[#2a2a38] rounded-lg p-0.5">
-          <button
-            onClick={() => onViewModeChange('grid')}
-            className={`p-1.5 rounded-md transition ${viewMode === 'grid' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
-            title="격자 보기"
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => onViewModeChange('list')}
-            className={`p-1.5 rounded-md transition ${viewMode === 'list' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
-            title="목록 보기"
-          >
-            <List className="w-4 h-4" />
-          </button>
-
-          {/* Netflix View Button (Highlighted when folder has videos) */}
-          <button
-            onClick={() => onViewModeChange('netflix')}
-            className={`relative p-1.5 rounded-md transition flex items-center gap-1 ${
-              viewMode === 'netflix'
-                ? 'bg-red-600 text-white shadow-sm shadow-red-900/50'
-                : hasVideos
-                ? 'text-red-400 hover:text-red-300 hover:bg-red-950/30'
-                : 'text-gray-400 hover:text-gray-200'
-            }`}
-            title="넷플릭스 뷰 (시네마 모드)"
-          >
-            <Film className="w-4 h-4" />
-            {hasVideos && viewMode !== 'netflix' && (
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse absolute top-1 right-1" />
             )}
-          </button>
-        </div>
+          </div>
+        )}
+
+        {/* View mode toggle (Only in 'files' mode) */}
+        {activeTab === 'files' && (
+          <div className="flex items-center bg-[#1f1f28] border border-[#2a2a38] rounded-lg p-0.5">
+            <button
+              onClick={() => onViewModeChange('grid')}
+              className={`p-1.5 rounded-md transition ${viewMode === 'grid' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
+              title="격자 보기"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => onViewModeChange('list')}
+              className={`p-1.5 rounded-md transition ${viewMode === 'list' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
+              title="목록 보기"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* Refresh */}
         <button

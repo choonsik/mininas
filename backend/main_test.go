@@ -136,6 +136,29 @@ func TestFileUploadAndGetFiles(t *testing.T) {
 	if len(listResp.Items) != 1 || listResp.Items[0].Name != "test_file.txt" {
 		t.Fatalf("Expected test_file.txt in file list, got %+v", listResp.Items)
 	}
+
+	// 5. Test Recursive Media Query (/api/files?recursive=true&type=image)
+	subDir := filepath.Join(activeStorages[0].Path, "sub_album", "2026")
+	_ = os.MkdirAll(subDir, 0755)
+	_ = os.WriteFile(filepath.Join(subDir, "photo1.jpg"), []byte("fake_jpg_content"), 0644)
+	_ = os.WriteFile(filepath.Join(subDir, "document.pdf"), []byte("fake_pdf_content"), 0644)
+
+	reqRec := httptest.NewRequest("GET", "/api/files?storage=s1&path=/&recursive=true&type=image", nil)
+	wRec := httptest.NewRecorder()
+	handleGetFiles(wRec, reqRec)
+
+	var recResp struct {
+		CurrentPath string     `json:"currentPath"`
+		Items       []FileItem `json:"items"`
+	}
+	_ = json.NewDecoder(wRec.Result().Body).Decode(&recResp)
+
+	if len(recResp.Items) != 1 || recResp.Items[0].Name != "photo1.jpg" {
+		t.Fatalf("Expected recursive to find 1 photo1.jpg, got %+v", recResp.Items)
+	}
+	if recResp.Items[0].Path != "/sub_album/2026/photo1.jpg" {
+		t.Fatalf("Expected item path /sub_album/2026/photo1.jpg, got %s", recResp.Items[0].Path)
+	}
 }
 
 func TestRangeStreaming(t *testing.T) {
@@ -335,17 +358,17 @@ func TestStaticSiteHosting(t *testing.T) {
 		t.Fatalf("Expected directory listing HTML, got: %s", string(body4))
 	}
 
-	// Test 5: Accessing default root /sites/ directly -> should serve primary storage root
+	// Test 5: Accessing default root /sites/ directly -> should redirect to web UI Sites Hub (/?tab=sites)
 	req5 := httptest.NewRequest("GET", "/sites/", nil)
 	w5 := httptest.NewRecorder()
 	handleSitesHosting(w5, req5)
 	resp5 := w5.Result()
-	if resp5.StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 for root /sites/, got %d", resp5.StatusCode)
+	if resp5.StatusCode != http.StatusFound {
+		t.Fatalf("Expected 302 redirect for root /sites/, got %d", resp5.StatusCode)
 	}
-	body5, _ := io.ReadAll(resp5.Body)
-	if !strings.Contains(string(body5), "Index of") {
-		t.Fatalf("Expected directory listing HTML for root /sites/, got: %s", string(body5))
+	loc := resp5.Header.Get("Location")
+	if loc != "/?tab=sites" {
+		t.Fatalf("Expected redirect to '/?tab=sites', got %s", loc)
 	}
 }
 
@@ -402,5 +425,306 @@ func TestConfigValidation(t *testing.T) {
 	}
 	if len(warns3) != 1 {
 		t.Fatalf("Expected 1 warning for non-existent path, got %d", len(warns3))
+	}
+}
+
+func TestListSitesAPI(t *testing.T) {
+	tempDir := t.TempDir()
+	origStorages := activeStorages
+	defer func() { activeStorages = origStorages }()
+
+	origPinnedFile := pinnedSitesFile
+	pinnedSitesFile = filepath.Join(tempDir, "pinned_test.json")
+	defer func() { pinnedSitesFile = origPinnedFile }()
+
+	activeStorages = []StorageEntry{
+		{ID: "test-site", Name: "테스트", Path: tempDir},
+	}
+
+	// 1. Model B: htdocs 폴더 생성
+	htdocsDir := filepath.Join(tempDir, "htdocs")
+	_ = os.Mkdir(htdocsDir, 0755)
+
+	// htdocs/bomchoon (index.html 포함 웹 프로젝트)
+	bomchoonDir := filepath.Join(htdocsDir, "bomchoon")
+	_ = os.Mkdir(bomchoonDir, 0755)
+	_ = os.WriteFile(filepath.Join(bomchoonDir, "index.html"), []byte("<html><head><title>봄春 블로그</title></head><body>본문</body></html>"), 0644)
+
+	// sites/ (폴더 자체가 index.html을 포함하는 루트 웹사이트)
+	sitesDir := filepath.Join(tempDir, "sites")
+	_ = os.Mkdir(sitesDir, 0755)
+	_ = os.WriteFile(filepath.Join(sitesDir, "index.html"), []byte("<html><head><title>내 메인 사이트</title></head><body>환영합니다</body></html>"), 0644)
+
+	// htdocs/maily.so (index.html 없는 문서 아카이브)
+	mailyDir := filepath.Join(htdocsDir, "maily.so")
+	_ = os.Mkdir(mailyDir, 0755)
+	_ = os.WriteFile(filepath.Join(mailyDir, "post1.html"), []byte("<html><body>글1</body></html>"), 0644)
+	_ = os.WriteFile(filepath.Join(mailyDir, "post2.html"), []byte("<html><body>글2</body></html>"), 0644)
+
+	// 2. Model C: htdocs 바깥의 독립 보고서
+	outsideDir := filepath.Join(tempDir, "outside")
+	_ = os.Mkdir(outsideDir, 0755)
+	reportFile := filepath.Join(outsideDir, "report.html")
+	_ = os.WriteFile(reportFile, []byte("<html><head><title>외부 매출 보고서</title></head></html>"), 0644)
+
+	// 3. API 호출 1: 핀 전에는 index.html이 있는 bomchoon과 sites 2개가 검출되어야 함 (maily.so는 index 없음)
+	req1 := httptest.NewRequest(http.MethodGet, "/api/sites", nil)
+	rr1 := httptest.NewRecorder()
+	handleListSites(rr1, req1)
+
+	var sites1 []SiteItem
+	_ = json.NewDecoder(rr1.Body).Decode(&sites1)
+	if len(sites1) != 2 {
+		t.Fatalf("Expected 2 sites (with index.html), got %d", len(sites1))
+	}
+	// Check that both bomchoon and sites are present
+	foundBomchoon := false
+	foundSites := false
+	for _, s := range sites1 {
+		if strings.Contains(s.Title, "봄春 블로그") {
+			foundBomchoon = true
+		}
+		if s.RelPath == "/sites" {
+			foundSites = true
+			if s.URL != "/sites/test-site/sites/" {
+				t.Errorf("Expected URL '/sites/test-site/sites/', got '%s'", s.URL)
+			}
+		}
+	}
+	if !foundBomchoon || !foundSites {
+		t.Errorf("Expected both bomchoon and sites, got foundBomchoon=%v, foundSites=%v", foundBomchoon, foundSites)
+	}
+
+	// 4. Model C: index.html이 없는 maily.so를 핀 고정 호출
+	pinBody := `{"storage":"test-site", "path":"/htdocs/maily.so"}`
+	pinReq := httptest.NewRequest(http.MethodPost, "/api/sites/pin", strings.NewReader(pinBody))
+	pinRR := httptest.NewRecorder()
+	handlePinSite(pinRR, pinReq)
+	if pinRR.Code != http.StatusOK {
+		t.Fatalf("Failed to pin site: %s", pinRR.Body.String())
+	}
+
+	// 5. API 호출 2: 핀 후에는 3개가 검출되어야 함 (bomchoon + sites + maily.so)
+	req2 := httptest.NewRequest(http.MethodGet, "/api/sites", nil)
+	rr2 := httptest.NewRecorder()
+	handleListSites(rr2, req2)
+
+	var sites2 []SiteItem
+	_ = json.NewDecoder(rr2.Body).Decode(&sites2)
+	if len(sites2) != 3 {
+		t.Fatalf("Expected 3 sites after pin, got %d", len(sites2))
+	}
+
+	foundPinned := false
+	for _, s := range sites2 {
+		if s.RelPath == "/htdocs/maily.so" {
+			foundPinned = true
+			if !s.IsPinned {
+				t.Errorf("Expected IsPinned true, got false")
+			}
+			if !strings.Contains(s.Title, "maily.so") {
+				t.Errorf("Expected title to contain 'maily.so', got %s", s.Title)
+			}
+		}
+	}
+	if !foundPinned {
+		t.Errorf("Pinned site not found in list")
+	}
+
+	// 6. 핀 해제 API 호출
+	unpinReq := httptest.NewRequest(http.MethodPost, "/api/sites/unpin", strings.NewReader(pinBody))
+	unpinRR := httptest.NewRecorder()
+	handleUnpinSite(unpinRR, unpinReq)
+	if unpinRR.Code != http.StatusOK {
+		t.Fatalf("Failed to unpin site: %s", unpinRR.Body.String())
+	}
+
+	// 7. API 호출 3: 핀 해제 후 다시 2개로 복귀 (bomchoon + sites)
+	req3 := httptest.NewRequest(http.MethodGet, "/api/sites", nil)
+	rr3 := httptest.NewRecorder()
+	handleListSites(rr3, req3)
+
+	var sites3 []SiteItem
+	_ = json.NewDecoder(rr3.Body).Decode(&sites3)
+	if len(sites3) != 2 {
+		t.Fatalf("Expected 2 sites after unpin, got %d", len(sites3))
+	}
+}
+
+func TestCinemaListAPI(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "mininas_cinema_test_*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	oldStorages := activeStorages
+	defer func() { activeStorages = oldStorages }()
+
+	activeStorages = []StorageEntry{
+		{ID: "cinema-test", Name: "영화 테스트", Path: tempDir},
+	}
+
+	// 1. 영화 파일 1: 1.5MB mp4 + srt 자막
+	movie1 := filepath.Join(tempDir, "Parasite (2019).mp4")
+	_ = os.WriteFile(movie1, make([]byte, 1500000), 0644)
+	sub1 := filepath.Join(tempDir, "Parasite (2019).srt")
+	_ = os.WriteFile(sub1, []byte("1\n00:00:01,000 --> 00:00:04,000\n안녕하세요\n"), 0644)
+
+	// 2. 영화 파일 2: 하위 폴더 내 2MB mkv (자막 없음)
+	subDir := filepath.Join(tempDir, "Sci-Fi")
+	_ = os.Mkdir(subDir, 0755)
+	movie2 := filepath.Join(subDir, "Inception.mkv")
+	_ = os.WriteFile(movie2, make([]byte, 2000000), 0644)
+
+	// 3. 작은 파일: 500KB (1MB 미만이므로 시네마 라이브러리에서 필터링되어야 함)
+	smallVideo := filepath.Join(tempDir, "sample_clip.mp4")
+	_ = os.WriteFile(smallVideo, make([]byte, 500000), 0644)
+
+	// API 호출
+	req := httptest.NewRequest(http.MethodGet, "/api/cinema", nil)
+	rr := httptest.NewRecorder()
+	handleCinemaList(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var items []CinemaItem
+	if err := json.NewDecoder(rr.Body).Decode(&items); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if len(items) != 2 {
+		t.Fatalf("Expected 2 cinema items, got %d", len(items))
+	}
+
+	foundParasite := false
+	foundInception := false
+	for _, it := range items {
+		if strings.Contains(it.Name, "Parasite") {
+			foundParasite = true
+			if !it.HasSubtitle {
+				t.Errorf("Expected Parasite to have subtitle=true, got false")
+			}
+			if it.StorageID != "cinema-test" {
+				t.Errorf("Expected storageId 'cinema-test', got %s", it.StorageID)
+			}
+		}
+		if strings.Contains(it.Name, "Inception") {
+			foundInception = true
+			if it.HasSubtitle {
+				t.Errorf("Expected Inception to have subtitle=false, got true")
+			}
+			if it.RelPath != "/Sci-Fi/Inception.mkv" {
+				t.Errorf("Expected relPath '/Sci-Fi/Inception.mkv', got %s", it.RelPath)
+			}
+		}
+	}
+
+	if !foundParasite || !foundInception {
+		t.Errorf("Did not find expected movies: foundParasite=%v, foundInception=%v", foundParasite, foundInception)
+	}
+}
+
+func TestPhotosListAPI(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "mininas_photos_test_*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	oldStorages := activeStorages
+	defer func() { activeStorages = oldStorages }()
+
+	activeStorages = []StorageEntry{
+		{ID: "photo-test", Name: "포토 테스트", Path: tempDir},
+	}
+
+	// 1. 사진 파일: JPG, HEIC
+	_ = os.WriteFile(filepath.Join(tempDir, "family.jpg"), []byte("fake-jpeg-data"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "vacation.heic"), []byte("fake-heic-data"), 0644)
+
+	// 2. 비디오 클립: MOV (50KB)
+	_ = os.WriteFile(filepath.Join(tempDir, "baby_steps.mov"), []byte("fake-mov-data"), 0644)
+
+	// 3. 웹사이트 에셋 (sites/logo.png) -> 반드시 제외되어야 함!
+	sitesDir := filepath.Join(tempDir, "sites")
+	_ = os.Mkdir(sitesDir, 0755)
+	_ = os.WriteFile(filepath.Join(sitesDir, "logo.png"), []byte("web-logo"), 0644)
+
+	// 4. 영화 폴더 내 비디오 (movies/action.mp4) -> 반드시 제외되어야 함!
+	moviesDir := filepath.Join(tempDir, "movies")
+	_ = os.Mkdir(moviesDir, 0755)
+	_ = os.WriteFile(filepath.Join(moviesDir, "action.mp4"), []byte("movie-data"), 0644)
+
+	// 5. 비미디어 파일: 텍스트 (제외되어야 함)
+	_ = os.WriteFile(filepath.Join(tempDir, "notes.txt"), []byte("notes-data"), 0644)
+
+	// 전체 조회 (기본값: 모든 폴더 포함 -> 5개)
+	req := httptest.NewRequest(http.MethodGet, "/api/photos", nil)
+	rr := httptest.NewRecorder()
+	handlePhotosList(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var allItems []PhotoItem
+	if err := json.NewDecoder(rr.Body).Decode(&allItems); err != nil {
+		t.Fatalf("Failed to decode: %v", err)
+	}
+	if len(allItems) != 5 {
+		t.Fatalf("Expected 5 items (all folders included), got %d", len(allItems))
+	}
+
+	// skip_special=true 토글 검증 (영화/웹사이트 폴더 제외 -> 3개)
+	reqSkip := httptest.NewRequest(http.MethodGet, "/api/photos?skip_special=true", nil)
+	rrSkip := httptest.NewRecorder()
+	handlePhotosList(rrSkip, reqSkip)
+	var skipItems []PhotoItem
+	_ = json.NewDecoder(rrSkip.Body).Decode(&skipItems)
+	if len(skipItems) != 3 {
+		t.Fatalf("Expected 3 items with skip_special=true, got %d", len(skipItems))
+	}
+
+	// type=image 필터 검증 (기본값: sites/logo.png 포함 3개)
+	reqImg := httptest.NewRequest(http.MethodGet, "/api/photos?type=image", nil)
+	rrImg := httptest.NewRecorder()
+	handlePhotosList(rrImg, reqImg)
+	var imgItems []PhotoItem
+	_ = json.NewDecoder(rrImg.Body).Decode(&imgItems)
+	if len(imgItems) != 3 {
+		t.Fatalf("Expected 3 images (including sites/logo.png), got %d", len(imgItems))
+	}
+
+	// type=image&skip_special=true 검증 (웹 에셋 제외 2개)
+	reqImgSkip := httptest.NewRequest(http.MethodGet, "/api/photos?type=image&skip_special=true", nil)
+	rrImgSkip := httptest.NewRecorder()
+	handlePhotosList(rrImgSkip, reqImgSkip)
+	var imgSkipItems []PhotoItem
+	_ = json.NewDecoder(rrImgSkip.Body).Decode(&imgSkipItems)
+	if len(imgSkipItems) != 2 {
+		t.Fatalf("Expected 2 images with skip_special=true, got %d", len(imgSkipItems))
+	}
+
+	// type=video 필터 검증 (기본값: movies/action.mp4 포함 2개)
+	reqVid := httptest.NewRequest(http.MethodGet, "/api/photos?type=video", nil)
+	rrVid := httptest.NewRecorder()
+	handlePhotosList(rrVid, reqVid)
+	var vidItems []PhotoItem
+	_ = json.NewDecoder(rrVid.Body).Decode(&vidItems)
+	if len(vidItems) != 2 {
+		t.Fatalf("Expected 2 videos (including movies/action.mp4), got %d", len(vidItems))
+	}
+
+	// type=video&skip_special=true 검증 (영화 제외 1개)
+	reqVidSkip := httptest.NewRequest(http.MethodGet, "/api/photos?type=video&skip_special=true", nil)
+	rrVidSkip := httptest.NewRecorder()
+	handlePhotosList(rrVidSkip, reqVidSkip)
+	var vidSkipItems []PhotoItem
+	_ = json.NewDecoder(rrVidSkip.Body).Decode(&vidSkipItems)
+	if len(vidSkipItems) != 1 {
+		t.Fatalf("Expected 1 video with skip_special=true, got %d", len(vidSkipItems))
 	}
 }

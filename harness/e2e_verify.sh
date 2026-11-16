@@ -109,7 +109,7 @@ fi
 echo "  ✅ 8. 정적 HTML 웹사이트 호스팅(/sites/...) 실시간 렌더링 통과"
 
 # 11. 비디오 자막 매칭 및 WebVTT 변환 API 검증
-echo "fake video content" > "$TEST_DIR/s1/demo.mp4"
+dd if=/dev/zero of="$TEST_DIR/s1/demo.mp4" bs=1024 count=1500 2>/dev/null
 cat << 'EOF' > "$TEST_DIR/s1/demo.ko.srt"
 1
 00:00:01,000 --> 00:00:03,000
@@ -141,7 +141,24 @@ if [[ "$SMI_VTT" != *"WEBVTT"* ]] || [[ "$SMI_VTT" != *"SMI 테스트 자막"* ]
 fi
 echo "  ✅ 9. SRT / SMI 자막 자동 매칭 및 실시간 WebVTT 변환 스트리밍 통과"
 
-# 12. 휴지통(Trash) 소프트 삭제, 목록 조회 및 복구 E2E 검증
+# 12. 시네마(Cinema) 허브 전 저장소 통합 영상 라이브러리 검증 (/api/cinema)
+CINEMA_RESP=$(curl -s "http://localhost:$PORT/api/cinema")
+if [[ "$CINEMA_RESP" != *"demo.mp4"* ]] || [[ "$CINEMA_RESP" != *"hasSubtitle"* ]]; then
+    echo "❌ [FAIL] 시네마 허브 통합 수집(/api/cinema) 검증 실패: $CINEMA_RESP"
+    exit 1
+fi
+echo "  ✅ 10. 시네마 허브 전 저장소 영화 통합 수집 및 자막 플래그 검증 통과"
+
+# 13. 포토(Photos) 허브 전 저장소 사진/영상 타임라인 수집 검증 (/api/photos)
+echo "fake photo content" > "$TEST_DIR/s1/snapshot.jpg"
+PHOTOS_RESP=$(curl -s "http://localhost:$PORT/api/photos")
+if [[ "$PHOTOS_RESP" != *"snapshot.jpg"* ]] || [[ "$PHOTOS_RESP" != *"mediaType"* ]]; then
+    echo "❌ [FAIL] 포토 허브 타임라인 수집(/api/photos) 검증 실패: $PHOTOS_RESP"
+    exit 1
+fi
+echo "  ✅ 11. 포토 허브 전 저장소 사진/영상 타임라인 수집 검증 통과"
+
+# 14. 휴지통(Trash) 소프트 삭제, 목록 조회 및 복구 E2E 검증
 echo "Trash test content" > "$TEST_DIR/s1/trash_sample.txt"
 DEL_RESP=$(curl -s -X POST -H "Content-Type: application/json" \
   -d '{"storage":"test_s1","paths":["/trash_sample.txt"]}' \
@@ -170,7 +187,7 @@ if [[ "$RESTORE_RESP" != *"ok"* ]] || [ ! -f "$TEST_DIR/s1/trash_sample.txt" ]; 
     echo "❌ [FAIL] 휴지통 복구 실패: $RESTORE_RESP"
     exit 1
 fi
-echo "  ✅ 10. 휴지통(Trash) 소프트 삭제, 목록 조회 및 복구 E2E 검증 통과"
+echo "  ✅ 12. 휴지통(Trash) 소프트 삭제, 목록 조회 및 복구 E2E 검증 통과"
 
 echo ""
-echo "🎉 [Harness] 10개 핵심 런타임 E2E 시나리오 ALL PASS!"
+echo "🎉 [Harness] 12개 핵심 런타임 E2E 시나리오 ALL PASS!"

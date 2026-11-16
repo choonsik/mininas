@@ -3,17 +3,16 @@ import {
   Folder, 
   Image as ImageIcon, 
   Film, 
-  Music, 
-  FileText, 
-  Layers, 
+  Globe,
   Zap, 
   Network,
   Clock,
   HardDrive,
   X,
-  Trash2
+  Trash2,
+  FolderTree
 } from 'lucide-react';
-import { SystemStats, StorageInfo } from '../types';
+import { SystemStats, StorageInfo, NavTab } from '../types';
 import { formatBytes } from '../utils/format';
 import { APP_VERSION, BUILD_DATE } from '../version';
 
@@ -21,8 +20,8 @@ interface SidebarProps {
   storages: StorageInfo[];
   activeStorageId: string;
   onSelectStorage: (id: string) => void;
-  currentFilter: string;
-  onSelectFilter: (filter: string) => void;
+  activeTab: NavTab;
+  onSelectTab: (tab: NavTab) => void;
   stats: SystemStats | null;
   onCloseMobile?: () => void;
 }
@@ -31,18 +30,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   storages,
   activeStorageId,
   onSelectStorage,
-  currentFilter,
-  onSelectFilter,
+  activeTab,
+  onSelectTab,
   stats,
   onCloseMobile,
 }) => {
-  const menuItems = [
-    { id: 'all', label: '모든 파일', icon: Folder },
-    { id: 'image', label: '사진 & 이미지', icon: ImageIcon },
-    { id: 'video', label: '동영상', icon: Film },
-    { id: 'audio', label: '음악 & 오디오', icon: Music },
-    { id: 'text', label: '문서 & 텍스트', icon: FileText },
-    { id: 'archive', label: '압축 파일', icon: Layers },
+  const hubItems: { id: NavTab; label: string; icon: React.ElementType; badge?: string }[] = [
+    { id: 'cinema', label: '시네마 (Cinema)', icon: Film, badge: 'OTT' },
+    { id: 'photos', label: '포토 & 모먼트', icon: ImageIcon, badge: '사진/영상' },
+    { id: 'sites', label: '웹 사이트 (Sites)', icon: Globe, badge: 'HTML' },
   ];
 
   const formatUptime = (sec: number) => {
@@ -59,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Mobile Header with Close button */}
         {onCloseMobile && (
           <div className="flex md:hidden items-center justify-between pb-3 border-b border-[#252535]">
-            <span className="font-bold text-sm text-white">저장소 & 탐색</span>
+            <span className="font-bold text-sm text-white">메뉴 & 저장소</span>
             <button
               onClick={onCloseMobile}
               className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#252535] transition"
@@ -70,18 +66,61 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {/* Storages (Locations) */}
+        {/* 1. Media & Sharing Hubs */}
         <div>
           <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-3">
-            저장소 (Locations)
+            미디어 & 공유 허브
           </span>
+          <nav className="mt-2 space-y-1">
+            {hubItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    onSelectTab(item.id);
+                    onCloseMobile?.();
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition ${
+                    isActive
+                      ? 'bg-blue-600/15 text-blue-400 border border-blue-500/25 shadow-sm'
+                      : 'text-gray-300 hover:bg-[#1e1e26] hover:text-white border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-blue-400' : 'text-gray-400'}`} />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                      isActive ? 'bg-blue-500/20 text-blue-300' : 'bg-[#22222e] text-gray-400'
+                    }`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* 2. Storages (Locations) */}
+        <div>
+          <div className="flex items-center justify-between px-3">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+              파일 탐색기 (저장소)
+            </span>
+            <FolderTree className="w-3.5 h-3.5 text-gray-500" />
+          </div>
           <nav className="mt-2 space-y-1.5">
             {storages.map((storage) => {
-              const isActive = activeStorageId === storage.id;
+              const isActive = activeTab === 'files' && activeStorageId === storage.id;
               return (
                 <button
                   key={storage.id}
                   onClick={() => {
+                    onSelectTab('files');
                     onSelectStorage(storage.id);
                     onCloseMobile?.();
                   }}
@@ -118,55 +157,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* Media Categories */}
+        {/* 3. System & Management */}
         <div>
           <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-3">
-            파일 필터
-          </span>
-          <nav className="mt-2 space-y-1">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentFilter === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    onSelectFilter(item.id);
-                    onCloseMobile?.();
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${
-                    isActive
-                      ? 'bg-blue-600/15 text-blue-400 border border-blue-500/25'
-                      : 'text-gray-300 hover:bg-[#1e1e26] hover:text-white'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-blue-400' : 'text-gray-400'}`} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Trash */}
-        <div>
-          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-3">
-            관리
+            시스템 관리
           </span>
           <nav className="mt-2 space-y-1">
             <button
               onClick={() => {
-                onSelectFilter('trash');
+                onSelectTab('trash');
                 onCloseMobile?.();
               }}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${
-                currentFilter === 'trash'
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition ${
+                activeTab === 'trash'
                   ? 'bg-red-500/15 text-red-400 border border-red-500/25'
-                  : 'text-gray-300 hover:bg-[#1e1e26] hover:text-white'
+                  : 'text-gray-300 hover:bg-[#1e1e26] hover:text-white border border-transparent'
               }`}
             >
-              <Trash2 className={`w-4 h-4 ${currentFilter === 'trash' ? 'text-red-400' : 'text-gray-400'}`} />
-              <span>휴지통</span>
+              <Trash2 className={`w-4 h-4 ${activeTab === 'trash' ? 'text-red-400' : 'text-gray-400'}`} />
+              <span>휴지통 (Trash)</span>
             </button>
           </nav>
         </div>

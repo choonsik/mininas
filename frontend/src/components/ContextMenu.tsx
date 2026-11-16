@@ -12,7 +12,8 @@ import {
   Upload, 
   RefreshCw,
   FolderOpen,
-  Globe
+  Globe,
+  Pin
 } from 'lucide-react';
 import { FileItem } from '../types';
 
@@ -27,7 +28,7 @@ interface ContextMenuProps {
   clipboard: { action: 'copy' | 'cut'; paths: string[] } | null;
   onClose: () => void;
   onOpen: (item: FileItem) => void;
-  onOpenHosting?: (item: FileItem) => void;
+  onPinToSites?: (item: FileItem) => void;
   onDownload: (item: FileItem) => void;
   onCopy: (item: FileItem) => void;
   onCut: (item: FileItem) => void;
@@ -48,7 +49,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   clipboard,
   onClose,
   onOpen,
-  onOpenHosting,
+  onPinToSites,
   onDownload,
   onCopy,
   onCut,
@@ -115,13 +116,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             <span>{targetItem.isDir ? '폴더 열기' : '열기 / 재생'}</span>
           </button>
 
-          {onOpenHosting && (targetItem.isDir || targetItem.ext === '.html' || targetItem.ext === '.htm') && (
+          {onPinToSites && (targetItem.isDir || targetItem.ext === '.html' || targetItem.ext === '.htm') && (
             <button
-              onClick={() => { onClose(); onOpenHosting(targetItem); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-emerald-600/20 text-emerald-400 hover:text-emerald-300 transition"
+              onClick={() => { onClose(); onPinToSites(targetItem); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-emerald-600/20 text-emerald-300 hover:text-emerald-200 transition"
             >
-              <Globe className="w-3.5 h-3.5" />
-              <span>{targetItem.isDir ? '폴더 웹 호스팅으로 열기' : '웹페이지로 열기 (새 탭)'}</span>
+              <Pin className="w-3.5 h-3.5 text-emerald-400" />
+              <span>사이트 허브에 고정 (Pin)</span>
             </button>
           )}
 

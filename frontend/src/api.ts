@@ -1,4 +1,4 @@
-import { FileItem, SystemStats, StorageInfo, SubtitleTrack, MediaCapabilities, MediaInspection, BatchConvertJob, TrashResponse } from './types';
+import { FileItem, SystemStats, StorageInfo, SubtitleTrack, MediaCapabilities, MediaInspection, BatchConvertJob, TrashResponse, SiteItem, CinemaItem, PhotoItem } from './types';
 
 const API_BASE = '/api';
 
@@ -9,8 +9,19 @@ export const api = {
     return res.json();
   },
 
-  async getFiles(path: string = '/', storageId: string = ''): Promise<{ currentPath: string; items: FileItem[] }> {
-    const res = await fetch(`${API_BASE}/files?path=${encodeURIComponent(path)}&storage=${encodeURIComponent(storageId)}`);
+  async getFiles(
+    path: string = '/', 
+    storageId: string = '', 
+    options?: { recursive?: boolean; type?: string }
+  ): Promise<{ currentPath: string; items: FileItem[] }> {
+    let url = `${API_BASE}/files?path=${encodeURIComponent(path)}&storage=${encodeURIComponent(storageId)}`;
+    if (options?.recursive) {
+      url += `&recursive=true`;
+    }
+    if (options?.type) {
+      url += `&type=${encodeURIComponent(options.type)}`;
+    }
+    const res = await fetch(url);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Failed to fetch files' }));
       throw new Error(err.error || 'Failed to fetch files');
@@ -257,5 +268,58 @@ export const api = {
       const err = await res.json().catch(() => ({ error: '휴지통 비우기 실패' }));
       throw new Error(err.error || '휴지통 비우기 실패');
     }
+  },
+
+  async getSites(): Promise<SiteItem[]> {
+    const res = await fetch(`${API_BASE}/sites`);
+    if (!res.ok) {
+      throw new Error('Failed to fetch sites');
+    }
+    return res.json();
+  },
+
+  async pinSite(storageId: string, path: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/sites/pin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storage: storageId, path }),
+    });
+    if (!res.ok) {
+      throw new Error('사이트 핀 고정 실패');
+    }
+  },
+
+  async unpinSite(storageId: string, path: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/sites/unpin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storage: storageId, path }),
+    });
+    if (!res.ok) {
+      throw new Error('사이트 핀 고정 해제 실패');
+    }
+  },
+
+  async getCinemaVideos(storageId?: string): Promise<CinemaItem[]> {
+    const url = storageId ? `${API_BASE}/cinema?storage=${encodeURIComponent(storageId)}` : `${API_BASE}/cinema`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error('영화/영상 라이브러리 로드 실패');
+    }
+    return res.json();
+  },
+
+  async getPhotos(storageId?: string, typeFilter?: string, skipSpecial?: boolean): Promise<PhotoItem[]> {
+    const params = new URLSearchParams();
+    if (storageId && storageId !== 'all') params.set('storage', storageId);
+    if (typeFilter && typeFilter !== 'all') params.set('type', typeFilter);
+    if (skipSpecial) params.set('skip_special', 'true');
+    const qs = params.toString();
+    const url = qs ? `${API_BASE}/photos?${qs}` : `${API_BASE}/photos`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error('사진 & 모먼트 로드 실패');
+    }
+    return res.json();
   }
 };

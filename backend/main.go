@@ -16,9 +16,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -192,37 +195,107 @@ func handleGetFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entries, err := os.ReadDir(fullPath)
-	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusInternalServerError)
-		return
-	}
-
 	cleanRel := filepath.Clean("/" + relPath)
-	items := make([]FileItem, 0, len(entries))
+	recursive := r.URL.Query().Get("recursive") == "true"
+	typeFilter := strings.ToLower(r.URL.Query().Get("type"))
 
-	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
+	var items []FileItem
 
-		info, err := entry.Info()
-		if err != nil {
-			continue
-		}
+	if recursive {
+		items = make([]FileItem, 0, 64)
+		_ = filepath.WalkDir(fullPath, func(path string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return nil
+			}
+			name := d.Name()
+			if strings.HasPrefix(name, ".") {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
 
-		itemPath := filepath.Clean(filepath.Join(cleanRel, entry.Name()))
-		ext := filepath.Ext(entry.Name())
+			// Skip the target directory itself
+			if path == fullPath {
+				return nil
+			}
 
-		items = append(items, FileItem{
-			Name:      entry.Name(),
-			Path:      itemPath,
-			IsDir:     entry.IsDir(),
-			Size:      info.Size(),
-			ModTime:   info.ModTime(),
-			Ext:       ext,
-			MediaType: getMediaType(ext),
+			relToTarget, err := filepath.Rel(fullPath, path)
+			if err != nil {
+				return nil
+			}
+
+			// Depth limit (up to 8 levels deep)
+			depth := strings.Count(filepath.ToSlash(relToTarget), "/")
+			if depth > 8 && d.IsDir() {
+				return filepath.SkipDir
+			}
+
+			if d.IsDir() {
+				lower := strings.ToLower(name)
+				if lower == ".trash" || lower == "trash" || lower == "node_modules" || lower == ".mininas_cache" {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+
+			ext := filepath.Ext(name)
+			mType := getMediaType(ext)
+
+			if typeFilter != "" && mType != typeFilter {
+				return nil
+			}
+
+			info, err := d.Info()
+			if err != nil || info.Size() == 0 {
+				return nil
+			}
+
+			itemPath := filepath.Clean(filepath.Join(cleanRel, filepath.ToSlash(relToTarget)))
+
+			items = append(items, FileItem{
+				Name:      name,
+				Path:      itemPath,
+				IsDir:     false,
+				Size:      info.Size(),
+				ModTime:   info.ModTime(),
+				Ext:       ext,
+				MediaType: mType,
+			})
+			return nil
 		})
+	} else {
+		entries, err := os.ReadDir(fullPath)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusInternalServerError)
+			return
+		}
+
+		items = make([]FileItem, 0, len(entries))
+
+		for _, entry := range entries {
+			if strings.HasPrefix(entry.Name(), ".") {
+				continue
+			}
+
+			info, err := entry.Info()
+			if err != nil {
+				continue
+			}
+
+			itemPath := filepath.Clean(filepath.Join(cleanRel, entry.Name()))
+			ext := filepath.Ext(entry.Name())
+
+			items = append(items, FileItem{
+				Name:      entry.Name(),
+				Path:      itemPath,
+				IsDir:     entry.IsDir(),
+				Size:      info.Size(),
+				ModTime:   info.ModTime(),
+				Ext:       ext,
+				MediaType: getMediaType(ext),
+			})
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -816,6 +889,725 @@ func getSystemStats() SystemStats {
 	}
 }
 
+type PinnedSite struct {
+	StorageID string `json:"storage"`
+	Path      string `json:"path"`
+}
+
+type SiteItem struct {
+	ID          string    `json:"id"`
+	Title       string    `json:"title"`
+	StorageID   string    `json:"storageId"`
+	StorageName string    `json:"storageName"`
+	RelPath     string    `json:"relPath"`
+	URL         string    `json:"url"`
+	IsDir       bool      `json:"isDir"`
+	HasIndex    bool      `json:"hasIndex"`
+	IsPinned    bool      `json:"isPinned"`
+	DocCount    int       `json:"docCount"`
+	Size        int64     `json:"size"`
+	ModTime     time.Time `json:"modTime"`
+}
+
+type CinemaItem struct {
+	ID          string    `json:"id"`
+	Title       string    `json:"title"`
+	Name        string    `json:"name"`
+	StorageID   string    `json:"storageId"`
+	StorageName string    `json:"storageName"`
+	RelPath     string    `json:"relPath"`
+	Size        int64     `json:"size"`
+	ModTime     time.Time `json:"modTime"`
+	Ext         string    `json:"ext"`
+	HasSubtitle bool      `json:"hasSubtitle"`
+}
+
+type PhotoItem struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	StorageID   string    `json:"storageId"`
+	StorageName string    `json:"storageName"`
+	RelPath     string    `json:"relPath"`
+	Size        int64     `json:"size"`
+	ModTime     time.Time `json:"modTime"`
+	Ext         string    `json:"ext"`
+	MediaType   string    `json:"mediaType"`
+}
+
+var (
+	pinnedSitesMutex sync.RWMutex
+	pinnedSitesFile  string
+)
+
+func getPinnedSitesFilePath() string {
+	if pinnedSitesFile != "" {
+		return pinnedSitesFile
+	}
+	if configFile != "" {
+		return filepath.Join(filepath.Dir(configFile), "pinned_sites.json")
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".mininas_pinned_sites.json")
+}
+
+func loadPinnedSites() []PinnedSite {
+	pinnedSitesMutex.RLock()
+	defer pinnedSitesMutex.RUnlock()
+
+	p := getPinnedSitesFilePath()
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return []PinnedSite{}
+	}
+	var sites []PinnedSite
+	_ = json.Unmarshal(data, &sites)
+	if sites == nil {
+		return []PinnedSite{}
+	}
+	return sites
+}
+
+func savePinnedSites(sites []PinnedSite) error {
+	pinnedSitesMutex.Lock()
+	defer pinnedSitesMutex.Unlock()
+
+	p := getPinnedSitesFilePath()
+	_ = os.MkdirAll(filepath.Dir(p), 0755)
+	data, err := json.MarshalIndent(sites, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(p, data, 0644)
+}
+
+var htmlTitleRegex = regexp.MustCompile(`(?i)<title[^>]*>([^<]+)</title>`)
+
+func extractHTMLTitle(filePath string, fallback string) string {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return fallback
+	}
+	defer f.Close()
+
+	buf := make([]byte, 4096)
+	n, _ := f.Read(buf)
+	if n > 0 {
+		matches := htmlTitleRegex.FindSubmatch(buf[:n])
+		if len(matches) > 1 {
+			title := strings.TrimSpace(string(matches[1]))
+			if title != "" {
+				return title
+			}
+		}
+	}
+	return fallback
+}
+
+// handleListSites combines Model B (Convention: htdocs/ or sites/ directory) and Model C (User Pinned Sites)
+func handleListSites(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	siteMap := make(map[string]*SiteItem)
+	var siteOrder []string
+
+	// 1. Model B: Search for convention hosting directories ('htdocs', 'sites', 'public_html', 'my-site')
+	isHostingDir := func(name string) bool {
+		lower := strings.ToLower(name)
+		return lower == "htdocs" || lower == "sites" || lower == "public_html" || lower == "my-site"
+	}
+
+	for _, storage := range activeStorages {
+		rootDir := storage.Path
+		if rootDir == "" {
+			continue
+		}
+
+		// Find hosting directory candidates
+		var candidateDirs []string
+
+		// Check if the root dir itself is a hosting dir
+		if isHostingDir(filepath.Base(rootDir)) {
+			candidateDirs = append(candidateDirs, rootDir)
+		}
+
+		// Check 1st-level subdirectories of the storage
+		rootEntries, err := os.ReadDir(rootDir)
+		if err == nil {
+			for _, e := range rootEntries {
+				if e.IsDir() && isHostingDir(e.Name()) {
+					candidateDirs = append(candidateDirs, filepath.Join(rootDir, e.Name()))
+				}
+			}
+		}
+
+		// Now scan the hosting folders (only direct children, no deep crawling!)
+		for _, hostDir := range candidateDirs {
+			entries, err := os.ReadDir(hostDir)
+			if err != nil {
+				continue
+			}
+
+			// 1) Check if hostDir itself contains index.html (the directory itself is a web project)
+			hasHostIndex := false
+			var hostIndexPath string
+			hostHtmlCount := 0
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					ext := strings.ToLower(filepath.Ext(entry.Name()))
+					if ext == ".html" || ext == ".htm" {
+						hostHtmlCount++
+						if strings.EqualFold(entry.Name(), "index.html") || strings.EqualFold(entry.Name(), "index.htm") {
+							hasHostIndex = true
+							hostIndexPath = filepath.Join(hostDir, entry.Name())
+						}
+					}
+				}
+			}
+
+			if hasHostIndex {
+				rel, err := filepath.Rel(rootDir, hostDir)
+				if err == nil {
+					relSlash := filepath.ToSlash(rel)
+					relPath := "/" + strings.Trim(relSlash, "/")
+					if relPath == "/." {
+						relPath = "/"
+					}
+					key := storage.ID + ":" + relPath
+					title := extractHTMLTitle(hostIndexPath, filepath.Base(hostDir))
+					info, _ := os.Stat(hostDir)
+					var size int64
+					modTime := time.Now()
+					if info != nil {
+						size = info.Size()
+						modTime = info.ModTime()
+					}
+
+					var siteURL string
+					if relPath == "/" {
+						siteURL = fmt.Sprintf("/sites/%s/", storage.ID)
+					} else {
+						siteURL = fmt.Sprintf("/sites/%s%s/", storage.ID, relPath)
+					}
+					item := &SiteItem{
+						ID:          key,
+						Title:       title,
+						StorageID:   storage.ID,
+						StorageName: storage.Name,
+						RelPath:     relPath,
+						URL:         siteURL,
+						IsDir:       true,
+						HasIndex:    true,
+						IsPinned:    false,
+						DocCount:    hostHtmlCount,
+						Size:        size,
+						ModTime:     modTime,
+					}
+					siteMap[key] = item
+					siteOrder = append(siteOrder, key)
+				}
+			}
+
+			// 2) Check subdirectories inside hostDir (projects inside sites/ or htdocs/)
+			for _, entry := range entries {
+				name := entry.Name()
+				if strings.HasPrefix(name, ".") || !entry.IsDir() {
+					continue
+				}
+
+				entryPath := filepath.Join(hostDir, name)
+				rel, err := filepath.Rel(rootDir, entryPath)
+				if err != nil {
+					continue
+				}
+				relPath := "/" + filepath.ToSlash(rel)
+				key := storage.ID + ":" + relPath
+
+				// Only directories with index.html are automatically detected (Model B)
+				hasIndex := false
+				htmlCount := 0
+				var indexPath string
+
+				subEntries, _ := os.ReadDir(entryPath)
+				for _, se := range subEntries {
+					if !se.IsDir() {
+						ext := strings.ToLower(filepath.Ext(se.Name()))
+						if ext == ".html" || ext == ".htm" {
+							htmlCount++
+							if strings.EqualFold(se.Name(), "index.html") || strings.EqualFold(se.Name(), "index.htm") {
+								hasIndex = true
+								indexPath = filepath.Join(entryPath, se.Name())
+							}
+						}
+					}
+				}
+
+					// Skip directories without index.html (these can be pinned manually via Model C)
+					if !hasIndex {
+						continue
+					}
+
+					title := extractHTMLTitle(indexPath, name)
+
+					info, _ := entry.Info()
+					var size int64
+					modTime := time.Now()
+					if info != nil {
+						size = info.Size()
+						modTime = info.ModTime()
+					}
+
+					siteURL := fmt.Sprintf("/sites/%s%s/", storage.ID, relPath)
+					item := &SiteItem{
+						ID:          key,
+						Title:       title,
+						StorageID:   storage.ID,
+						StorageName: storage.Name,
+						RelPath:     relPath,
+						URL:         siteURL,
+						IsDir:       true,
+						HasIndex:    true,
+						IsPinned:    false,
+						DocCount:    htmlCount,
+						Size:        size,
+						ModTime:     modTime,
+					}
+					siteMap[key] = item
+					siteOrder = append(siteOrder, key)
+				}
+				// Standalone files are not auto-detected; users can pin them explicitly via Model C
+			}
+		}
+
+	// 2. Model C: Merge user pinned sites
+	pinnedList := loadPinnedSites()
+	for _, pin := range pinnedList {
+		fullPath, err := resolveSafePath(pin.StorageID, pin.Path)
+		if err != nil {
+			continue
+		}
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			continue
+		}
+
+		key := pin.StorageID + ":" + pin.Path
+		if existing, ok := siteMap[key]; ok {
+			existing.IsPinned = true
+			continue
+		}
+
+		// Find storage name
+		storageName := pin.StorageID
+		for _, s := range activeStorages {
+			if s.ID == pin.StorageID {
+				storageName = s.Name
+				break
+			}
+		}
+
+		name := filepath.Base(fullPath)
+		if info.IsDir() {
+			hasIndex := false
+			htmlCount := 0
+			var indexPath string
+
+			subEntries, _ := os.ReadDir(fullPath)
+			for _, se := range subEntries {
+				if !se.IsDir() {
+					ext := strings.ToLower(filepath.Ext(se.Name()))
+					if ext == ".html" || ext == ".htm" {
+						htmlCount++
+						if strings.EqualFold(se.Name(), "index.html") || strings.EqualFold(se.Name(), "index.htm") {
+							hasIndex = true
+							indexPath = filepath.Join(fullPath, se.Name())
+						}
+					}
+				}
+			}
+
+			title := name
+			if hasIndex {
+				title = extractHTMLTitle(indexPath, name)
+			} else if htmlCount > 0 {
+				title = fmt.Sprintf("%s (%d개 문서)", name, htmlCount)
+			}
+
+			siteURL := fmt.Sprintf("/sites/%s%s/", pin.StorageID, pin.Path)
+			item := &SiteItem{
+				ID:          key,
+				Title:       title,
+				StorageID:   pin.StorageID,
+				StorageName: storageName,
+				RelPath:     pin.Path,
+				URL:         siteURL,
+				IsDir:       true,
+				HasIndex:    hasIndex,
+				IsPinned:    true,
+				DocCount:    htmlCount,
+				Size:        info.Size(),
+				ModTime:     info.ModTime(),
+			}
+			siteMap[key] = item
+			siteOrder = append(siteOrder, key)
+		} else {
+			ext := strings.ToLower(filepath.Ext(name))
+			if ext == ".html" || ext == ".htm" {
+				title := extractHTMLTitle(fullPath, strings.TrimSuffix(name, ext))
+				siteURL := fmt.Sprintf("/sites/%s%s", pin.StorageID, pin.Path)
+				item := &SiteItem{
+					ID:          key,
+					Title:       title,
+					StorageID:   pin.StorageID,
+					StorageName: storageName,
+					RelPath:     pin.Path,
+					URL:         siteURL,
+					IsDir:       false,
+					HasIndex:    false,
+					IsPinned:    true,
+					DocCount:    1,
+					Size:        info.Size(),
+					ModTime:     info.ModTime(),
+				}
+				siteMap[key] = item
+				siteOrder = append(siteOrder, key)
+			}
+		}
+	}
+
+	var result []SiteItem
+	for _, k := range siteOrder {
+		if item, ok := siteMap[k]; ok {
+			result = append(result, *item)
+		}
+	}
+
+	if result == nil {
+		result = []SiteItem{}
+	}
+
+	// Sort pinned first, then by ModTime desc
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].IsPinned != result[j].IsPinned {
+			return result[i].IsPinned
+		}
+		return result[i].ModTime.After(result[j].ModTime)
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+// handlePinSite pins a file or directory to Sites Hub
+func handlePinSite(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Storage string `json:"storage"`
+		Path    string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if req.Storage == "" || req.Path == "" {
+		http.Error(w, "Storage and path are required", http.StatusBadRequest)
+		return
+	}
+
+	pinned := loadPinnedSites()
+	for _, p := range pinned {
+		if p.StorageID == req.Storage && p.Path == req.Path {
+			// Already pinned
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]bool{"success": true})
+			return
+		}
+	}
+
+	pinned = append(pinned, PinnedSite{
+		StorageID: req.Storage,
+		Path:      req.Path,
+	})
+
+	if err := savePinnedSites(pinned); err != nil {
+		http.Error(w, "Failed to save pinned site: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+// handleUnpinSite unpins a file or directory from Sites Hub
+func handleUnpinSite(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Storage string `json:"storage"`
+		Path    string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	pinned := loadPinnedSites()
+	var updated []PinnedSite
+	for _, p := range pinned {
+		if !(p.StorageID == req.Storage && p.Path == req.Path) {
+			updated = append(updated, p)
+		}
+	}
+
+	if err := savePinnedSites(updated); err != nil {
+		http.Error(w, "Failed to update pinned sites: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+// handleCinemaList scans registered storages for video files to build an OTT library
+func handleCinemaList(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	storageFilter := r.URL.Query().Get("storage")
+	var results []CinemaItem
+
+	for _, storage := range activeStorages {
+		if storageFilter != "" && storage.ID != storageFilter {
+			continue
+		}
+		rootDir := storage.Path
+		if rootDir == "" {
+			continue
+		}
+
+		_ = filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+
+			name := d.Name()
+			if strings.HasPrefix(name, ".") {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+
+			// Skip deep directories (limit depth to 4 for Mac mini HDD performance)
+			rel, err := filepath.Rel(rootDir, path)
+			if err != nil {
+				return nil
+			}
+			depth := strings.Count(filepath.ToSlash(rel), "/")
+			if depth > 4 && d.IsDir() {
+				return filepath.SkipDir
+			}
+
+			if d.IsDir() {
+				lower := strings.ToLower(name)
+				if lower == "node_modules" || lower == ".trash" || lower == "trash" || lower == ".mininas_cache" {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+
+			ext := strings.ToLower(filepath.Ext(name))
+			if getMediaType(ext) != "video" {
+				return nil
+			}
+
+			info, err := d.Info()
+			if err != nil {
+				return nil
+			}
+
+			// Filter out files smaller than 1MB
+			if info.Size() < 1024*1024 {
+				return nil
+			}
+
+			relPath := "/" + filepath.ToSlash(rel)
+			parentDir := filepath.Dir(path)
+			baseWithoutExt := strings.TrimSuffix(name, filepath.Ext(name))
+
+			// Check for subtitle in the same directory
+			hasSub := false
+			for _, subExt := range []string{".srt", ".smi", ".vtt"} {
+				if _, err := os.Stat(filepath.Join(parentDir, baseWithoutExt+subExt)); err == nil {
+					hasSub = true
+					break
+				}
+				if _, err := os.Stat(filepath.Join(parentDir, baseWithoutExt+strings.ToUpper(subExt))); err == nil {
+					hasSub = true
+					break
+				}
+			}
+
+			results = append(results, CinemaItem{
+				ID:          storage.ID + ":" + relPath,
+				Title:       baseWithoutExt,
+				Name:        name,
+				StorageID:   storage.ID,
+				StorageName: storage.Name,
+				RelPath:     relPath,
+				Size:        info.Size(),
+				ModTime:     info.ModTime(),
+				Ext:         ext,
+				HasSubtitle: hasSub,
+			})
+			return nil
+		})
+	}
+
+	if results == nil {
+		results = []CinemaItem{}
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].ModTime.After(results[j].ModTime)
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
+}
+
+// handlePhotosList scans registered storages for photos and videos for the timeline
+func handlePhotosList(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	storageFilter := r.URL.Query().Get("storage")
+	typeFilter := strings.ToLower(r.URL.Query().Get("type")) // "image", "video", or "" ("all")
+	skipSpecial := r.URL.Query().Get("skip_special") == "true" // User toggle: exclude movies/sites folders
+	var results []PhotoItem
+
+	for _, storage := range activeStorages {
+		if storageFilter != "" && storage.ID != storageFilter {
+			continue
+		}
+		// If skipSpecial is requested, exclude dedicated movie storage
+		if skipSpecial && storage.ID == "movies" {
+			continue
+		}
+		rootDir := storage.Path
+		if rootDir == "" {
+			continue
+		}
+
+		_ = filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+
+			name := d.Name()
+			if strings.HasPrefix(name, ".") {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+
+			if d.IsDir() {
+				lower := strings.ToLower(name)
+				// Always exclude system, cache, and trash folders
+				if lower == "node_modules" || lower == ".trash" || lower == "trash" || lower == ".mininas_cache" || lower == ".git" {
+					return filepath.SkipDir
+				}
+
+				// Only skip movie and website folders when skipSpecial toggle is explicitly enabled
+				if skipSpecial {
+					// 1) Static website folders
+					if lower == "sites" || lower == "htdocs" || lower == "public_html" || lower == "my-site" || lower == "www" {
+						return filepath.SkipDir
+					}
+					// 2) Cinema, movie, drama, series folders (singular & plural, Korean & English)
+					if lower == "movies" || lower == "movie" || lower == "영화" ||
+						lower == "dramas" || lower == "drama" || lower == "드라마" ||
+						lower == "cinema" || lower == "series" || lower == "tv" ||
+						lower == "vod" || lower == "방송" || lower == "예능" {
+						return filepath.SkipDir
+					}
+				}
+				return nil
+			}
+
+			ext := strings.ToLower(filepath.Ext(name))
+			mediaType := getMediaType(ext)
+
+			// Photos Hub collects both images and videos (no size limit)
+			if mediaType != "image" && mediaType != "video" {
+				return nil
+			}
+
+			if typeFilter == "image" && mediaType != "image" {
+				return nil
+			}
+			if typeFilter == "video" && mediaType != "video" {
+				return nil
+			}
+
+			info, err := d.Info()
+			if err != nil {
+				return nil
+			}
+
+			// Skip 0-byte files
+			if info.Size() == 0 {
+				return nil
+			}
+
+			rel, err := filepath.Rel(rootDir, path)
+			if err != nil {
+				return nil
+			}
+			relPath := "/" + filepath.ToSlash(rel)
+
+			results = append(results, PhotoItem{
+				ID:          storage.ID + ":" + relPath,
+				Name:        name,
+				StorageID:   storage.ID,
+				StorageName: storage.Name,
+				RelPath:     relPath,
+				Size:        info.Size(),
+				ModTime:     info.ModTime(),
+				Ext:         ext,
+				MediaType:   mediaType,
+			})
+			return nil
+		})
+	}
+
+	if results == nil {
+		results = []PhotoItem{}
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].ModTime.After(results[j].ModTime)
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
+}
+
 func handleSystemStats(w http.ResponseWriter, r *http.Request) {
 	stats := getSystemStats()
 	w.Header().Set("Content-Type", "application/json")
@@ -831,11 +1623,9 @@ func handleSitesHosting(w http.ResponseWriter, r *http.Request) {
 	relPath := ""
 
 	if rawPath == "" {
-		// 기본 저장소 루트 디렉토리 요청 (/sites 또는 /sites/)
-		if len(activeStorages) > 0 {
-			storageId = activeStorages[0].ID
-		}
-		relPath = "/"
+		// When requesting /sites or /sites/, redirect to the MiniNAS Web UI Sites Hub!
+		http.Redirect(w, r, "/?tab=sites", http.StatusFound)
+		return
 	} else {
 		parts := strings.SplitN(rawPath, "/", 2)
 
@@ -1367,6 +2157,11 @@ func main() {
 	mux.HandleFunc("/api/trash/restore", handleRestoreTrash)
 	mux.HandleFunc("/api/trash/delete", handleDeleteTrash)
 	mux.HandleFunc("/api/trash/empty", handleEmptyTrash)
+	mux.HandleFunc("/api/sites", handleListSites)
+	mux.HandleFunc("/api/sites/pin", handlePinSite)
+	mux.HandleFunc("/api/sites/unpin", handleUnpinSite)
+	mux.HandleFunc("/api/cinema", handleCinemaList)
+	mux.HandleFunc("/api/photos", handlePhotosList)
 
 	// Static website hosting route (serves HTML/sites directly)
 	mux.HandleFunc("/sites/", handleSitesHosting)
@@ -1379,12 +2174,21 @@ func main() {
 	fileServer := http.FileServer(http.FS(distFS))
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		f, err := distFS.Open(strings.TrimPrefix(r.URL.Path, "/"))
-		if err == nil {
-			f.Close()
-			fileServer.ServeHTTP(w, r)
-			return
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		if path != "" && path != "index.html" {
+			f, err := distFS.Open(path)
+			if err == nil {
+				f.Close()
+				fileServer.ServeHTTP(w, r)
+				return
+			}
 		}
+		// SPA Fallback & index.html: Prevent caching so newly bundled JS is loaded immediately
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
 		indexFile, err := distFS.Open("index.html")
 		if err != nil {
 			http.NotFound(w, r)
