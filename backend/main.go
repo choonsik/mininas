@@ -267,6 +267,10 @@ func handleGetFiles(w http.ResponseWriter, r *http.Request) {
 	} else {
 		entries, err := os.ReadDir(fullPath)
 		if err != nil {
+			if os.IsNotExist(err) {
+				http.Error(w, fmt.Sprintf(`{"error":"폴더가 존재하지 않습니다: %s"}`, relPath), http.StatusNotFound)
+				return
+			}
 			http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusInternalServerError)
 			return
 		}

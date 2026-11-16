@@ -126,7 +126,7 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Load files (Current directory explorer)
+  // Load files (Current directory explorer with Auto-Fallback to root)
   const loadFiles = useCallback(async (path: string, storageId: string) => {
     setIsLoading(true);
     try {
@@ -134,11 +134,29 @@ export const App: React.FC = () => {
       setItems(data.items);
       setSelectedPaths(new Set());
     } catch (err: any) {
+      // If requested subfolder does not exist (e.g. stale URL), automatically fallback to root '/'
+      if (path && path !== '/') {
+        showToast('폴더가 존재하지 않아 루트로 이동합니다.', 'info');
+        setCurrentPath('/');
+        window.history.replaceState(
+          { tab: 'files', storageId, path: '/', view: viewMode },
+          '',
+          buildUrl(storageId, '/', viewMode, undefined, 'files')
+        );
+        try {
+          const rootData = await api.getFiles('/', storageId);
+          setItems(rootData.items);
+          setSelectedPaths(new Set());
+        } catch (rootErr: any) {
+          showToast(`파일 목록 오류: ${rootErr.message}`, 'error');
+        }
+        return;
+      }
       showToast(`파일 목록 오류: ${err.message}`, 'error');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [viewMode]);
 
   // Load system stats
   const loadStats = useCallback(async () => {
