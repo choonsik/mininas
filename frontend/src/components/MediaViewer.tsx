@@ -257,6 +257,14 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
     setIsBuffering(false);
   }, []);
 
+  // Periodic Heartbeat to keep buffer stats fresh even when paused
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      updateBufferStatus();
+    }, 500);
+    return () => clearInterval(timer);
+  }, [updateBufferStatus]);
+
   // When video metadata is loaded, apply default subtitle track & initial buffer check
   const handleVideoLoaded = () => {
     if (selectedSubtitleUrl) {
