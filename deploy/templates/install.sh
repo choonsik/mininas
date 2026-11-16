@@ -23,11 +23,16 @@ echo "📦 1. 실행 파일 및 설정 복사 중..."
 cp "$SCRIPT_DIR/mininas" "$APP_DIR/mininas"
 chmod +x "$APP_DIR/mininas"
 
-# config.json 동기화 (최신 설정을 Applications로 항상 갱신)
-if [ -f "$SCRIPT_DIR/config.json" ]; then
+# config.json 보존 (기존 사용자 설정이 있으면 덮어쓰지 않고 절대 보존)
+if [ -f "$APP_DIR/config.json" ]; then
+    echo "🛡️ 기존 사용자 설정을 안전하게 보존합니다: $APP_DIR/config.json"
+    if [ -f "$SCRIPT_DIR/config.json" ]; then
+        sed "s|\$HOME|$HOME|g" "$SCRIPT_DIR/config.json" > "$APP_DIR/config.json.sample" 2>/dev/null || true
+    fi
+elif [ -f "$SCRIPT_DIR/config.json" ]; then
     sed "s|\$HOME|$HOME|g" "$SCRIPT_DIR/config.json" > "$APP_DIR/config.json"
-    echo "📄 최신 config.json 설정이 적용되었습니다: $APP_DIR/config.json"
-elif [ ! -f "$APP_DIR/config.json" ]; then
+    echo "📄 초기 config.json 설정이 적용되었습니다: $APP_DIR/config.json"
+else
     echo "{\"port\": 8080, \"storageRoot\": \"$HOME/MiniNAS_Storage\"}" > "$APP_DIR/config.json"
 fi
 
