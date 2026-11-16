@@ -187,20 +187,29 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [handlePrev, handleNext, onClose, item]);
 
-  // Synchronize subtitle track mode when selectedSubtitleUrl changes or video loads
-  const selectSubtitle = (url: string | null) => {
-    setSelectedSubtitleUrl(url);
+  // Synchronize HTML5 video textTracks with target subtitle URL
+  const applySubtitleTrack = useCallback((url: string | null) => {
     if (!videoRef.current) return;
     const targetSub = subtitles.find((s) => s.url === url);
     const textTracks = videoRef.current.textTracks;
     for (let i = 0; i < textTracks.length; i++) {
       const t = textTracks[i];
-      if (targetSub && t.label === targetSub.label) {
+      if (targetSub && (t.label === targetSub.label || t.language === targetSub.language)) {
         t.mode = 'showing';
       } else {
         t.mode = 'disabled';
       }
     }
+  }, [subtitles]);
+
+  // Synchronize subtitle track mode automatically whenever selectedSubtitleUrl or subtitles change
+  useEffect(() => {
+    applySubtitleTrack(selectedSubtitleUrl);
+  }, [selectedSubtitleUrl, subtitles, applySubtitleTrack]);
+
+  const selectSubtitle = (url: string | null) => {
+    setSelectedSubtitleUrl(url);
+    applySubtitleTrack(url);
   };
 
   const clearBoostTimers = useCallback(() => {
@@ -640,6 +649,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                     kind="subtitles"
                     srcLang={sub.language}
                     label={sub.label}
+                    default={selectedSubtitleUrl === sub.url}
                   />
                 ))}
                 브라우저가 동영상 재생을 지원하지 않습니다.
@@ -699,11 +709,11 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                 <button
                   onClick={handleTriggerBufferBoost}
                   disabled={isBuffering}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-300 text-xs font-medium transition active:scale-95 disabled:opacity-50"
-                  title="네트워크가 느릴 때 미리 안전 버퍼를 확보한 뒤 끊김 없이 재생합니다."
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-cyan-500/20 border border-white/15 hover:border-cyan-400/40 text-gray-300 hover:text-cyan-300 text-xs font-normal transition active:scale-95 disabled:opacity-50"
+                  title="자동으로 버퍼가 관리되므로 평소에는 누르실 필요가 없으며, 네트워크가 매우 불안정할 때만 선택적으로 사용하세요."
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>⚡ 안전 버퍼 부스터</span>
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>(선택) 버퍼 모으기</span>
                 </button>
               </div>
             </div>
