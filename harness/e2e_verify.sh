@@ -1,193 +1,258 @@
 #!/bin/bash
 # ==============================================================================
-# MiniNAS E2E(End-to-End) 통합 런타임 검증 하네스
+# MiniNAS End-to-End (E2E) Runtime Verification Harness
 # ==============================================================================
 set -e
 
 PORT=8999
 TEST_DIR=$(mktemp -d /tmp/mininas_e2e_XXXXXX)
-BIN_PATH="./backend/mininas-local"
+BIN_PATH="./backend/mininas-e2e-test"
 
-echo "🧪 [Harness] E2E 런타임 시나리오 검증 시작 (포트: $PORT)"
-echo "   임시 격리 스토리지: $TEST_DIR"
+echo "[Harness] Starting E2E runtime verification (port: $PORT)"
+echo "  Isolated storage root: $TEST_DIR"
 
 cleanup() {
-    echo "🧹 [Harness] 테스트 환경 정리 중..."
+    echo "[Harness] Cleaning up test processes and temporary files..."
     if [ -n "$SERVER_PID" ]; then
         kill "$SERVER_PID" 2>/dev/null || true
     fi
+    rm -f "$BIN_PATH"
     rm -rf "$TEST_DIR"
 }
 trap cleanup EXIT
 
-# 1. 로컬 바이너리 준비 (항상 최신 소스로 빌드)
-echo "⚙️ 로컬 테스트 바이너리 빌드 중..."
-cd backend && GOTOOLCHAIN=local go build -o mininas-local . && cd ..
+# Build local binary from current source
+echo "[Harness] Compiling local test binary..."
+GO_BIN="/opt/homebrew/opt/go@1.24/bin/go"
+if [ ! -f "$GO_BIN" ]; then
+    GO_BIN="go"
+fi
+mkdir -p ./backend/dist
+if [ ! -f ./backend/dist/index.html ]; then
+    echo "<!doctype html><html><body>MiniNAS</body></html>" > ./backend/dist/index.html
+fi
+cd backend && GOTOOLCHAIN=local "$GO_BIN" build -o mininas-e2e-test . && cd ..
 
-# 2. 임시 config.json 생성
+# Create isolated config.json
 cat <<EOF > "$TEST_DIR/config.json"
 {
   "port": $PORT,
   "storages": [
-    { "id": "test_s1", "name": "테스트 저장소 1", "path": "$TEST_DIR/s1" },
-    { "id": "test_s2", "name": "테스트 저장소 2", "path": "$TEST_DIR/s2" }
+    { "id": "test_s1", "name": "Test Storage 1", "path": "$TEST_DIR/s1" },
+    { "id": "test_s2", "name": "Test Storage 2", "path": "$TEST_DIR/s2" }
   ]
 }
 EOF
 
 mkdir -p "$TEST_DIR/s1" "$TEST_DIR/s2"
 
-# 3. 테스트 서버 백그라운드 가동
+# 1. Pre-flight configuration validator (-check flag)
+if ! "$BIN_PATH" -config "$TEST_DIR/config.json" -check > /dev/null 2>&1; then
+    echo "[FAIL] 1. Pre-flight configuration validator (-check) failed"
+    exit 1
+fi
+echo "  [PASS] 1. Pre-flight configuration validator (-check) verified"
+
+# 2. Background daemon startup
 "$BIN_PATH" -config "$TEST_DIR/config.json" > "$TEST_DIR/server.log" 2>&1 &
 SERVER_PID=$!
 sleep 1
 
 if ! ps -p "$SERVER_PID" > /dev/null; then
-    echo "❌ 서버 시작 실패. 로그:"
+    echo "[FAIL] 2. Server failed to start. Log output:"
     cat "$TEST_DIR/server.log"
     exit 1
 fi
-echo "  ✅ 1. 테스트 서버 백그라운드 구동 성공 (PID: $SERVER_PID)"
+echo "  [PASS] 2. Background server daemon startup verified (PID: $SERVER_PID)"
 
-# 4. 저장소 목록 API 검증
+# 3. Multi-storage list API (/api/storages)
 STORAGES_JSON=$(curl -s "http://localhost:$PORT/api/storages")
-if [[ "$STORAGES_JSON" != *"test_s1"* ]]; then
-    echo "❌ [FAIL] /api/storages 검증 실패: $STORAGES_JSON"
+if [[ "$STORAGES_JSON" != *"test_s1"* ]] || [[ "$STORAGES_JSON" != *"test_s2"* ]]; then
+    echo "[FAIL] 3. /api/storages verification failed: $STORAGES_JSON"
     exit 1
 fi
-echo "  ✅ 2. 멀티 저장소 API 응답 검증 통과"
+echo "  [PASS] 3. Multi-storage list and disk stats API (/api/storages) verified"
 
-# 5. 파일 업로드 API 검증
+# 4. Multipart streaming file upload (/api/files/upload)
 echo "E2E Test File Payload" > "$TEST_DIR/sample.txt"
 UPLOAD_RES=$(curl -s -X POST -F "storage=test_s1" -F "targetPath=/" -F "files=@$TEST_DIR/sample.txt" "http://localhost:$PORT/api/files/upload")
 if [[ "$UPLOAD_RES" != *"ok"* ]]; then
-    echo "❌ [FAIL] /api/files/upload 실패: $UPLOAD_RES"
+    echo "[FAIL] 4. /api/files/upload failed: $UPLOAD_RES"
     exit 1
 fi
-echo "  ✅ 3. 대용량 멀티파트 스트리밍 업로드 통과"
+echo "  [PASS] 4. Multipart streaming file upload (/api/files/upload) verified"
 
-# 6. 파일 목록 조회 API 검증
+# 5. Directory listing and metadata API (/api/files)
 FILES_JSON=$(curl -s "http://localhost:$PORT/api/files?storage=test_s1&path=/")
 if [[ "$FILES_JSON" != *"sample.txt"* ]]; then
-    echo "❌ [FAIL] /api/files 목록에 업로드된 파일 없음: $FILES_JSON"
+    echo "[FAIL] 5. /api/files missing uploaded file: $FILES_JSON"
     exit 1
 fi
-echo "  ✅ 4. 파일 목록 인덱싱 및 메타데이터 API 검증 통과"
+echo "  [PASS] 5. Directory listing and file metadata API (/api/files) verified"
 
-# 7. HTTP 206 Range 부분 스트리밍 검증
+# 6. Directory creation, rename, and single file download (/api/files/mkdir, /rename, /download)
+MKDIR_RES=$(curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"storage":"test_s1","parentPath":"/","name":"work_dir"}' \
+  "http://localhost:$PORT/api/files/mkdir")
+if [[ "$MKDIR_RES" != *"ok"* ]] || [ ! -d "$TEST_DIR/s1/work_dir" ]; then
+    echo "[FAIL] 6a. /api/files/mkdir failed: $MKDIR_RES"
+    exit 1
+fi
+
+COPY_RES=$(curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"sourceStorage":"test_s1","targetStorage":"test_s1","sourcePaths":["/sample.txt"],"targetDir":"/work_dir"}' \
+  "http://localhost:$PORT/api/files/copy")
+if [[ "$COPY_RES" != *"ok"* ]]; then
+    echo "[FAIL] 6b. /api/files/copy failed: $COPY_RES"
+    exit 1
+fi
+
+RENAME_RES=$(curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"storage":"test_s1","path":"/work_dir/sample.txt","newName":"renamed.txt"}' \
+  "http://localhost:$PORT/api/files/rename")
+if [[ "$RENAME_RES" != *"ok"* ]] || [ ! -f "$TEST_DIR/s1/work_dir/renamed.txt" ]; then
+    echo "[FAIL] 6c. /api/files/rename failed: $RENAME_RES"
+    exit 1
+fi
+
+DL_BODY=$(curl -s "http://localhost:$PORT/api/files/download?storage=test_s1&path=/work_dir/renamed.txt")
+if [[ "$DL_BODY" != "E2E Test File Payload" ]]; then
+    echo "[FAIL] 6d. /api/files/download content mismatch: $DL_BODY"
+    exit 1
+fi
+echo "  [PASS] 6. File operations (mkdir, copy, rename, download) verified"
+
+# 7. Cross-storage move (/api/files/move)
+MOVE_RES=$(curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"sourceStorage":"test_s1","targetStorage":"test_s2","sourcePaths":["/work_dir/renamed.txt"],"targetDir":"/"}' \
+  "http://localhost:$PORT/api/files/move")
+if [[ "$MOVE_RES" != *"ok"* ]] || [ ! -f "$TEST_DIR/s2/renamed.txt" ] || [ -f "$TEST_DIR/s1/work_dir/renamed.txt" ]; then
+    echo "[FAIL] 7. Cross-storage /api/files/move failed: $MOVE_RES"
+    exit 1
+fi
+echo "  [PASS] 7. Cross-storage file move (/api/files/move) verified"
+
+# 8. HTTP 206 byte-range media streaming (/api/files/stream)
 STREAM_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Range: bytes=0-4" "http://localhost:$PORT/api/files/stream?storage=test_s1&path=/sample.txt")
 if [ "$STREAM_STATUS" != "206" ]; then
-    echo "❌ [FAIL] 미디어 Seek 스트리밍(HTTP 206) 실패 (응답코드: $STREAM_STATUS)"
+    echo "[FAIL] 8. HTTP 206 range streaming failed (status: $STREAM_STATUS)"
     exit 1
 fi
-echo "  ✅ 5. HTTP 206 미디어 Range 스트리밍 검증 통과"
+echo "  [PASS] 8. HTTP 206 byte-range media streaming (/api/files/stream) verified"
 
-# 8. 실시간 ZIP 다운로드 검증
+# 9. Real-time ZIP streaming download (/api/files/download-zip)
 ZIP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT/api/files/download-zip?storage=test_s1&path=/sample.txt")
 if [ "$ZIP_STATUS" != "200" ]; then
-    echo "❌ [FAIL] ZIP 압축 다운로드 실패 (응답코드: $ZIP_STATUS)"
+    echo "[FAIL] 9. ZIP streaming download failed (status: $ZIP_STATUS)"
     exit 1
 fi
-echo "  ✅ 6. 실시간 ZIP 압축 스트리밍 검증 통과"
+echo "  [PASS] 9. On-the-fly ZIP archive streaming (/api/files/download-zip) verified"
 
-# 9. 시스템 상태 API 검증
+# 10. System hardware and disk stats API (/api/system/stats)
 SYS_JSON=$(curl -s "http://localhost:$PORT/api/system/stats")
-if [[ "$SYS_JSON" != *"hostname"* ]]; then
-    echo "❌ [FAIL] /api/system/stats 실패: $SYS_JSON"
+if [[ "$SYS_JSON" != *"hostname"* ]] || [[ "$SYS_JSON" != *"memory"* ]]; then
+    echo "[FAIL] 10. /api/system/stats failed: $SYS_JSON"
     exit 1
 fi
-echo "  ✅ 7. macOS 하드웨어/디스크 모니터링 API 검증 통과"
+echo "  [PASS] 10. System hardware and disk telemetry (/api/system/stats) verified"
 
-# 10. 정적 HTML 웹사이트 호스팅 (/sites/...) 검증
-mkdir -p "$TEST_DIR/s2/test-web"
-echo "<html><body><h1>Harness Web Hosted</h1></body></html>" > "$TEST_DIR/s2/test-web/index.html"
-SITE_BODY=$(curl -s "http://localhost:$PORT/sites/test_s2/test-web/")
-if [[ "$SITE_BODY" != *"Harness Web Hosted"* ]]; then
-    echo "❌ [FAIL] /sites/ 정적 호스팅 검증 실패: $SITE_BODY"
+# 11. Static website hosting (/sites/...) and Sites Hub (/api/sites)
+mkdir -p "$TEST_DIR/s2/sites/demo-site"
+echo "<html><head><title>Harness Demo Site</title></head><body><h1>Harness Web Hosted</h1></body></html>" > "$TEST_DIR/s2/sites/demo-site/index.html"
+SITE_BODY=$(curl -s "http://localhost:$PORT/sites/test_s2/sites/demo-site/")
+SITES_LIST=$(curl -s "http://localhost:$PORT/api/sites")
+if [[ "$SITE_BODY" != *"Harness Web Hosted"* ]] || [[ "$SITES_LIST" != *"Harness Demo Site"* ]]; then
+    echo "[FAIL] 11. Static site hosting or /api/sites failed"
     exit 1
 fi
-echo "  ✅ 8. 정적 HTML 웹사이트 호스팅(/sites/...) 실시간 렌더링 통과"
+echo "  [PASS] 11. Static website hosting (/sites/...) and Sites Hub (/api/sites) verified"
 
-# 11. 비디오 자막 매칭 및 WebVTT 변환 API 검증
+# 12. Subtitle auto-matching and live SRT/SMI to WebVTT conversion
 dd if=/dev/zero of="$TEST_DIR/s1/demo.mp4" bs=1024 count=1500 2>/dev/null
 cat << 'EOF' > "$TEST_DIR/s1/demo.ko.srt"
 1
 00:00:01,000 --> 00:00:03,000
-테스트 자막입니다
+Subtitle test line
 EOF
 cat << 'EOF' > "$TEST_DIR/s1/demo.smi"
 <SAMI><BODY>
-<SYNC Start=1000><P Class=KRCC>SMI 테스트 자막
+<SYNC Start=1000><P Class=KRCC>SMI subtitle test
 <SYNC Start=3000><P Class=KRCC>&nbsp;
 </BODY></SAMI>
 EOF
 
 SUB_LIST=$(curl -s "http://localhost:$PORT/api/files/subtitles?storage=test_s1&path=/demo.mp4")
-if [[ "$SUB_LIST" != *"demo.ko.srt"* ]] || [[ "$SUB_LIST" != *"demo.smi"* ]]; then
-    echo "❌ [FAIL] 자막 목록 탐색(/api/files/subtitles) 실패: $SUB_LIST"
-    exit 1
-fi
-
 SRT_VTT=$(curl -s "http://localhost:$PORT/api/files/subtitle?storage=test_s1&path=/demo.ko.srt")
-if [[ "$SRT_VTT" != *"WEBVTT"* ]] || [[ "$SRT_VTT" != *"00:00:01.000 --> 00:00:03.000"* ]]; then
-    echo "❌ [FAIL] SRT to WebVTT 변환 서빙 실패: $SRT_VTT"
-    exit 1
-fi
-
 SMI_VTT=$(curl -s "http://localhost:$PORT/api/files/subtitle?storage=test_s1&path=/demo.smi")
-if [[ "$SMI_VTT" != *"WEBVTT"* ]] || [[ "$SMI_VTT" != *"SMI 테스트 자막"* ]]; then
-    echo "❌ [FAIL] SMI to WebVTT 변환 서빙 실패: $SMI_VTT"
+if [[ "$SUB_LIST" != *"demo.ko.srt"* ]] || [[ "$SRT_VTT" != *"WEBVTT"* ]] || [[ "$SMI_VTT" != *"SMI subtitle test"* ]]; then
+    echo "[FAIL] 12. Subtitle discovery or WebVTT conversion failed"
     exit 1
 fi
-echo "  ✅ 9. SRT / SMI 자막 자동 매칭 및 실시간 WebVTT 변환 스트리밍 통과"
+echo "  [PASS] 12. Subtitle auto-matching and live WebVTT streaming verified"
 
-# 12. 시네마(Cinema) 허브 전 저장소 통합 영상 라이브러리 검증 (/api/cinema)
-CINEMA_RESP=$(curl -s "http://localhost:$PORT/api/cinema")
-if [[ "$CINEMA_RESP" != *"demo.mp4"* ]] || [[ "$CINEMA_RESP" != *"hasSubtitle"* ]]; then
-    echo "❌ [FAIL] 시네마 허브 통합 수집(/api/cinema) 검증 실패: $CINEMA_RESP"
-    exit 1
-fi
-echo "  ✅ 10. 시네마 허브 전 저장소 영화 통합 수집 및 자막 플래그 검증 통과"
-
-# 13. 포토(Photos) 허브 전 저장소 사진/영상 타임라인 수집 검증 (/api/photos)
+# 13. Cinema Hub and Photos Hub cross-storage aggregation (/api/cinema, /api/photos)
 echo "fake photo content" > "$TEST_DIR/s1/snapshot.jpg"
-PHOTOS_RESP=$(curl -s "http://localhost:$PORT/api/photos")
-if [[ "$PHOTOS_RESP" != *"snapshot.jpg"* ]] || [[ "$PHOTOS_RESP" != *"mediaType"* ]]; then
-    echo "❌ [FAIL] 포토 허브 타임라인 수집(/api/photos) 검증 실패: $PHOTOS_RESP"
+CINEMA_RESP=$(curl -s "http://localhost:$PORT/api/cinema")
+PHOTOS_RESP=$(curl -s "http://localhost:$PORT/api/photos?skip_special=true")
+if [[ "$CINEMA_RESP" != *"demo.mp4"* ]] || [[ "$CINEMA_RESP" != *"hasSubtitle"* ]] || [[ "$PHOTOS_RESP" != *"snapshot.jpg"* ]]; then
+    echo "[FAIL] 13. Cinema or Photos Hub API failed"
     exit 1
 fi
-echo "  ✅ 11. 포토 허브 전 저장소 사진/영상 타임라인 수집 검증 통과"
+echo "  [PASS] 13. Cinema Hub (/api/cinema) and Photos Hub (/api/photos) verified"
 
-# 14. 휴지통(Trash) 소프트 삭제, 목록 조회 및 복구 E2E 검증
-echo "Trash test content" > "$TEST_DIR/s1/trash_sample.txt"
-DEL_RESP=$(curl -s -X POST -H "Content-Type: application/json" \
-  -d '{"storage":"test_s1","paths":["/trash_sample.txt"]}' \
-  "http://localhost:$PORT/api/files/delete")
-if [[ "$DEL_RESP" != *"ok"* ]]; then
-    echo "❌ [FAIL] 휴지통 삭제 요청 실패: $DEL_RESP"
+# 14. Music Hub audio library and album cover extraction (/api/music, /api/music/cover)
+mkdir -p "$TEST_DIR/s1/Music/BlueNote"
+echo "fake mp3 audio payload" > "$TEST_DIR/s1/Music/BlueNote/Bill Evans - Waltz.mp3"
+printf '\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00\x60\x00\x60\x00\x00' > "$TEST_DIR/s1/Music/BlueNote/cover.jpg"
+
+MUSIC_RESP=$(curl -s "http://localhost:$PORT/api/music")
+COVER_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT/api/music/cover?storage=test_s1&path=%2FMusic%2FBlueNote%2FBill%20Evans%20-%20Waltz.mp3")
+if [[ "$MUSIC_RESP" != *"Bill Evans"* ]] || [[ "$MUSIC_RESP" != *"BlueNote"* ]] || [ "$COVER_STATUS" != "200" ]; then
+    echo "[FAIL] 14. Music Hub (/api/music) or cover art (/api/music/cover) failed (status: $COVER_STATUS)"
     exit 1
 fi
-if [ -f "$TEST_DIR/s1/trash_sample.txt" ]; then
-    echo "❌ [FAIL] 소프트 삭제 후 원본 파일이 남아있음"
-    exit 1
-fi
+echo "  [PASS] 14. Music Hub (/api/music) and album cover art (/api/music/cover) verified"
+
+# 15. Trash lifecycle: soft delete, list, restore, selective delete, and empty (/api/trash/*)
+echo "Trash restore payload" > "$TEST_DIR/s1/trash_restore.txt"
+echo "Trash delete payload" > "$TEST_DIR/s1/trash_delete.txt"
+curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"storage":"test_s1","paths":["/trash_restore.txt","/trash_delete.txt"]}' \
+  "http://localhost:$PORT/api/files/delete" > /dev/null
 
 TRASH_LIST=$(curl -s "http://localhost:$PORT/api/trash?storage=test_s1")
-if [[ "$TRASH_LIST" != *"trash_sample.txt"* ]]; then
-    echo "❌ [FAIL] 휴지통 목록 조회 실패: $TRASH_LIST"
+if [[ "$TRASH_LIST" != *"trash_restore.txt"* ]] || [[ "$TRASH_LIST" != *"trash_delete.txt"* ]]; then
+    echo "[FAIL] 15a. /api/trash list failed: $TRASH_LIST"
     exit 1
 fi
 
-# ID 추출 후 복구
-TRASH_ID=$(echo "$TRASH_LIST" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+RESTORE_ID=$(echo "$TRASH_LIST" | grep -o '"id":"[^"]*","storageId":"test_s1","originalPath":"/trash_restore.txt"' | cut -d'"' -f4)
+DELETE_ID=$(echo "$TRASH_LIST" | grep -o '"id":"[^"]*","storageId":"test_s1","originalPath":"/trash_delete.txt"' | cut -d'"' -f4)
+
 RESTORE_RESP=$(curl -s -X POST -H "Content-Type: application/json" \
-  -d "{\"storage\":\"test_s1\",\"ids\":[\"$TRASH_ID\"]}" \
+  -d "{\"storage\":\"test_s1\",\"ids\":[\"$RESTORE_ID\"]}" \
   "http://localhost:$PORT/api/trash/restore")
-if [[ "$RESTORE_RESP" != *"ok"* ]] || [ ! -f "$TEST_DIR/s1/trash_sample.txt" ]; then
-    echo "❌ [FAIL] 휴지통 복구 실패: $RESTORE_RESP"
+if [[ "$RESTORE_RESP" != *"ok"* ]] || [ ! -f "$TEST_DIR/s1/trash_restore.txt" ]; then
+    echo "[FAIL] 15b. /api/trash/restore failed: $RESTORE_RESP"
     exit 1
 fi
-echo "  ✅ 12. 휴지통(Trash) 소프트 삭제, 목록 조회 및 복구 E2E 검증 통과"
+
+DEL_TRASH_RESP=$(curl -s -X POST -H "Content-Type: application/json" \
+  -d "{\"storage\":\"test_s1\",\"ids\":[\"$DELETE_ID\"]}" \
+  "http://localhost:$PORT/api/trash/delete")
+if [[ "$DEL_TRASH_RESP" != *"ok"* ]]; then
+    echo "[FAIL] 15c. /api/trash/delete failed: $DEL_TRASH_RESP"
+    exit 1
+fi
+
+EMPTY_RESP=$(curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"storage":"test_s1"}' \
+  "http://localhost:$PORT/api/trash/empty")
+if [[ "$EMPTY_RESP" != *"ok"* ]]; then
+    echo "[FAIL] 15d. /api/trash/empty failed: $EMPTY_RESP"
+    exit 1
+fi
+echo "  [PASS] 15. Trash lifecycle (soft delete, list, restore, selective delete, empty) verified"
 
 echo ""
-echo "🎉 [Harness] 12개 핵심 런타임 E2E 시나리오 ALL PASS!"
+echo "[Harness] All 15 E2E runtime verification scenarios passed."

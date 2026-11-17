@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -728,3 +729,154 @@ func TestPhotosListAPI(t *testing.T) {
 		t.Fatalf("Expected 1 video with skip_special=true, got %d", len(vidSkipItems))
 	}
 }
+
+func TestMkdirRenameAndDownload(t *testing.T) {
+	_, cleanup := setupTestEnvironment(t)
+	defer cleanup()
+
+	// 1. Test Mkdir (/api/files/mkdir)
+	mkdirBody := `{"storage":"s1","parentPath":"/","name":"new_album"}`
+	reqMkdir := httptest.NewRequest(http.MethodPost, "/api/files/mkdir", strings.NewReader(mkdirBody))
+	reqMkdir.Header.Set("Content-Type", "application/json")
+	wMkdir := httptest.NewRecorder()
+	handleMkdir(wMkdir, reqMkdir)
+
+	if wMkdir.Result().StatusCode != http.StatusOK {
+		t.Fatalf("Mkdir failed with status %d", wMkdir.Result().StatusCode)
+	}
+	createdDir := filepath.Join(activeStorages[0].Path, "new_album")
+	if info, err := os.Stat(createdDir); err != nil || !info.IsDir() {
+		t.Fatalf("Expected directory at %s, err: %v", createdDir, err)
+	}
+
+	// 2. Create a file inside new_album and test Rename (/api/files/rename)
+	origFile := filepath.Join(createdDir, "draft.txt")
+	expectedPayload := "Download verification payload 12345"
+	_ = os.WriteFile(origFile, []byte(expectedPayload), 0644)
+
+	renameBody := `{"storage":"s1","path":"/new_album/draft.txt","newName":"final.txt"}`
+	reqRename := httptest.NewRequest(http.MethodPost, "/api/files/rename", strings.NewReader(renameBody))
+	reqRename.Header.Set("Content-Type", "application/json")
+	wRename := httptest.NewRecorder()
+	handleRename(wRename, reqRename)
+
+	if wRename.Result().StatusCode != http.StatusOK {
+		t.Fatalf("Rename failed with status %d", wRename.Result().StatusCode)
+	}
+	renamedFile := filepath.Join(createdDir, "final.txt")
+	if _, err := os.Stat(renamedFile); err != nil {
+		t.Fatalf("Expected renamed file at %s, err: %v", renamedFile, err)
+	}
+
+	// 3. Test Single File Download (/api/files/download)
+	reqDl := httptest.NewRequest(http.MethodGet, "/api/files/download?storage=s1&path=/new_album/final.txt", nil)
+	wDl := httptest.NewRecorder()
+	handleDownload(wDl, reqDl)
+
+	respDl := wDl.Result()
+	if respDl.StatusCode != http.StatusOK {
+		t.Fatalf("Download failed with status %d", respDl.StatusCode)
+	}
+	if !strings.Contains(respDl.Header.Get("Content-Disposition"), "final.txt") {
+		t.Errorf("Expected Content-Disposition with final.txt, got %s", respDl.Header.Get("Content-Disposition"))
+	}
+	dlBytes, _ := io.ReadAll(respDl.Body)
+	if string(dlBytes) != expectedPayload {
+		t.Fatalf("Downloaded content mismatch: expected %q, got %q", expectedPayload, string(dlBytes))
+	}
+}
+
+func TestMusicAndCoverAPI(t *testing.T) {
+	_, cleanup := setupTestEnvironment(t)
+	defer cleanup()
+
+	// 1. Create an album directory with an MP3 containing an ID3v2.3 APIC JPEG frame
+	albumDir1 := filepath.Join(activeStorages[0].Path, "Jazz Classics")
+	_ = os.MkdirAll(albumDir1, 0755)
+
+	fakeJPEG := append([]byte{0xFF, 0xD8, 0xFF, 0xE0}, bytes.Repeat([]byte{0x42}, 24)...)
+	apicData := append([]byte{0x00, 'i', 'm', 'a', 'g', 'e', '/', 'j', 'p', 'e', 'g', 0x00, 0x03, 0x00}, fakeJPEG...)
+	frameLen := len(apicData)
+	apicFrame := []byte{
+		'A', 'P', 'I', 'C',
+		byte(frameLen >> 24), byte(frameLen >> 16), byte(frameLen >> 8), byte(frameLen),
+		0x00, 0x00,
+	}
+	apicFrame = append(apicFrame, apicData...)
+	tagLen := len(apicFrame)
+	id3Header := []byte{
+		'I', 'D', '3', 0x03, 0x00, 0x00,
+		byte((tagLen >> 21) & 0x7F),
+		byte((tagLen >> 14) & 0x7F),
+		byte((tagLen >> 7) & 0x7F),
+		byte(tagLen & 0x7F),
+	}
+	mp3Bytes := append(id3Header, apicFrame...)
+	mp3Path := filepath.Join(albumDir1, "Miles Davis - So What.mp3")
+	_ = os.WriteFile(mp3Path, mp3Bytes, 0644)
+
+	// 2. Create a second album directory in storage 2 with a folder fallback cover.jpg
+	albumDir2 := filepath.Join(activeStorages[1].Path, "Acoustic Sessions")
+	_ = os.MkdirAll(albumDir2, 0755)
+	_ = os.WriteFile(filepath.Join(albumDir2, "untagged_song.flac"), []byte("fake-audio-payload"), 0644)
+	folderCoverBytes := append([]byte{0xFF, 0xD8, 0xFF, 0xE1}, bytes.Repeat([]byte{0x99}, 20)...)
+	_ = os.WriteFile(filepath.Join(albumDir2, "cover.jpg"), folderCoverBytes, 0644)
+
+	// 3. Verify GET /api/music scans both storages and parses artist/title/album
+	reqMusic := httptest.NewRequest(http.MethodGet, "/api/music", nil)
+	wMusic := httptest.NewRecorder()
+	handleMusicList(wMusic, reqMusic)
+
+	if wMusic.Result().StatusCode != http.StatusOK {
+		t.Fatalf("GET /api/music failed with status %d", wMusic.Result().StatusCode)
+	}
+	var tracks []MusicItem
+	if err := json.NewDecoder(wMusic.Result().Body).Decode(&tracks); err != nil {
+		t.Fatalf("Failed to decode /api/music response: %v", err)
+	}
+	if len(tracks) != 2 {
+		t.Fatalf("Expected 2 music tracks across storages, got %d", len(tracks))
+	}
+
+	foundMiles := false
+	for _, tr := range tracks {
+		if tr.Artist == "Miles Davis" && tr.Title == "So What" && tr.Album == "Jazz Classics" {
+			foundMiles = true
+		}
+	}
+	if !foundMiles {
+		t.Errorf("Expected parsed artist 'Miles Davis', title 'So What', album 'Jazz Classics', got %+v", tracks)
+	}
+
+	// 4. Verify GET /api/music/cover extracts ID3v2 APIC JPEG
+	reqCover1 := httptest.NewRequest(http.MethodGet, "/api/music/cover?storage=s1&path="+url.QueryEscape("/Jazz Classics/Miles Davis - So What.mp3"), nil)
+	wCover1 := httptest.NewRecorder()
+	handleMusicCover(wCover1, reqCover1)
+
+	respCover1 := wCover1.Result()
+	if respCover1.StatusCode != http.StatusOK {
+		t.Fatalf("Expected 200 OK for ID3v2 cover, got %d", respCover1.StatusCode)
+	}
+	if respCover1.Header.Get("Content-Type") != "image/jpeg" {
+		t.Errorf("Expected Content-Type image/jpeg, got %s", respCover1.Header.Get("Content-Type"))
+	}
+	cover1Body, _ := io.ReadAll(respCover1.Body)
+	if !bytes.Equal(cover1Body, fakeJPEG) {
+		t.Errorf("Extracted ID3v2 cover bytes mismatch")
+	}
+
+	// 5. Verify GET /api/music/cover falls back to folder cover.jpg
+	reqCover2 := httptest.NewRequest(http.MethodGet, "/api/music/cover?storage=s2&path="+url.QueryEscape("/Acoustic Sessions/untagged_song.flac"), nil)
+	wCover2 := httptest.NewRecorder()
+	handleMusicCover(wCover2, reqCover2)
+
+	respCover2 := wCover2.Result()
+	if respCover2.StatusCode != http.StatusOK {
+		t.Fatalf("Expected 200 OK for folder cover fallback, got %d", respCover2.StatusCode)
+	}
+	cover2Body, _ := io.ReadAll(respCover2.Body)
+	if !bytes.Equal(cover2Body, folderCoverBytes) {
+		t.Errorf("Folder cover fallback bytes mismatch")
+	}
+}
+

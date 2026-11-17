@@ -227,24 +227,24 @@ graph TD
 | `GET` | `/api/storages` | 등록된 스토리지 목록 및 용량 조회 | - |
 | `GET` | `/api/files` | 특정 디렉토리 파일 목록 조회 | `storage`, `path`, `recursive`, `type` |
 | `POST` | `/api/files/upload` | 파일 스트리밍 업로드 | Multipart Form: `storage`, `targetPath`, `files` |
-| `POST` | `/api/files/mkdir` | 새 디렉토리 생성 | `{"storage":"...","path":"...","name":"..."}` |
-| `POST` | `/api/files/rename` | 파일 또는 폴더 이름 변경 | `{"storage":"...","oldPath":"...","newName":"..."}` |
-| `POST` | `/api/files/delete` | 파일/폴더 삭제 (휴지통 이동) | `{"storage":"...","paths":["..."]}` |
-| `POST` | `/api/files/copy` | 파일 복사 (크로스 스토리지 지원) | `{"sourceStorage":"...","sourcePath":"...","targetStorage":"...","targetPath":"..."}` |
-| `POST` | `/api/files/move` | 파일 이동 (크로스 스토리지 지원) | `{"sourceStorage":"...","sourcePath":"...","targetStorage":"...","targetPath":"..."}` |
+| `POST` | `/api/files/mkdir` | 새 디렉토리 생성 | `{"storage":"...","parentPath":"...","name":"..."}` |
+| `POST` | `/api/files/rename` | 파일 또는 폴더 이름 변경 | `{"storage":"...","path":"...","newName":"..."}` |
+| `POST` | `/api/files/delete` | 파일/폴더 삭제 (휴지통 이동 또는 영구 삭제) | `{"storage":"...","paths":["..."],"permanent":false}` |
+| `POST` | `/api/files/copy` | 파일 복사 (크로스 스토리지 지원) | `{"sourceStorage":"...","targetStorage":"...","sourcePaths":["..."],"targetDir":"..."}` |
+| `POST` | `/api/files/move` | 파일 이동 (크로스 스토리지 지원) | `{"sourceStorage":"...","targetStorage":"...","sourcePaths":["..."],"targetDir":"..."}` |
 | `GET` | `/api/files/download` | 단일 파일 다운로드 | `storage`, `path` |
 | `GET` | `/api/files/stream` | 미디어 HTTP 206 부분 스트리밍 | `storage`, `path` (Range 헤더 지원) |
-| `GET` | `/api/files/download-zip` | 다중 파일/폴더 실시간 ZIP 다운로드 | `storage`, `paths` (쉼표 구분) |
+| `GET` | `/api/files/download-zip` | 다중 파일/폴더 실시간 ZIP 다운로드 | `storage`, `path` (다중 반복 쿼리 파라미터) |
 | `GET` | `/api/trash` | 특정 스토리지 휴지통 목록 조회 | `storage` |
 | `POST` | `/api/trash/restore` | 휴지통 항목 원본 위치로 복원 | `{"storage":"...","ids":["..."]}` |
-| `POST` | `/api/trash/delete` | 휴지통 항목 영구 삭제 | `{"storage":"...","ids":["..."]}` |
+| `POST` | `/api/trash/delete` | 휴지통 선택 항목 영구 삭제 | `{"storage":"...","ids":["..."]}` |
 | `POST` | `/api/trash/empty` | 특정 스토리지 휴지통 완전 비우기 | `{"storage":"..."}` |
-| `GET` | `/api/photos` | 전 저장소 사진/동영상 타임라인 조회 | `skipFolders` (옵션) |
+| `GET` | `/api/photos` | 전 저장소 사진/동영상 타임라인 조회 | `skip_special`, `type` (옵션) |
 | `GET` | `/api/cinema` | 전 저장소 영화/드라마 목록 조회 | `storage` (옵션) |
 | `GET` | `/api/music` | 전 저장소 오디오 라이브러리 조회 | `storage` (옵션) |
 | `GET` | `/api/music/cover` | 오디오 파일 ID3v2/폴더 앨범 표지 서빙 | `storage`, `path` |
 | `GET` | `/api/sites` | 등록된 쇼케이스 웹사이트 목록 조회 | - |
-| `POST` | `/api/sites/pin` | 특정 HTML 파일을 사이트 허브에 고정 | `{"storage":"...","path":"..."}` |
+| `POST` | `/api/sites/pin` | 특정 HTML 파일/폴더를 사이트 허브에 고정 | `{"storage":"...","path":"..."}` |
 | `POST` | `/api/sites/unpin` | 사이트 허브에서 핀 고정 해제 | `{"storage":"...","path":"..."}` |
 | `GET` | `/api/files/subtitles` | 영상 파일 대응 자막 목록 조회 | `storage`, `path` |
 | `GET` | `/api/files/subtitle` | WebVTT 포맷 자막 실시간 스트리밍 | `storage`, `path`, `stream` |
@@ -267,25 +267,31 @@ graph TD
 
 ### Stage 2: Backend Unit & Security Test
 - 경로 탈출(`../`) 차단 보안 검증을 수행합니다.
-- 스토리지 설정 파싱 검증을 수행합니다.
-- 자막 파서(SRT, SMI, VTT, ASS) 및 UTF-8 디코더 유닛 테스트를 수행합니다.
-- 휴지통(`.trash`) 메타데이터 기록 및 복원 로직 유닛 테스트를 수행합니다.
+- 스토리지 설정 파싱 및 사전 설정 진단(`validateConfig`) 검증을 수행합니다.
+- 파일 조작(`mkdir`, `rename`, `copy`, `move`, `download`, `download-zip`, `stream`) 유닛 테스트를 수행합니다.
+- 4대 미디어 허브(`/api/cinema`, `/api/photos`, `/api/music`, `/api/sites`) 및 ID3v2/폴더 앨범 표지 추출(`/api/music/cover`) 유닛 테스트를 수행합니다.
+- 자막 파서(SRT, SMI, VTT, ASS) 및 UTF-8/EUC-KR 디코더 유닛 테스트를 수행합니다.
+- 휴지통(`.trash`) 소프트 삭제, 메타데이터 기록, 복원, 선택 영구 삭제, 비우기 유닛 테스트를 수행합니다.
 
 ### Stage 3: macOS 10.13 Symbol Static Check
 - 빌드된 Mach-O 바이너리(`mininas-intel-mac`)를 대상으로 `nm -u` 심볼 테이블을 전수 조사합니다.
 - macOS 12+ 전용 최신 심볼(예: `_SecTrustCopyCertificateChain`) 포함 여부를 검증합니다. (허용 기준: 0건)
 
-### Stage 4: 12개 실전 런타임 E2E 시나리오 검증
-임시 스토리지 환경에서 핵심 12개 시나리오를 자동 검증합니다:
-1. 테스트 서버 백그라운드 구동 검증
-2. 멀티 저장소 목록 API 검증 (`/api/storages`)
-3. 대용량 멀티파트 스트리밍 업로드 검증 (`/api/files/upload`)
-4. 파일 목록 인덱싱 및 메타데이터 API 검증 (`/api/files`)
-5. HTTP 206 미디어 Range 스트리밍 검증 (`/api/files/stream`)
-6. 실시간 ZIP 압축 스트리밍 검증 (`/api/files/download-zip`)
-7. macOS 하드웨어 및 디스크 모니터링 API 검증 (`/api/system/stats`)
-8. 정적 HTML 웹사이트 호스팅(`/sites/...`) 실시간 서빙 검증
-9. SRT / SMI 자막 자동 매칭 및 실시간 WebVTT 변환 스트리밍 검증
-10. 시네마 허브 전 저장소 영화 통합 수집 및 자막 플래그 검증 (`/api/cinema`)
-11. 포토 허브 전 저장소 사진/영상 타임라인 수집 검증 (`/api/photos`)
-12. 휴지통(Trash) 소프트 삭제, 목록 조회 및 원본 복구 E2E 검증 (`/api/trash`, `/api/trash/restore`)
+### Stage 4: 15개 실전 런타임 E2E 시나리오 검증
+임시 격리 스토리지 환경에서 핵심 15개 시나리오를 자동 검증합니다:
+1. CLI 사전 설정 진단 플래그 검증 (`mininas -config <file> -check`)
+2. 테스트 서버 백그라운드 구동 검증
+3. 멀티 저장소 목록 및 용량 조회 API 검증 (`/api/storages`)
+4. 대용량 멀티파트 스트리밍 업로드 검증 (`/api/files/upload`)
+5. 파일 목록 인덱싱 및 메타데이터 API 검증 (`/api/files`)
+6. 디렉토리 생성, 복사, 이름 변경, 단일 파일 다운로드 검증 (`/api/files/mkdir`, `/copy`, `/rename`, `/download`)
+7. 크로스 스토리지 파일 이동 검증 (`/api/files/move`)
+8. HTTP 206 미디어 Range 스트리밍 검증 (`/api/files/stream`)
+9. 실시간 ZIP 압축 스트리밍 검증 (`/api/files/download-zip`)
+10. macOS 하드웨어 및 디스크 모니터링 API 검증 (`/api/system/stats`)
+11. 정적 HTML 웹사이트 호스팅(`/sites/...`) 및 사이트 허브 목록(`/api/sites`) 검증
+12. SRT / SMI 자막 자동 매칭 및 실시간 WebVTT 변환 스트리밍 검증 (`/api/files/subtitles`, `/api/files/subtitle`)
+13. 시네마 허브(`/api/cinema`) 및 포토 허브(`/api/photos?skip_special=true`) 통합 수집 검증
+14. 음악 허브 오디오 수집(`/api/music`) 및 앨범 표지 서빙(`/api/music/cover`) 검증
+15. 휴지통 소프트 삭제, 목록 조회, 원본 복구, 선택 영구 삭제, 비우기 E2E 검증 (`/api/trash/*`)
+

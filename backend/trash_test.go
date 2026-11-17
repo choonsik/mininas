@@ -119,7 +119,33 @@ func TestTrashLifecycle(t *testing.T) {
 		t.Fatalf("Expected 1 dir item in trash, got %+v", trashResp2)
 	}
 
-	// 6. Test Empty Trash
+	// 6. Test selective permanent delete from trash (/api/trash/delete)
+	extraTrashFile := filepath.Join(activeStorages[0].Path, "temp_note.txt")
+	_ = os.WriteFile(extraTrashFile, []byte("To be selectively deleted from trash"), 0644)
+	reqExtraDel := httptest.NewRequest("POST", "/api/files/delete", strings.NewReader(`{"storage":"s1","paths":["/temp_note.txt"]}`))
+	reqExtraDel.Header.Set("Content-Type", "application/json")
+	handleDelete(httptest.NewRecorder(), reqExtraDel)
+
+	// Trash now has 2 items (test_folder and temp_note.txt). Delete only test_folder permanently.
+	delTrashBody := fmt.Sprintf(`{"storage":"s1","ids":["%s"]}`, trashResp2.Items[0].ID)
+	reqDelTrash := httptest.NewRequest("POST", "/api/trash/delete", strings.NewReader(delTrashBody))
+	reqDelTrash.Header.Set("Content-Type", "application/json")
+	wDelTrash := httptest.NewRecorder()
+	handleDeleteTrash(wDelTrash, reqDelTrash)
+
+	if wDelTrash.Result().StatusCode != http.StatusOK {
+		t.Fatalf("Selective trash delete failed with status %d", wDelTrash.Result().StatusCode)
+	}
+
+	wTrashAfterDel := httptest.NewRecorder()
+	handleGetTrash(wTrashAfterDel, httptest.NewRequest("GET", "/api/trash?storage=s1", nil))
+	var trashRespAfterDel TrashResponse
+	_ = json.NewDecoder(wTrashAfterDel.Result().Body).Decode(&trashRespAfterDel)
+	if trashRespAfterDel.TotalCount != 1 || trashRespAfterDel.Items[0].Name != "temp_note.txt" {
+		t.Fatalf("Expected only temp_note.txt to remain in trash, got %+v", trashRespAfterDel)
+	}
+
+	// 7. Test Empty Trash
 	emptyBody := `{"storage":"s1"}`
 	reqEmpty := httptest.NewRequest("POST", "/api/trash/empty", strings.NewReader(emptyBody))
 	reqEmpty.Header.Set("Content-Type", "application/json")
