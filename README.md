@@ -76,7 +76,7 @@ http://<mac-ip>:<port>
 http://<호스트이름>.local:<port>
 ```
 
-- 호스트 이름: Mac의 [시스템 환경설정] > [공유]에 설정된 로컬 컴퓨터 이름(예: `macmini.local`, `choonsik-macmini.local`)입니다.
+- 호스트 이름: Mac의 [시스템 환경설정] > [공유]에 설정된 로컬 컴퓨터 이름(예: `macmini.local`, `my-nas.local`)입니다.
 - 포트 번호: 기본 포트는 `8080`이며, 아래 `config.json`의 `port` 값을 수정하여 원하는 포트로 변경할 수 있습니다.
 
 ### 3. 제어 스크립트 목록
