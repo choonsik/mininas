@@ -7,7 +7,6 @@ import {
   HardDrive,
   X,
   Trash2,
-  FolderTree,
   Server
 } from 'lucide-react';
 import { SystemStats, StorageInfo, NavTab } from '../types';
@@ -65,12 +64,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* 1. Storages (Locations) */}
         <div>
-          <div className="flex items-center justify-between px-2 mb-1.5">
-            <span className="text-[11px] font-medium text-content-muted">
-              저장소
-            </span>
-            <FolderTree className="w-3 h-3 text-content-muted" />
-          </div>
+          <span className="text-[11px] font-medium text-content-muted px-2 block mb-1.5">
+            저장소
+          </span>
           <nav className="space-y-1">
             {storages.map((storage) => {
               const isActive = activeTab === 'files' && activeStorageId === storage.id;
