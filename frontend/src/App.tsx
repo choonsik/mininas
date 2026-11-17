@@ -16,6 +16,7 @@ import { PhotosHubView } from './components/PhotosHubView';
 import { FileItem, SystemStats, StorageInfo, SortField, SortOrder, ClipboardItem, NavTab, ThemeStyle, ThemeTone, FontSizeMode } from './types';
 import { api } from './api';
 import { UploadCloud, CheckCircle, AlertCircle, X, Clipboard, ArrowRight } from 'lucide-react';
+import { getFilesFromDataTransfer, UploadFileEntry } from './utils/fileSystem';
 
 export const App: React.FC = () => {
   // Theme style & tone state
@@ -512,15 +513,15 @@ export const App: React.FC = () => {
     }
   };
 
-  // Upload files
-  const handleUpload = async (files: File[]) => {
+  // Upload files or folders
+  const handleUpload = async (items: (File | UploadFileEntry)[]) => {
     setIsUploadOpen(false);
     setUploadProgress({ percent: 0, label: '업로드 준비 중...' });
     try {
-      await api.uploadFiles(currentPath, files, activeStorageId, (percent, label) => {
+      await api.uploadFiles(currentPath, items, activeStorageId, (percent, label) => {
         setUploadProgress({ percent, label });
       });
-      showToast(`${files.length}개 파일 업로드 완료!`, 'success');
+      showToast(`${items.length}개 항목 업로드 완료!`, 'success');
       loadFiles(currentPath, activeStorageId);
       loadStorages();
     } catch (err: any) {
@@ -549,6 +550,14 @@ export const App: React.FC = () => {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(false);
+
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      const entries = await getFilesFromDataTransfer(e.dataTransfer.items);
+      if (entries.length > 0) {
+        await handleUpload(entries);
+        return;
+      }
+    }
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const files = Array.from(e.dataTransfer.files);

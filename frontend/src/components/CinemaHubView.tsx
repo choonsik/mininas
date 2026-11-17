@@ -35,12 +35,15 @@ interface CinemaGroup {
   representativeItem: CinemaItem;
 }
 
-function parseMovieMeta(filename: string): { displayTitle: string; episode?: string; qualityTag?: string; year?: string } {
+function parseMovieMeta(filename: string): { displayTitle: string; episode?: string; qualityTag?: string; year?: string; seriesTag?: string } {
   const ext = filename.lastIndexOf('.') !== -1 ? filename.slice(filename.lastIndexOf('.')) : '';
   let clean = filename.slice(0, filename.length - ext.length);
 
   const yearMatch = clean.match(/(?:[\s\._\-\(\[]|^)(19\d{2}|20\d{2})(?:[\s\._\-\)\]]|$)/);
   const year = yearMatch ? yearMatch[1] : undefined;
+
+  const seriesMatch = clean.match(/(?:[\s\._\-\(\[]|^)([0-9]{1,3})\s*부작(?:[\s\._\-\)\]]|$)/);
+  const seriesTag = seriesMatch ? `${seriesMatch[1]}부작` : undefined;
 
   const epMatch = clean.match(/(?:[sS]\d+)?(?:[eE]|ep|EP|회|화)\s*([0-9]{1,3})|(?:[\s\-_]+)([0-9]{2,3})(?:[\s\-_]|$)/);
   let episode: string | undefined;
@@ -58,13 +61,15 @@ function parseMovieMeta(filename: string): { displayTitle: string; episode?: str
     .replace(/\s*\[[^\]]+\]/g, '')
     .replace(/\s*\([^\)]+\)/g, '')
     .replace(/(?:[\s\._\-\(\[]|^)(19\d{2}|20\d{2})(?:[\s\._\-\)\]]|$)/g, ' ')
+    .replace(/(?:[\s\._\-\(\[]|^)[0-9]{1,3}\s*부작(?:[\s\._\-\)\]]|$)/g, ' ')
+    .replace(/(?:[sS]\d+)?(?:[eE]|ep|EP|회|화)\s*[0-9]{1,3}/gi, ' ')
     .replace(/1080p|720p|2160p|4k|x264|x265|hevc|aac|eac3|web-dl|bluray|dvdrip|hdr/gi, '')
     .replace(/[\._\-]+/g, ' ')
     .trim();
 
   if (!displayTitle) displayTitle = clean;
 
-  return { displayTitle, episode, qualityTag, year };
+  return { displayTitle, episode, qualityTag, year, seriesTag };
 }
 
 const CinemaPosterCard: React.FC<{
@@ -141,20 +146,25 @@ const CinemaPosterCard: React.FC<{
           )}
 
           {/* Badges */}
-          <div className="absolute top-2 left-2 flex items-center gap-1 z-10">
+          <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10 flex-wrap max-w-[85%]">
             {group.isSeries ? (
-              <span className="px-1.5 py-0.5 rounded bg-surface-card/90 text-content-primary text-[10px] font-medium border border-surface-border flex items-center gap-1">
-                <Layers className="w-2.5 h-2.5" />
-                <span>{group.items.length}부작</span>
+              <span className="px-2 py-0.5 rounded bg-indigo-600/90 text-white text-[10px] font-bold border border-indigo-400/40 flex items-center gap-1 shadow backdrop-blur-md">
+                <Layers className="w-3 h-3 text-indigo-200" />
+                <span>{group.items.length > 1 ? `${group.items.length}부작` : (meta.seriesTag || '시리즈')}</span>
+              </span>
+            ) : meta.seriesTag ? (
+              <span className="px-2 py-0.5 rounded bg-indigo-600/90 text-white text-[10px] font-bold border border-indigo-400/40 flex items-center gap-1 shadow backdrop-blur-md">
+                <Layers className="w-3 h-3 text-indigo-200" />
+                <span>{meta.seriesTag}</span>
               </span>
             ) : meta.episode ? (
-              <span className="px-1.5 py-0.5 rounded bg-surface-card/90 text-content-primary text-[10px] font-medium border border-surface-border">
+              <span className="px-1.5 py-0.5 rounded bg-black/75 text-cyan-300 text-[10px] font-bold font-mono border border-cyan-500/20 backdrop-blur-md shadow">
                 {meta.episode}
               </span>
             ) : null}
 
             {meta.qualityTag && (
-              <span className="px-1.5 py-0.5 rounded bg-surface-card/90 text-content-muted text-[10px] font-mono border border-surface-border">
+              <span className="px-1.5 py-0.5 rounded bg-black/70 text-gray-300 text-[9px] font-mono border border-white/10 backdrop-blur-md">
                 {meta.qualityTag}
               </span>
             )}
@@ -248,10 +258,16 @@ export const CinemaHubView: React.FC<CinemaHubViewProps> = ({
     for (const item of movies) {
       const lastSlash = item.relPath.lastIndexOf('/');
       const parentDir = lastSlash > 0 ? item.relPath.substring(0, lastSlash) : '/';
+      const meta = parseMovieMeta(item.name);
       
-      const groupKey = parentDir === '/' 
-        ? `${item.storageId}:root:${item.name}` 
-        : `${item.storageId}:${parentDir}`;
+      const normalizedTitle = meta.displayTitle.toLowerCase().trim();
+      const hasSeriesTrait = Boolean(meta.episode || meta.seriesTag);
+
+      const groupKey = hasSeriesTrait
+        ? `${item.storageId}:${parentDir}:${normalizedTitle}`
+        : (parentDir === '/' 
+            ? `${item.storageId}:root:${item.name}` 
+            : `${item.storageId}:${parentDir}:${normalizedTitle}`);
 
       if (!map.has(groupKey)) {
         map.set(groupKey, []);
@@ -265,15 +281,17 @@ export const CinemaHubView: React.FC<CinemaHubViewProps> = ({
       items.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
       const rep = items[0];
+      const repMeta = parseMovieMeta(rep.name);
       const lastSlash = rep.relPath.lastIndexOf('/');
       const parentDir = lastSlash > 0 ? rep.relPath.substring(0, lastSlash) : '/';
       
       let groupTitle = '';
-      if (parentDir !== '/') {
-        groupTitle = parentDir.substring(parentDir.lastIndexOf('/') + 1);
+      if (items.length > 1) {
+        groupTitle = repMeta.displayTitle;
+      } else if (parentDir !== '/') {
+        groupTitle = repMeta.displayTitle || parentDir.substring(parentDir.lastIndexOf('/') + 1);
       } else {
-        const meta = parseMovieMeta(rep.name);
-        groupTitle = meta.displayTitle;
+        groupTitle = repMeta.displayTitle;
       }
 
       let totalSize = 0;
@@ -295,7 +313,7 @@ export const CinemaHubView: React.FC<CinemaHubViewProps> = ({
         storageName: rep.storageName,
         folderPath: parentDir,
         items,
-        isSeries: items.length > 1,
+        isSeries: items.length > 1 || Boolean(repMeta.seriesTag),
         totalSize,
         latestModTime: latestTime,
         hasSubtitle: hasSub,
@@ -430,10 +448,16 @@ export const CinemaHubView: React.FC<CinemaHubViewProps> = ({
           <div className="relative w-full max-w-lg bg-surface-card border border-surface-border rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[80vh] text-content-primary">
             <div className="p-4 border-b border-surface-border bg-surface-header flex items-start justify-between gap-3">
               <div>
-                <span className="text-[11px] text-content-muted font-mono">
-                  {activeSeriesGroup.storageName} · {activeSeriesGroup.items.length}부작
-                </span>
-                <h3 className="text-sm font-semibold mt-0.5">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2 py-0.5 rounded bg-indigo-600/90 text-white text-[10px] font-bold shadow flex items-center gap-1">
+                    <Layers className="w-3 h-3 text-indigo-200" />
+                    <span>{activeSeriesGroup.items.length}부작</span>
+                  </span>
+                  <span className="text-[11px] text-content-muted font-mono">
+                    {activeSeriesGroup.storageName}
+                  </span>
+                </div>
+                <h3 className="text-sm font-semibold">
                   {activeSeriesGroup.title}
                 </h3>
               </div>

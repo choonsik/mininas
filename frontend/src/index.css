@@ -112,23 +112,23 @@
 }
 
 .theme-console.tone-night {
-  --surface-base: #0b0907;
-  --surface-header: #100e0a;
-  --surface-sidebar: #0e0b08;
-  --surface-card: #15120c;
-  --surface-card-hover: #1e1910;
-  --surface-border: #2e2518;
-  --surface-border-subtle: #20190f;
-  --accent: #fbbf24;
-  --accent-hover: #f59e0b;
-  --accent-subtle: rgba(251, 191, 36, 0.12);
-  --btn-primary-bg: #fbbf24;
-  --btn-primary-hover: #f59e0b;
-  --btn-primary-text: #0b0907;
+  --surface-base: #0c0e12;
+  --surface-header: #12161f;
+  --surface-sidebar: #0f1218;
+  --surface-card: #151a24;
+  --surface-card-hover: #1c2230;
+  --surface-border: #273142;
+  --surface-border-subtle: #1a222e;
+  --accent: #f59e0b;
+  --accent-hover: #d97706;
+  --accent-subtle: rgba(245, 158, 11, 0.14);
+  --btn-primary-bg: #f59e0b;
+  --btn-primary-hover: #d97706;
+  --btn-primary-text: #0c0e12;
   --btn-primary-border: transparent;
-  --content-primary: #fde68a;
-  --content-secondary: #d97706;
-  --content-muted: #78350f;
+  --content-primary: #f1f5f9;
+  --content-secondary: #94a3b8;
+  --content-muted: #64748b;
 }
 
 .theme-studio.tone-night {

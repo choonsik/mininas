@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -310,7 +311,7 @@ func handleGetFiles(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleUpload(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseMultipartForm(32 << 20)
+	err := r.ParseMultipartForm(64 << 20)
 	if err != nil {
 		http.Error(w, `{"error":"Failed to parse multipart form"}`, http.StatusBadRequest)
 		return
@@ -325,27 +326,60 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	files := r.MultipartForm.File["files"]
-	for _, fileHeader := range files {
-		src, err := fileHeader.Open()
-		if err != nil {
+	paths := r.MultipartForm.Value["paths"]
+
+	savedCount := 0
+	for i, fileHeader := range files {
+		relName := fileHeader.Filename
+		if i < len(paths) && strings.TrimSpace(paths[i]) != "" {
+			relName = paths[i]
+		}
+
+		// Sanitize relative path to prevent directory traversal
+		relName = filepath.Clean(filepath.ToSlash(relName))
+		for strings.HasPrefix(relName, "../") || relName == ".." || strings.HasPrefix(relName, "/") {
+			relName = strings.TrimPrefix(relName, "../")
+			relName = strings.TrimPrefix(relName, "/")
+		}
+		if relName == "" || relName == "." {
+			relName = fileHeader.Filename
+		}
+
+		dstPath := filepath.Join(fullTargetDir, filepath.FromSlash(relName))
+		// Safety check: ensure dstPath is within fullTargetDir
+		if !strings.HasPrefix(dstPath, fullTargetDir) {
 			continue
 		}
-		defer src.Close()
 
-		dstPath := filepath.Join(fullTargetDir, fileHeader.Filename)
-		dst, err := os.Create(dstPath)
-		if err != nil {
+		if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
 			continue
 		}
-		defer dst.Close()
 
-		if _, err := io.Copy(dst, src); err != nil {
-			continue
+		if err := copyUploadedFile(fileHeader, dstPath); err == nil {
+			savedCount++
 		}
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"ok"}`))
+	fmt.Fprintf(w, `{"status":"ok","savedCount":%d}`, savedCount)
+}
+
+func copyUploadedFile(fileHeader *multipart.FileHeader, dstPath string) error {
+	src, err := fileHeader.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	dst, err := os.Create(dstPath)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, src)
+	return err
 }
 
 func handleDownload(w http.ResponseWriter, r *http.Request) {

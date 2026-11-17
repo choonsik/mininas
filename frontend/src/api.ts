@@ -105,41 +105,100 @@ export const api = {
 
   uploadFiles(
     targetPath: string,
-    files: File[],
+    files: (File | { file: File; relativePath?: string })[],
     storageId: string = '',
     onProgress: (percent: number, currentFile: string) => void
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const formData = new FormData();
-      formData.append('targetPath', targetPath);
-      formData.append('storage', storageId);
-      files.forEach(f => formData.append('files', f));
+    if (files.length === 0) return Promise.resolve();
 
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${API_BASE}/files/upload`);
+    const normalized = files.map(item => {
+      if ('file' in item) {
+        return { file: item.file, relativePath: item.relativePath || item.file.name };
+      }
+      return { file: item, relativePath: item.name };
+    });
 
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const percent = Math.round((event.loaded / event.total) * 100);
-          onProgress(percent, files.length > 1 ? `${files.length}개 파일 업로드 중...` : files[0].name);
+    const totalBytes = normalized.reduce((acc, cur) => acc + cur.file.size, 0);
+
+    // Group into batches: max 10 files or max 40MB per batch
+    const batches: { file: File; relativePath: string }[][] = [];
+    let currentBatch: { file: File; relativePath: string }[] = [];
+    let currentBatchSize = 0;
+
+    for (const item of normalized) {
+      if (currentBatch.length >= 10 || (currentBatchSize + item.file.size > 40 * 1024 * 1024 && currentBatch.length > 0)) {
+        batches.push(currentBatch);
+        currentBatch = [];
+        currentBatchSize = 0;
+      }
+      currentBatch.push(item);
+      currentBatchSize += item.file.size;
+    }
+    if (currentBatch.length > 0) {
+      batches.push(currentBatch);
+    }
+
+    return new Promise(async (resolve, reject) => {
+      let completedBytes = 0;
+      let completedCount = 0;
+
+      for (let bIndex = 0; bIndex < batches.length; bIndex++) {
+        const batch = batches[bIndex];
+        const formData = new FormData();
+        formData.append('targetPath', targetPath);
+        formData.append('storage', storageId);
+
+        batch.forEach(item => {
+          formData.append('files', item.file);
+          formData.append('paths', item.relativePath);
+        });
+
+        try {
+          await new Promise<void>((batchResolve, batchReject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `${API_BASE}/files/upload`);
+
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable) {
+                const currentLoaded = completedBytes + event.loaded;
+                const percent = Math.min(99, Math.round((currentLoaded / Math.max(totalBytes, 1)) * 100));
+                const label = normalized.length > 1
+                  ? `${completedCount + Math.min(batch.length, Math.ceil((event.loaded / event.total) * batch.length))}/${normalized.length} 파일 (${percent}%)`
+                  : `${batch[0].file.name} (${percent}%)`;
+                onProgress(percent, label);
+              }
+            };
+
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                batchResolve();
+              } else {
+                try {
+                  const err = JSON.parse(xhr.responseText);
+                  batchReject(new Error(err.error || `Upload failed with status ${xhr.status}`));
+                } catch {
+                  batchReject(new Error(`Upload failed with status ${xhr.status}`));
+                }
+              }
+            };
+
+            xhr.onerror = () => {
+              batchReject(new Error('서버 연결이 끊어졌거나 네트워크 오류가 발생했습니다.'));
+            };
+
+            xhr.send(formData);
+          });
+
+          const batchBytes = batch.reduce((sum, it) => sum + it.file.size, 0);
+          completedBytes += batchBytes;
+          completedCount += batch.length;
+        } catch (err) {
+          return reject(err);
         }
-      };
+      }
 
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve();
-        } else {
-          try {
-            const err = JSON.parse(xhr.responseText);
-            reject(new Error(err.error || 'Upload failed'));
-          } catch {
-            reject(new Error(`Upload failed with status ${xhr.status}`));
-          }
-        }
-      };
-
-      xhr.onerror = () => reject(new Error('Network error during upload'));
-      xhr.send(formData);
+      onProgress(100, `${normalized.length}개 파일 업로드 완료`);
+      resolve();
     });
   },
 
