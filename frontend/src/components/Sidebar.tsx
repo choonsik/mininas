@@ -7,7 +7,8 @@ import {
   HardDrive,
   X,
   Trash2,
-  Server
+  Server,
+  Music
 } from 'lucide-react';
 import { SystemStats, StorageInfo, NavTab } from '../types';
 import { formatBytes } from '../utils/format';
@@ -34,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const hubItems: { id: NavTab; label: string; icon: React.ElementType }[] = [
     { id: 'cinema', label: '시네마', icon: Film },
     { id: 'photos', label: '포토 & 앨범', icon: ImageIcon },
+    { id: 'music', label: '음악', icon: Music },
     { id: 'sites', label: '웹 사이트', icon: Globe },
   ];
 

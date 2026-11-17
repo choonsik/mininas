@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { FileList } from './components/FileList';
@@ -13,7 +13,9 @@ import { TrashView } from './components/TrashView';
 import { SitesHubView } from './components/SitesHubView';
 import { CinemaHubView } from './components/CinemaHubView';
 import { PhotosHubView } from './components/PhotosHubView';
-import { FileItem, SystemStats, StorageInfo, SortField, SortOrder, ClipboardItem, NavTab, ThemeStyle, ThemeTone, FontSizeMode } from './types';
+import { MusicHubView } from './components/MusicHubView';
+import { GlobalAudioPlayer } from './components/GlobalAudioPlayer';
+import { FileItem, SystemStats, StorageInfo, SortField, SortOrder, ClipboardItem, NavTab, ThemeStyle, ThemeTone, FontSizeMode, AudioTrack } from './types';
 import { api } from './api';
 import { UploadCloud, CheckCircle, AlertCircle, X, Clipboard, ArrowRight } from 'lucide-react';
 import { getFilesFromDataTransfer, UploadFileEntry } from './utils/fileSystem';
@@ -119,7 +121,12 @@ export const App: React.FC = () => {
   // Drag & drop upload state
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ percent: number; label: string } | null>(null);
+  const uploadAbortControllerRef = useRef<AbortController | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  // Global Audio Player state
+  const [currentTrack, setCurrentTrack] = useState<AudioTrack | null>(null);
+  const [audioPlaylist, setAudioPlaylist] = useState<AudioTrack[]>([]);
 
   // Show Toast Helper
   const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -343,6 +350,32 @@ export const App: React.FC = () => {
 
   // Handle opening media file
   const handleOpenMedia = (item: FileItem) => {
+    // If it is an audio file, route to Global Audio Player (persistent background playback)
+    if (item.mediaType === 'audio') {
+      const audioFiles = sortedItems.filter(i => i.mediaType === 'audio');
+      const playlistTracks: AudioTrack[] = audioFiles.map(i => ({
+        id: `${activeStorageId}:${i.path}`,
+        title: i.name.replace(i.ext, ''),
+        path: i.path,
+        storageId: activeStorageId,
+        storageName: activeStorage?.name,
+        size: i.size,
+        ext: i.ext,
+      }));
+      const track: AudioTrack = {
+        id: `${activeStorageId}:${item.path}`,
+        title: item.name.replace(item.ext, ''),
+        path: item.path,
+        storageId: activeStorageId,
+        storageName: activeStorage?.name,
+        size: item.size,
+        ext: item.ext,
+      };
+      setCurrentTrack(track);
+      setAudioPlaylist(playlistTracks.length > 0 ? playlistTracks : [track]);
+      return;
+    }
+
     setActiveMediaItem(item);
     window.history.pushState(
       { storageId: activeStorageId, path: currentPath, view: viewMode, play: item.name },
@@ -513,23 +546,58 @@ export const App: React.FC = () => {
     }
   };
 
+  // Upload cancel handler
+  const handleCancelUpload = () => {
+    if (uploadAbortControllerRef.current) {
+      uploadAbortControllerRef.current.abort();
+      uploadAbortControllerRef.current = null;
+    }
+  };
+
   // Upload files or folders
   const handleUpload = async (items: (File | UploadFileEntry)[]) => {
     setIsUploadOpen(false);
     setUploadProgress({ percent: 0, label: '업로드 준비 중...' });
+    const controller = new AbortController();
+    uploadAbortControllerRef.current = controller;
+
     try {
-      await api.uploadFiles(currentPath, items, activeStorageId, (percent, label) => {
-        setUploadProgress({ percent, label });
-      });
-      showToast(`${items.length}개 항목 업로드 완료!`, 'success');
+      const result = await api.uploadFiles(
+        currentPath,
+        items,
+        activeStorageId,
+        (percent, label) => {
+          setUploadProgress({ percent, label });
+        },
+        controller.signal
+      );
+
+      if (result.aborted) {
+        showToast(`업로드가 취소되었습니다. (${result.completedCount}/${result.totalCount}개 보존됨)`, 'info');
+      } else {
+        showToast(`${result.completedCount}개 항목 업로드 완료!`, 'success');
+      }
       loadFiles(currentPath, activeStorageId);
       loadStorages();
     } catch (err: any) {
       showToast(`업로드 실패: ${err.message}`, 'error');
     } finally {
-      setTimeout(() => setUploadProgress(null), 1500);
+      uploadAbortControllerRef.current = null;
+      setTimeout(() => setUploadProgress(null), 1200);
     }
   };
+
+  // Prevent accidental page reload/exit during active upload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (uploadProgress) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [uploadProgress]);
 
   // Global Drag & Drop Handlers
   const handleDragOver = (e: React.DragEvent) => {
@@ -698,7 +766,7 @@ export const App: React.FC = () => {
       />
 
       {/* Main Body */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className={`flex-1 flex overflow-hidden relative ${currentTrack ? 'pb-[70px]' : ''}`}>
         {/* Mobile Backdrop */}
         {isMobileSidebarOpen && (
           <div
@@ -751,6 +819,19 @@ export const App: React.FC = () => {
               setActiveStorageId(sId);
               setCinemaPlaylist(playlist);
               setActiveMediaItem(item);
+            }}
+            onShowToast={showToast}
+          />
+        ) : activeTab === 'music' ? (
+          <MusicHubView
+            storages={storages}
+            onPlayTrack={(track, playlist) => {
+              setCurrentTrack({ ...track });
+              setAudioPlaylist(playlist);
+            }}
+            currentTrackId={currentTrack?.id}
+            onNavigateToStorage={(sId, path) => {
+              handleNavigateToStorage(sId, path, { tab: 'music', label: '음악 (Music)' });
             }}
             onShowToast={showToast}
           />
@@ -869,14 +950,23 @@ export const App: React.FC = () => {
 
       {/* Upload Progress Bar Toast */}
       {uploadProgress && (
-        <div className="fixed bottom-6 right-6 z-50 bg-[#1c1c27] border border-[#2e2e40] rounded-xl p-4 shadow-2xl max-w-sm w-full animate-slideUp">
-          <div className="flex justify-between items-center text-xs text-gray-300 mb-2">
-            <span className="font-medium truncate max-w-[200px]">{uploadProgress.label}</span>
-            <span className="font-mono text-blue-400 font-bold">{uploadProgress.percent}%</span>
+        <div className="fixed bottom-6 right-6 z-50 bg-surface-card border border-surface-border rounded-xl p-4 shadow-2xl max-w-sm w-full animate-slideUp text-content-primary">
+          <div className="flex justify-between items-center text-xs mb-2 gap-2">
+            <span className="font-medium truncate max-w-[200px] text-content-secondary">{uploadProgress.label}</span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-accent font-bold">{uploadProgress.percent}%</span>
+              <button
+                onClick={handleCancelUpload}
+                className="px-2 py-0.5 text-[11px] text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition font-medium border border-red-500/20"
+                title="업로드 즉시 취소"
+              >
+                취소
+              </button>
+            </div>
           </div>
-          <div className="w-full h-2 bg-[#2a2a3b] rounded-full overflow-hidden">
+          <div className="w-full h-2 bg-surface-base border border-surface-borderSubtle rounded-full overflow-hidden">
             <div
-              className="h-full bg-blue-600 rounded-full transition-all duration-150"
+              className="h-full bg-accent rounded-full transition-all duration-150"
               style={{ width: `${uploadProgress.percent}%` }}
             />
           </div>
@@ -981,6 +1071,14 @@ export const App: React.FC = () => {
         item={renameTarget}
         onClose={() => setRenameTarget(null)}
         onRename={handleRename}
+      />
+
+      {/* Global Background Audio Player */}
+      <GlobalAudioPlayer
+        currentTrack={currentTrack}
+        playlist={audioPlaylist}
+        onTrackChange={(track) => setCurrentTrack(track)}
+        onClose={() => setCurrentTrack(null)}
       />
     </div>
   );

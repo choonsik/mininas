@@ -972,6 +972,20 @@ type PhotoItem struct {
 	MediaType   string    `json:"mediaType"`
 }
 
+type MusicItem struct {
+	ID          string    `json:"id"`
+	Title       string    `json:"title"`
+	Artist      string    `json:"artist,omitempty"`
+	Album       string    `json:"album,omitempty"`
+	Name        string    `json:"name"`
+	StorageID   string    `json:"storageId"`
+	StorageName string    `json:"storageName"`
+	RelPath     string    `json:"relPath"`
+	Size        int64     `json:"size"`
+	ModTime     time.Time `json:"modTime"`
+	Ext         string    `json:"ext"`
+}
+
 var (
 	pinnedSitesMutex sync.RWMutex
 	pinnedSitesFile  string
@@ -1646,6 +1660,106 @@ func handlePhotosList(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(results)
 }
 
+func handleMusicList(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	storageFilter := r.URL.Query().Get("storage")
+	var results []MusicItem
+
+	for _, storage := range activeStorages {
+		if storageFilter != "" && storage.ID != storageFilter {
+			continue
+		}
+		rootDir := storage.Path
+		if rootDir == "" {
+			continue
+		}
+
+		_ = filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+
+			name := d.Name()
+			if strings.HasPrefix(name, ".") {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+
+			if d.IsDir() {
+				lower := strings.ToLower(name)
+				if lower == "node_modules" || lower == ".trash" || lower == "trash" || lower == ".mininas_cache" {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+
+			ext := strings.ToLower(filepath.Ext(name))
+			if getMediaType(ext) != "audio" {
+				return nil
+			}
+
+			info, err := d.Info()
+			if err != nil || info.Size() == 0 {
+				return nil
+			}
+
+			rel, err := filepath.Rel(rootDir, path)
+			if err != nil {
+				return nil
+			}
+			relPath := "/" + filepath.ToSlash(rel)
+
+			cleanName := strings.TrimSuffix(name, filepath.Ext(name))
+			title := cleanName
+			artist := ""
+			album := ""
+
+			parentDir := filepath.Dir(relPath)
+			if parentDir != "/" && parentDir != "." {
+				album = filepath.Base(parentDir)
+			}
+
+			if strings.Contains(cleanName, " - ") {
+				parts := strings.SplitN(cleanName, " - ", 2)
+				artist = strings.TrimSpace(parts[0])
+				title = strings.TrimSpace(parts[1])
+			}
+
+			results = append(results, MusicItem{
+				ID:          storage.ID + ":" + relPath,
+				Title:       title,
+				Artist:      artist,
+				Album:       album,
+				Name:        name,
+				StorageID:   storage.ID,
+				StorageName: storage.Name,
+				RelPath:     relPath,
+				Size:        info.Size(),
+				ModTime:     info.ModTime(),
+				Ext:         ext,
+			})
+			return nil
+		})
+	}
+
+	if results == nil {
+		results = []MusicItem{}
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return strings.ToLower(results[i].Name) < strings.ToLower(results[j].Name)
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
+}
+
 func handleSystemStats(w http.ResponseWriter, r *http.Request) {
 	stats := getSystemStats()
 	w.Header().Set("Content-Type", "application/json")
@@ -2200,6 +2314,7 @@ func main() {
 	mux.HandleFunc("/api/sites/unpin", handleUnpinSite)
 	mux.HandleFunc("/api/cinema", handleCinemaList)
 	mux.HandleFunc("/api/photos", handlePhotosList)
+	mux.HandleFunc("/api/music", handleMusicList)
 
 	// Static website hosting route (serves HTML/sites directly)
 	mux.HandleFunc("/sites/", handleSitesHosting)

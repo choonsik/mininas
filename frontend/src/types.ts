@@ -1,9 +1,35 @@
-export type NavTab = 'files' | 'cinema' | 'photos' | 'sites' | 'trash';
+export type NavTab = 'files' | 'cinema' | 'photos' | 'music' | 'sites' | 'trash';
 export type MediaFilter = 'all' | 'image' | 'video';
 export type ThemeStyle = 'macos' | 'console' | 'studio';
 export type ThemeTone = 'dark' | 'night' | 'light';
 export type ThemeMode = 'macos' | 'console' | 'studio' | 'light';
 export type FontSizeMode = 'small' | 'medium' | 'large';
+
+export interface AudioTrack {
+  id: string;
+  title: string;
+  artist?: string;
+  album?: string;
+  path: string;
+  storageId: string;
+  storageName?: string;
+  size?: number;
+  ext?: string;
+}
+
+export interface MusicItem {
+  id: string;
+  title: string;
+  artist?: string;
+  album?: string;
+  name: string;
+  storageId: string;
+  storageName: string;
+  relPath: string;
+  size: number;
+  modTime: string;
+  ext: string;
+}
 
 export interface StorageInfo {
   id: string;

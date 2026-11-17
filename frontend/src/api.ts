@@ -1,4 +1,4 @@
-import { FileItem, SystemStats, StorageInfo, SubtitleTrack, MediaCapabilities, MediaInspection, BatchConvertJob, TrashResponse, SiteItem, CinemaItem, PhotoItem } from './types';
+import { FileItem, SystemStats, StorageInfo, SubtitleTrack, MediaCapabilities, MediaInspection, BatchConvertJob, TrashResponse, SiteItem, CinemaItem, PhotoItem, MusicItem } from './types';
 
 const API_BASE = '/api';
 
@@ -107,9 +107,10 @@ export const api = {
     targetPath: string,
     files: (File | { file: File; relativePath?: string })[],
     storageId: string = '',
-    onProgress: (percent: number, currentFile: string) => void
-  ): Promise<void> {
-    if (files.length === 0) return Promise.resolve();
+    onProgress: (percent: number, currentFile: string) => void,
+    signal?: AbortSignal
+  ): Promise<{ completedCount: number; totalCount: number; aborted: boolean }> {
+    if (files.length === 0) return Promise.resolve({ completedCount: 0, totalCount: 0, aborted: false });
 
     const normalized = files.map(item => {
       if ('file' in item) {
@@ -143,6 +144,10 @@ export const api = {
       let completedCount = 0;
 
       for (let bIndex = 0; bIndex < batches.length; bIndex++) {
+        if (signal?.aborted) {
+          return resolve({ completedCount, totalCount: normalized.length, aborted: true });
+        }
+
         const batch = batches[bIndex];
         const formData = new FormData();
         formData.append('targetPath', targetPath);
@@ -158,6 +163,19 @@ export const api = {
             const xhr = new XMLHttpRequest();
             xhr.open('POST', `${API_BASE}/files/upload`);
 
+            const handleAbort = () => {
+              xhr.abort();
+              batchReject(new DOMException('Aborted', 'AbortError'));
+            };
+
+            if (signal) {
+              if (signal.aborted) {
+                handleAbort();
+                return;
+              }
+              signal.addEventListener('abort', handleAbort, { once: true });
+            }
+
             xhr.upload.onprogress = (event) => {
               if (event.lengthComputable) {
                 const currentLoaded = completedBytes + event.loaded;
@@ -170,6 +188,7 @@ export const api = {
             };
 
             xhr.onload = () => {
+              if (signal) signal.removeEventListener('abort', handleAbort);
               if (xhr.status >= 200 && xhr.status < 300) {
                 batchResolve();
               } else {
@@ -183,7 +202,12 @@ export const api = {
             };
 
             xhr.onerror = () => {
-              batchReject(new Error('서버 연결이 끊어졌거나 네트워크 오류가 발생했습니다.'));
+              if (signal) signal.removeEventListener('abort', handleAbort);
+              if (signal?.aborted) {
+                batchReject(new DOMException('Aborted', 'AbortError'));
+              } else {
+                batchReject(new Error('서버 연결이 끊어졌거나 네트워크 오류가 발생했습니다.'));
+              }
             };
 
             xhr.send(formData);
@@ -192,13 +216,16 @@ export const api = {
           const batchBytes = batch.reduce((sum, it) => sum + it.file.size, 0);
           completedBytes += batchBytes;
           completedCount += batch.length;
-        } catch (err) {
+        } catch (err: any) {
+          if (err.name === 'AbortError' || signal?.aborted) {
+            return resolve({ completedCount, totalCount: normalized.length, aborted: true });
+          }
           return reject(err);
         }
       }
 
       onProgress(100, `${normalized.length}개 파일 업로드 완료`);
-      resolve();
+      resolve({ completedCount, totalCount: normalized.length, aborted: false });
     });
   },
 
@@ -379,6 +406,15 @@ export const api = {
     const res = await fetch(url);
     if (!res.ok) {
       throw new Error('사진 & 모먼트 로드 실패');
+    }
+    return res.json();
+  },
+
+  async getMusicLibrary(storageId?: string): Promise<MusicItem[]> {
+    const url = storageId && storageId !== 'all' ? `${API_BASE}/music?storage=${encodeURIComponent(storageId)}` : `${API_BASE}/music`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error('음악 라이브러리 로드 실패');
     }
     return res.json();
   }
