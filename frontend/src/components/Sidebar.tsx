@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { SystemStats, StorageInfo, NavTab } from '../types';
 import { formatBytes } from '../utils/format';
-import { APP_VERSION } from '../version';
 
 interface SidebarProps {
   storages: StorageInfo[];

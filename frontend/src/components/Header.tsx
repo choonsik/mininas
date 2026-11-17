@@ -104,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div className="flex items-baseline gap-2">
             <span className="font-semibold text-sm text-content-primary tracking-tight">MiniNAS</span>
-            <span className="text-[11px] font-mono text-content-muted">v{APP_VERSION}</span>
+            <span className="text-[11px] font-mono text-content-muted">{APP_VERSION}</span>
           </div>
         </div>
       </div>
