@@ -153,12 +153,12 @@ const CinemaPosterCard: React.FC<{
           {/* Badges */}
           <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10 flex-wrap max-w-[85%]">
             {group.isSeries ? (
-              <span className="px-2 py-0.5 rounded bg-black/80 backdrop-blur-md text-accent text-[10px] font-bold border border-accent/30 flex items-center gap-1 shadow">
+              <span className="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-accent text-[10px] font-medium border border-white/10 flex items-center gap-1 shadow-sm">
                 <Layers className="w-3 h-3 text-accent" />
                 <span>{group.items.length > 1 ? `${group.items.length}부작` : (meta.seriesTag || '시리즈')}</span>
               </span>
             ) : meta.seriesTag ? (
-              <span className="px-2 py-0.5 rounded bg-black/80 backdrop-blur-md text-accent text-[10px] font-bold border border-accent/30 flex items-center gap-1 shadow">
+              <span className="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-accent text-[10px] font-medium border border-white/10 flex items-center gap-1 shadow-sm">
                 <Layers className="w-3 h-3 text-accent" />
                 <span>{meta.seriesTag}</span>
               </span>
@@ -454,7 +454,7 @@ export const CinemaHubView: React.FC<CinemaHubViewProps> = ({
             <div className="p-4 border-b border-surface-border bg-surface-header flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="px-2 py-0.5 rounded bg-surface-card text-accent text-[10px] font-bold border border-accent/30 shadow flex items-center gap-1">
+                  <span className="px-2 py-0.5 rounded bg-surface-card text-accent text-[10px] font-medium border border-surface-border flex items-center gap-1">
                     <Layers className="w-3 h-3 text-accent" />
                     <span>{activeSeriesGroup.items.length}부작</span>
                   </span>
