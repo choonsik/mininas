@@ -153,23 +153,23 @@ const CinemaPosterCard: React.FC<{
           {/* Badges */}
           <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10 flex-wrap max-w-[85%]">
             {group.isSeries ? (
-              <span className="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-accent text-[10px] font-medium border border-white/10 flex items-center gap-1 shadow-sm">
-                <Layers className="w-3 h-3 text-accent" />
+              <span className="px-2 py-0.5 rounded bg-black/85 backdrop-blur-sm text-accent text-[11px] font-bold border border-white/30 flex items-center gap-1.5 shadow-md">
+                <Layers className="w-3.5 h-3.5 text-accent" />
                 <span>{group.items.length > 1 ? `${group.items.length}부작` : (meta.seriesTag || '시리즈')}</span>
               </span>
             ) : meta.seriesTag ? (
-              <span className="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-accent text-[10px] font-medium border border-white/10 flex items-center gap-1 shadow-sm">
-                <Layers className="w-3 h-3 text-accent" />
+              <span className="px-2 py-0.5 rounded bg-black/85 backdrop-blur-sm text-accent text-[11px] font-bold border border-white/30 flex items-center gap-1.5 shadow-md">
+                <Layers className="w-3.5 h-3.5 text-accent" />
                 <span>{meta.seriesTag}</span>
               </span>
             ) : meta.episode ? (
-              <span className="px-1.5 py-0.5 rounded bg-black/75 text-cyan-300 text-[10px] font-bold font-mono border border-cyan-500/20 backdrop-blur-md shadow">
+              <span className="px-2 py-0.5 rounded bg-black/85 text-cyan-300 text-[11px] font-bold font-mono border border-cyan-400/40 backdrop-blur-sm shadow-md">
                 {meta.episode}
               </span>
             ) : null}
 
             {meta.qualityTag && (
-              <span className="px-1.5 py-0.5 rounded bg-black/70 text-gray-300 text-[9px] font-mono border border-white/10 backdrop-blur-md">
+              <span className="px-2 py-0.5 rounded bg-black/85 text-white text-[11px] font-semibold font-mono border border-white/30 backdrop-blur-sm shadow-md">
                 {meta.qualityTag}
               </span>
             )}
@@ -177,7 +177,7 @@ const CinemaPosterCard: React.FC<{
 
           <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
             {group.hasSubtitle && (
-              <span className="px-1.5 py-0.5 rounded bg-surface-card/90 text-content-secondary text-[10px] font-medium border border-surface-border flex items-center gap-0.5">
+              <span className="px-1.5 py-0.5 rounded bg-black/85 text-white text-[10px] font-semibold border border-white/30 flex items-center gap-0.5 shadow-md">
                 <Subtitles className="w-2.5 h-2.5" />
                 <span>CC</span>
               </span>
@@ -454,8 +454,8 @@ export const CinemaHubView: React.FC<CinemaHubViewProps> = ({
             <div className="p-4 border-b border-surface-border bg-surface-header flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="px-2 py-0.5 rounded bg-surface-card text-accent text-[10px] font-medium border border-surface-border flex items-center gap-1">
-                    <Layers className="w-3 h-3 text-accent" />
+                  <span className="px-2 py-0.5 rounded bg-surface-card text-accent text-[11px] font-bold border border-surface-border flex items-center gap-1.5 shadow-sm">
+                    <Layers className="w-3.5 h-3.5 text-accent" />
                     <span>{activeSeriesGroup.items.length}부작</span>
                   </span>
                   <span className="text-[11px] text-content-muted font-mono">
