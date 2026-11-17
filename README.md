@@ -132,9 +132,6 @@ make test
 
 # 로컬 개발용 바이너리 빌드
 make build-local
-
-# 원격 맥 미니로 SSH 원클릭 배포
-make deploy TARGET=user@192.168.1.100
 ```
 
 ---
