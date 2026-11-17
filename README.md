@@ -68,13 +68,16 @@ cd MiniNAS
 ```
 
 ### 2. 웹 브라우저 접속
-동일한 로컬 네트워크(LAN/Wi-Fi)에 연결된 PC, 태블릿, 스마트폰에서 접속합니다:
+동일한 로컬 네트워크(LAN/Wi-Fi)에 연결된 PC, 태블릿, 스마트폰의 웹 브라우저에서 접속합니다:
 
 ```text
-http://<macmini-ip>:8080
+http://<mac-ip>:<port>
 또는
-http://macmini.local:8080
+http://<호스트이름>.local:<port>
 ```
+
+- **호스트 이름**: Mac의 **[시스템 환경설정] > [공유]**에 설정된 로컬 컴퓨터 이름(예: `macmini.local`, `choonsik-macmini.local`)입니다.
+- **포트 번호**: 기본 포트는 `8080`이며, 아래 `config.json`의 `"port"` 값을 수정하여 원하는 포트로 변경할 수 있습니다.
 
 ### 3. 제어 스크립트 목록
 - `start-nas.command`: 백그라운드 서비스 등록 및 가동
@@ -87,7 +90,7 @@ http://macmini.local:8080
 
 ## 설정 (`config.json`)
 
-포트 번호와 마운트할 저장소 경로를 지정합니다 (`$HOME` 환경 변수 지원):
+서비스 포트 번호와 마운트할 저장소 경로를 지정합니다 (`$HOME` 환경 변수 지원):
 
 ```json
 {
@@ -107,7 +110,9 @@ http://macmini.local:8080
 }
 ```
 
-설정 변경 후 `./restart-nas.command`를 실행하면 즉시 적용됩니다.
+- **`port`**: MiniNAS 웹 서버가 사용할 포트 번호입니다 (예: `8080`, `9000`, `80` 등).
+- **`storages`**: NAS에서 관리할 디스크 및 폴더 목록입니다.
+- 설정 변경 후 `./restart-nas.command`를 실행하면 즉시 적용됩니다.
 
 ---
 
