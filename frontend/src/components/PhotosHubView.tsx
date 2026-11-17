@@ -267,13 +267,13 @@ export const PhotosHubView: React.FC<PhotosHubViewProps> = ({
 
                       {/* HEIC Badge */}
                       {isHeic && (
-                        <div className="absolute top-1.5 left-1.5 px-1 py-0.2 rounded bg-black/60 text-content-muted text-[9px] font-mono">
-                          HEIC
+                        <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/75 backdrop-blur-md text-cyan-300 border border-cyan-500/20 text-[9px] font-bold font-mono flex items-center gap-1 shadow pointer-events-none z-10">
+                          <span>HEIC</span>
                         </div>
                       )}
 
                       {/* Storage Mini Pill */}
-                      <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 text-[9px] font-mono text-content-muted px-1 rounded truncate max-w-[85%]">
+                      <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 backdrop-blur-sm text-[9px] font-mono text-gray-300 px-1.5 py-0.5 rounded truncate max-w-[85%] border border-white/10">
                         {photo.storageName}
                       </div>
                     </div>
