@@ -21,6 +21,10 @@ export default {
           DEFAULT: 'var(--accent)',
           hover: 'var(--accent-hover)',
           subtle: 'var(--accent-subtle)',
+          btn: 'var(--btn-primary-bg)',
+          btnHover: 'var(--btn-primary-hover)',
+          btnText: 'var(--btn-primary-text)',
+          btnBorder: 'var(--btn-primary-border)',
         },
         content: {
           primary: 'var(--content-primary)',

@@ -278,7 +278,7 @@ export const FileList: React.FC<FileListProps> = ({
 
               <button
                 onClick={onUploadClick}
-                className="flex items-center gap-1.5 text-xs text-white bg-accent hover:bg-accent-hover px-2.5 py-1 rounded-md transition font-medium"
+                className="flex items-center gap-1.5 text-xs bg-accent-btn hover:bg-accent-btnHover text-accent-btnText border border-accent-btnBorder px-2.5 py-1 rounded-md transition font-medium"
                 title="파일 업로드"
               >
                 <Upload className="w-3.5 h-3.5" />

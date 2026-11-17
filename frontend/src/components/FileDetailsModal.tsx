@@ -130,9 +130,9 @@ export const FileDetailsModal: React.FC<FileDetailsModalProps> = ({
                   onClose();
                   onOpenMedia(item);
                 }}
-                className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium bg-accent hover:bg-accent-hover text-white rounded transition"
+                className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium bg-accent-btn hover:bg-accent-btnHover text-accent-btnText border border-accent-btnBorder rounded transition"
               >
-                <Play className="w-3 h-3 fill-white" />
+                <Play className="w-3 h-3 fill-current" />
                 열기
               </button>
             )}

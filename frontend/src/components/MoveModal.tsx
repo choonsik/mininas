@@ -246,7 +246,7 @@ export const MoveModal: React.FC<MoveModalProps> = ({
             />
             <button
               type="submit"
-              className="px-2.5 py-1 bg-accent hover:bg-accent-hover text-white rounded text-xs font-medium transition"
+              className="px-2.5 py-1 bg-accent-btn hover:bg-accent-btnHover text-accent-btnText border border-accent-btnBorder rounded text-xs font-medium transition"
             >
               생성
             </button>
@@ -316,7 +316,7 @@ export const MoveModal: React.FC<MoveModalProps> = ({
             <button
               onClick={handleExecuteMove}
               disabled={isSubmitting}
-              className="flex items-center gap-1.5 px-3.5 py-1 rounded font-medium bg-accent hover:bg-accent-hover text-white transition disabled:opacity-40"
+              className="flex items-center gap-1.5 px-3.5 py-1 rounded font-medium bg-accent-btn hover:bg-accent-btnHover text-accent-btnText border border-accent-btnBorder transition disabled:opacity-40"
             >
               {isSubmitting ? (
                 <>

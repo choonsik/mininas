@@ -53,7 +53,7 @@ export const NewFolderModal: React.FC<NewFolderModalProps> = ({ isOpen, onClose,
             <button
               type="submit"
               disabled={!folderName.trim()}
-              className="px-3.5 py-1 rounded-md text-xs font-medium bg-accent hover:bg-accent-hover text-white transition disabled:opacity-40"
+              className="px-3.5 py-1 rounded-md text-xs font-medium bg-accent-btn hover:bg-accent-btnHover text-accent-btnText border border-accent-btnBorder transition disabled:opacity-40"
             >
               생성
             </button>

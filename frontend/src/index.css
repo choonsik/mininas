@@ -14,6 +14,10 @@
   --accent: #3b82f6;
   --accent-hover: #2563eb;
   --accent-subtle: rgba(59, 130, 246, 0.12);
+  --btn-primary-bg: #3b82f6;
+  --btn-primary-hover: #2563eb;
+  --btn-primary-text: #ffffff;
+  --btn-primary-border: transparent;
   --content-primary: #f3f4f6;
   --content-secondary: #9ca3af;
   --content-muted: #6b7280;
@@ -34,6 +38,10 @@
   --accent: #10b981;
   --accent-hover: #059669;
   --accent-subtle: rgba(16, 185, 129, 0.12);
+  --btn-primary-bg: #10b981;
+  --btn-primary-hover: #059669;
+  --btn-primary-text: #ffffff;
+  --btn-primary-border: transparent;
   --content-primary: #e2e8f0;
   --content-secondary: #94a3b8;
   --content-muted: #64748b;
@@ -42,7 +50,7 @@
   --radius-sm: 2px;
 }
 
-/* 3. Studio Minimal Theme */
+/* 3. Studio Minimal Theme - Glare-free, high contrast */
 .theme-studio {
   --surface-base: #000000;
   --surface-header: #050505;
@@ -51,9 +59,13 @@
   --surface-card-hover: #141414;
   --surface-border: #1c1c1c;
   --surface-border-subtle: #111111;
-  --accent: #ffffff;
-  --accent-hover: #e5e5e5;
-  --accent-subtle: rgba(255, 255, 255, 0.12);
+  --accent: #e4e4e7;
+  --accent-hover: #ffffff;
+  --accent-subtle: rgba(255, 255, 255, 0.08);
+  --btn-primary-bg: #222225;
+  --btn-primary-hover: #2e2e33;
+  --btn-primary-text: #ffffff;
+  --btn-primary-border: #38383e;
   --content-primary: #ffffff;
   --content-secondary: #888888;
   --content-muted: #555555;
