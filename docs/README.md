@@ -37,6 +37,12 @@ MiniNAS 프로젝트의 아키텍처, 성능 벤치마크, 최적화 연구, 버
 
 ## 버전별 릴리즈 노트 (Release Notes)
 
+- **[RELEASE_NOTES_v0.6.md (v0.6 릴리즈 노트)](file:///Users/choonsik/Documents/antigravity/nas/docs/RELEASE_NOTES_v0.6.md)**
+  - 음악 라이브러리 허브 및 전역 백그라운드 오디오 플레이어.
+  - 시네마 시리즈 자동 그룹화 고도화 및 고대비 배지 시인성 개선.
+  - 대용량/다수 파일 업로드 취소 및 브라우저 이탈 방지 가드(`beforeunload`).
+  - 반응형 트랙 테이블 레이아웃 및 2자리 버전 표기 표준화.
+
 - **[RELEASE_NOTES_v0.5.md (v0.5 릴리즈 노트)](file:///Users/choonsik/Documents/antigravity/nas/docs/RELEASE_NOTES_v0.5.md)**
   - 무손실 동영상 스트리밍 최적화.
   - 프론트엔드 스마트 버퍼링 및 안티 채터링(Anti-Chattering) 4초 안전 버퍼.

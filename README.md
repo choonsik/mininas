@@ -1,4 +1,4 @@
-# MiniNAS (v0.5)
+# MiniNAS (v0.6)
 
 구형 2011 Mac mini(macOS High Sierra 10.13+)를 모니터 없는 헤드리스 홈 NAS로 활용하기 위한 초경량 독립형(Standalone) 웹 애플리케이션입니다.
 
@@ -177,6 +177,7 @@ nas/
 - [문서 가이드 & 인덱스 (docs/README.md)](file:///Users/choonsik/Documents/antigravity/nas/docs/README.md): 전체 문서 목록 및 아카이브
 - [동영상 무손실 스트리밍 최적화 보고서](file:///Users/choonsik/Documents/antigravity/nas/docs/VIDEO_STREAMING_OPTIMIZATION.md): 버퍼링 메커니즘, 안티 채터링 및 FastStart 분석
 - [스트리밍 최적화 벤치마크 보고서](file:///Users/choonsik/Documents/antigravity/nas/docs/BENCHMARK_STREAMING_OPTIMIZATION.md): 정량적 성능 지표 비교 및 DevTools 실전 검증 가이드
+- [v0.6 릴리즈 노트](file:///Users/choonsik/Documents/antigravity/nas/docs/RELEASE_NOTES_v0.6.md): 음악 허브 및 전역 백그라운드 오디오 플레이어, 시리즈 그룹화 고도화
 - [v0.5 릴리즈 노트](file:///Users/choonsik/Documents/antigravity/nas/docs/RELEASE_NOTES_v0.5.md): v0.5 신규 기능 및 변경점
 - [v0.4 릴리즈 노트](file:///Users/choonsik/Documents/antigravity/nas/docs/RELEASE_NOTES_v0.4.md): 역할 분리, 포토/시네마 허브 혁신
 

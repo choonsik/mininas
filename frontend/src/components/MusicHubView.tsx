@@ -255,10 +255,9 @@ export const MusicHubView: React.FC<MusicHubViewProps> = ({
                 <tr>
                   <th className="py-2.5 px-3 w-10 text-center font-mono">#</th>
                   <th className="py-2.5 px-3 font-medium">곡명</th>
-                  <th className="py-2.5 px-3 font-medium hidden sm:table-cell w-32 md:w-40 lg:w-48">아티스트</th>
-                  <th className="py-2.5 px-3 font-medium hidden md:table-cell w-36 lg:w-56">앨범 / 폴더</th>
-                  <th className="py-2.5 px-3 font-medium text-right w-20">용량</th>
-                  <th className="py-2.5 px-3 font-medium text-center w-12 sm:w-14">재생</th>
+                  <th className="py-2.5 px-3 font-medium hidden sm:table-cell w-36 md:w-44 lg:w-52">아티스트</th>
+                  <th className="py-2.5 px-3 font-medium hidden md:table-cell w-40 lg:w-64">앨범 / 폴더</th>
+                  <th className="py-2.5 px-4 font-medium text-right w-24">용량</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-borderSubtle">
@@ -301,20 +300,8 @@ export const MusicHubView: React.FC<MusicHubViewProps> = ({
                           <span className="truncate">{item.album || '루트'}</span>
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-[11px] text-content-muted whitespace-nowrap">
+                      <td className="py-2.5 px-4 text-right font-mono text-[11px] text-content-muted whitespace-nowrap">
                         {formatBytes(item.size)}
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onPlayTrack(track, playlist);
-                          }}
-                          className="p-1 rounded-full text-accent hover:bg-accent hover:text-accent-btnText transition"
-                          title="재생"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                        </button>
                       </td>
                     </tr>
                   );
