@@ -96,9 +96,9 @@ export const Header: React.FC<HeaderProps> = ({
   ];
 
   const fontSizeOptions: { id: FontSizeMode; label: string; desc: string }[] = [
-    { id: 'small', label: '작게 (90%)', desc: '고밀도 화면' },
-    { id: 'medium', label: '보통 (100%)', desc: '표준 크기' },
-    { id: 'large', label: '크게 (112%)', desc: '시인성 향상' },
+    { id: 'small', label: '작게 (88%)', desc: '작은 폰트' },
+    { id: 'medium', label: '보통 (100%)', desc: '기본 폰트' },
+    { id: 'large', label: '크게 (122%)', desc: '큰 폰트' },
   ];
 
   return (
@@ -218,18 +218,18 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={() => setIsFontSizeOpen(!isFontSizeOpen)}
             className="flex items-center gap-1.5 px-2 py-1 text-xs text-content-secondary hover:text-content-primary bg-surface-base hover:bg-surface-cardHover border border-surface-border rounded transition"
-            title="글자 크기 변경"
+            title="폰트 크기 변경"
           >
             <Type className="w-3.5 h-3.5 text-accent" />
             <span className="hidden sm:inline font-medium">
-              {fontSize === 'small' ? '작게' : fontSize === 'medium' ? '보통' : '크게'}
+              {fontSize === 'small' ? '폰트 작게' : fontSize === 'medium' ? '폰트 보통' : '폰트 크게'}
             </span>
           </button>
 
           {isFontSizeOpen && (
             <div className="absolute right-0 mt-1 w-40 bg-surface-card border border-surface-border rounded shadow-xl py-1 z-40 text-xs">
               <div className="px-3 py-1 text-[10px] text-content-muted font-medium border-b border-surface-borderSubtle">
-                글자 크기 조절
+                폰트 크기 설정
               </div>
               {fontSizeOptions.map((opt) => (
                 <button

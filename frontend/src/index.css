@@ -74,26 +74,44 @@
   --radius-sm: 0px;
 }
 
-/* Font Size / UI Density Controls */
+/* Font Size Controls: scales typography font-size only, without zooming layout or icons */
+html {
+  --font-scale: 1;
+}
+
 html.font-size-small {
-  zoom: 0.9;
-  font-size: 14.5px;
+  --font-scale: 0.88;
 }
 
 html.font-size-medium {
-  zoom: 1;
-  font-size: 16px;
+  --font-scale: 1;
 }
 
 html.font-size-large {
-  zoom: 1.12;
-  font-size: 18px;
+  --font-scale: 1.22;
+}
+
+/* Scaled typography for arbitrary pixel classes */
+.text-\[9px\] {
+  font-size: calc(9px * var(--font-scale, 1)) !important;
+  line-height: calc(13px * var(--font-scale, 1)) !important;
+}
+
+.text-\[10px\] {
+  font-size: calc(10px * var(--font-scale, 1)) !important;
+  line-height: calc(14px * var(--font-scale, 1)) !important;
+}
+
+.text-\[11px\] {
+  font-size: calc(11.5px * var(--font-scale, 1)) !important;
+  line-height: calc(16px * var(--font-scale, 1)) !important;
 }
 
 body {
   font-family: var(--font-family);
   background-color: var(--surface-base);
   color: var(--content-primary);
+  font-size: calc(14px * var(--font-scale, 1));
   color-scheme: dark;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
