@@ -45,10 +45,13 @@ function parseMovieMeta(filename: string): { displayTitle: string; episode?: str
   const seriesMatch = clean.match(/(?:[\s\._\-\(\[]|^)([0-9]{1,3})\s*부작(?:[\s\._\-\)\]]|$)/);
   const seriesTag = seriesMatch ? `${seriesMatch[1]}부작` : undefined;
 
-  const epMatch = clean.match(/(?:[sS]\d+)?(?:[eE]|ep|EP|회|화)\s*([0-9]{1,3})|(?:[\s\-_]+)([0-9]{2,3})(?:[\s\-_]|$)/);
+  const epMatch = clean.match(/(?:[sS]\d+)?(?:[eE]|ep|EP|회|화)\s*([0-9]{1,3})|(?:^|[\s\-_]+)([0-9]{1,3})(?:[\s\-_]|$)/);
   let episode: string | undefined;
   if (epMatch) {
-    episode = epMatch[1] ? `EP ${epMatch[1]}` : `EP ${epMatch[2]}`;
+    const num = epMatch[1] || epMatch[2];
+    if (num) {
+      episode = `EP ${parseInt(num, 10)}`;
+    }
   }
 
   let qualityTag: string | undefined;
@@ -57,14 +60,16 @@ function parseMovieMeta(filename: string): { displayTitle: string; episode?: str
   else if (/720p/i.test(clean)) qualityTag = '720p';
 
   let displayTitle = clean
-    .replace(/^\[[^\]]+\]\s*/g, '')
-    .replace(/\s*\[[^\]]+\]/g, '')
-    .replace(/\s*\([^\)]+\)/g, '')
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\([^\)]*\)/g, ' ')
+    .replace(/(?:_|\.)(?:web|dl|rip|h264|h265|aac)\b/gi, ' ')
     .replace(/(?:[\s\._\-\(\[]|^)(19\d{2}|20\d{2})(?:[\s\._\-\)\]]|$)/g, ' ')
     .replace(/(?:[\s\._\-\(\[]|^)[0-9]{1,3}\s*부작(?:[\s\._\-\)\]]|$)/g, ' ')
     .replace(/(?:[sS]\d+)?(?:[eE]|ep|EP|회|화)\s*[0-9]{1,3}/gi, ' ')
-    .replace(/1080p|720p|2160p|4k|x264|x265|hevc|aac|eac3|web-dl|bluray|dvdrip|hdr/gi, '')
+    .replace(/(?:^|[\s\-_]+)[0-9]{1,3}(?:[\s\-_]+|$)/g, ' ')
+    .replace(/1080p|720p|2160p|4k|x264|x265|hevc|aac|eac3|web-dl|bluray|dvdrip|hdr/gi, ' ')
     .replace(/[\._\-]+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 
   if (!displayTitle) displayTitle = clean;

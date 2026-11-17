@@ -2217,6 +2217,7 @@ func main() {
 			f, err := distFS.Open(path)
 			if err == nil {
 				f.Close()
+				w.Header().Set("Cache-Control", "no-cache, must-revalidate")
 				fileServer.ServeHTTP(w, r)
 				return
 			}
