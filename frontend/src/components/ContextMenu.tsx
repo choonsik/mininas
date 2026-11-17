@@ -88,27 +88,27 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
   if (!position) return null;
 
-  const menuWidth = 180;
-  const menuHeight = targetItem ? 250 : 150;
-  const adjustedX = position.x + menuWidth > window.innerWidth ? window.innerWidth - menuWidth - 10 : position.x;
-  const adjustedY = position.y + menuHeight > window.innerHeight ? window.innerHeight - menuHeight - 10 : position.y;
+  const menuWidth = 200;
+  const menuHeight = targetItem ? 320 : 160;
+  const adjustedX = Math.max(8, Math.min(position.x, window.innerWidth - menuWidth - 8));
+  const adjustedY = Math.max(8, Math.min(position.y, window.innerHeight - menuHeight - 8));
 
   return (
     <div
       ref={menuRef}
       style={{ top: `${adjustedY}px`, left: `${adjustedX}px` }}
-      className="fixed z-50 min-w-[180px] bg-surface-card border border-surface-border rounded-md shadow-xl py-1 text-xs text-content-primary select-none"
+      className="fixed z-50 min-w-[200px] max-w-[calc(100vw-16px)] bg-surface-card border border-surface-border rounded-lg shadow-2xl py-1 text-xs text-content-primary select-none touch-manipulation"
       onClick={(e) => e.stopPropagation()}
     >
       {targetItem ? (
         <>
-          <div className="px-3 py-1 border-b border-surface-border text-content-muted font-mono truncate max-w-[170px] text-[11px]">
+          <div className="px-3 py-1.5 border-b border-surface-border text-content-muted font-mono truncate max-w-[190px] text-[11px]">
             {targetItem.name}
           </div>
 
           <button
             onClick={() => { onClose(); onOpen(targetItem); }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
+            className="w-full flex items-center gap-2.5 px-3 py-2 sm:py-1.5 text-left hover:bg-surface-cardHover active:bg-surface-cardHover transition touch-manipulation"
           >
             {targetItem.isDir ? <FolderOpen className="w-3.5 h-3.5 text-content-muted" /> : <Play className="w-3.5 h-3.5 text-content-muted" />}
             <span>{targetItem.isDir ? '폴더 열기' : '열기 / 재생'}</span>
@@ -117,7 +117,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           {onPinToSites && (targetItem.isDir || targetItem.ext === '.html' || targetItem.ext === '.htm') && (
             <button
               onClick={() => { onClose(); onPinToSites(targetItem); }}
-              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
+              className="w-full flex items-center gap-2.5 px-3 py-2 sm:py-1.5 text-left hover:bg-surface-cardHover active:bg-surface-cardHover transition touch-manipulation"
             >
               <Pin className="w-3.5 h-3.5 text-content-muted" />
               <span>사이트 허브에 고정</span>
@@ -127,7 +127,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           {!targetItem.isDir && (
             <button
               onClick={() => { onClose(); onDownload(targetItem); }}
-              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
+              className="w-full flex items-center gap-2.5 px-3 py-2 sm:py-1.5 text-left hover:bg-surface-cardHover active:bg-surface-cardHover transition touch-manipulation"
             >
               <Download className="w-3.5 h-3.5 text-content-muted" />
               <span>다운로드</span>
@@ -139,7 +139,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           {onMoveTo && (
             <button
               onClick={() => { onClose(); onMoveTo(targetItem); }}
-              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
+              className="w-full flex items-center gap-2.5 px-3 py-2 sm:py-1.5 text-left hover:bg-surface-cardHover active:bg-surface-cardHover transition touch-manipulation"
             >
               <Scissors className="w-3.5 h-3.5 text-content-muted" />
               <span>폴더로 이동...</span>
@@ -148,36 +148,36 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
           <button
             onClick={() => { onClose(); onCut(targetItem); }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
+            className="w-full flex items-center gap-2.5 px-3 py-2 sm:py-1.5 text-left hover:bg-surface-cardHover active:bg-surface-cardHover transition touch-manipulation"
           >
             <Scissors className="w-3.5 h-3.5 text-content-muted" />
             <span className="flex-1">잘라내기</span>
-            <span className="text-[10px] text-content-muted font-mono">⌘X</span>
+            <span className="text-[10px] text-content-muted font-mono hidden sm:inline">⌘X</span>
           </button>
 
           <button
             onClick={() => { onClose(); onCopy(targetItem); }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
+            className="w-full flex items-center gap-2.5 px-3 py-2 sm:py-1.5 text-left hover:bg-surface-cardHover active:bg-surface-cardHover transition touch-manipulation"
           >
             <Copy className="w-3.5 h-3.5 text-content-muted" />
             <span className="flex-1">복사</span>
-            <span className="text-[10px] text-content-muted font-mono">⌘C</span>
+            <span className="text-[10px] text-content-muted font-mono hidden sm:inline">⌘C</span>
           </button>
 
           {clipboard && (
             <div className="flex items-center">
               <button
                 onClick={() => { onClose(); onPaste(); }}
-                className="flex-1 flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover text-accent transition"
+                className="flex-1 flex items-center gap-2.5 px-3 py-2 sm:py-1.5 text-left hover:bg-surface-cardHover active:bg-surface-cardHover text-accent transition touch-manipulation"
               >
                 <Clipboard className="w-3.5 h-3.5" />
                 <span className="flex-1">붙여넣기</span>
-                <span className="text-[10px] text-accent/70 font-mono">⌘V</span>
+                <span className="text-[10px] text-accent/70 font-mono hidden sm:inline">⌘V</span>
               </button>
               {onCancelClipboard && (
                 <button
                   onClick={() => { onClose(); onCancelClipboard(); }}
-                  className="px-2 py-1.5 text-content-muted hover:text-content-primary hover:bg-surface-cardHover transition text-[11px]"
+                  className="px-2 py-2 sm:py-1.5 text-content-muted hover:text-content-primary hover:bg-surface-cardHover transition text-[11px] touch-manipulation"
                   title="클립보드 취소"
                 >
                   취소
@@ -190,7 +190,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
           <button
             onClick={() => { onClose(); onRename(targetItem); }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
+            className="w-full flex items-center gap-2.5 px-3 py-2 sm:py-1.5 text-left hover:bg-surface-cardHover active:bg-surface-cardHover transition touch-manipulation"
           >
             <Edit3 className="w-3.5 h-3.5 text-content-muted" />
             <span>이름 변경</span>
@@ -198,7 +198,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
           <button
             onClick={() => { onClose(); onDetails(targetItem); }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface-cardHover transition"
+            className="w-full flex items-center gap-2.5 px-3 py-2 sm:py-1.5 text-left hover:bg-surface-cardHover active:bg-surface-cardHover transition touch-manipulation"
           >
             <Info className="w-3.5 h-3.5 text-content-muted" />
             <span>상세 정보</span>
@@ -208,11 +208,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
           <button
             onClick={() => { onClose(); onDelete(targetItem); }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-red-400 hover:bg-red-500/10 transition"
+            className="w-full flex items-center gap-2.5 px-3 py-2 sm:py-1.5 text-left text-red-400 hover:bg-red-500/10 active:bg-red-500/20 transition touch-manipulation"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span className="flex-1">삭제</span>
-            <span className="text-[10px] text-red-400/70 font-mono">Del</span>
+            <span className="text-[10px] text-red-400/70 font-mono hidden sm:inline">Del</span>
           </button>
         </>
       ) : (

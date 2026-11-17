@@ -37,6 +37,13 @@ MiniNAS 프로젝트의 아키텍처, 성능 벤치마크, 최적화 연구, 버
 
 ## 버전별 릴리즈 노트 (Release Notes)
 
+- **[RELEASE_NOTES_v0.7.md (v0.7 릴리즈 노트)](file:///Users/choonsik/Documents/antigravity/nas/docs/RELEASE_NOTES_v0.7.md)**
+  - 모바일 UX 전면 개편 (하단 캡슐 내비게이션, 터치 반응 최적화, 스크롤 겹침 해소).
+  - 음원 내장 ID3v2 앨범 표지(Cover Art) 고속 추출 및 앨범/플레이어 연동.
+  - 외형 설정(테마 스타일/컬러 톤/폰트 크기) 좌측 사이드바 3분할 세그먼트 일원화.
+  - 시스템 모니터링(CPU 부하/메모리/호스트/가동시간) 사이드바 푸터 통합 및 상단 헤더 순수화.
+  - 체크박스 전체 선택/취소 토글 및 인디터미네이트 상태(`MinusSquare`) 개선.
+
 - **[RELEASE_NOTES_v0.6.md (v0.6 릴리즈 노트)](file:///Users/choonsik/Documents/antigravity/nas/docs/RELEASE_NOTES_v0.6.md)**
   - 음악 라이브러리 허브 및 전역 백그라운드 오디오 플레이어.
   - 시네마 시리즈 자동 그룹화 고도화 및 고대비 배지 시인성 개선.

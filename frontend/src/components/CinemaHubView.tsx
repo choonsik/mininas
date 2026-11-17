@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Film, 
   Play, 
@@ -13,6 +13,7 @@ import {
 import { StorageInfo, CinemaItem, FileItem } from '../types';
 import { api } from '../api';
 import { formatBytes } from '../utils/format';
+import { thumbnailQueue } from '../utils/thumbnailQueue';
 
 interface CinemaHubViewProps {
   storages: StorageInfo[];
@@ -81,58 +82,63 @@ const CinemaPosterCard: React.FC<{
   group: CinemaGroup;
   onClick: () => void;
 }> = ({ group, onClick }) => {
-  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const movie = group.representativeItem;
+  const taskId = `${movie.storageId}:${movie.relPath}`;
+  const [thumbUrl, setThumbUrl] = useState<string | null>(() => {
+    return thumbnailQueue.getCached(taskId) || null;
+  });
+  const [isVisible, setIsVisible] = useState(false);
   const meta = useMemo(() => parseMovieMeta(movie.name), [movie.name]);
 
   useEffect(() => {
+    if (thumbUrl) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    if (!('IntersectionObserver' in window)) {
+      setIsVisible(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [thumbUrl]);
+
+  useEffect(() => {
+    if (!isVisible || thumbUrl) return;
+
     const ext = movie.ext.toLowerCase();
     if (ext !== '.mp4' && ext !== '.webm' && ext !== '.mov') {
       return;
     }
 
-    let isMounted = true;
-    const video = document.createElement('video');
-    video.src = api.getStreamUrl(movie.relPath, movie.storageId);
-    video.crossOrigin = 'anonymous';
-    video.muted = true;
+    const cancel = thumbnailQueue.enqueue({
+      id: taskId,
+      url: api.getStreamUrl(movie.relPath, movie.storageId),
+      ext,
+      onSuccess: (url) => setThumbUrl(url),
+      onError: () => {},
+    });
 
-    const handleLoadedMetadata = () => {
-      video.currentTime = Math.min(10, video.duration / 3);
-    };
-
-    const handleSeeked = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 360;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          if (isMounted) setThumbUrl(dataUrl);
-        }
-      } catch (e) {
-        // Fallback
-      }
-    };
-
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('seeked', handleSeeked);
-
-    return () => {
-      isMounted = false;
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('seeked', handleSeeked);
-      video.src = '';
-      video.remove();
-    };
-  }, [movie.relPath, movie.storageId, movie.ext]);
+    return () => cancel();
+  }, [isVisible, taskId, movie.relPath, movie.storageId, movie.ext, thumbUrl]);
 
   return (
     <div 
+      ref={containerRef}
       onClick={onClick}
-      className="group bg-surface-card border border-surface-border hover:border-accent/40 rounded-lg overflow-hidden cursor-pointer flex flex-col justify-between transition select-none"
+      className="group bg-surface-card border border-surface-border hover:border-accent/40 rounded-lg overflow-hidden cursor-pointer flex flex-col justify-between transition select-none active:scale-[0.99] touch-manipulation"
     >
       <div>
         {/* 16:9 Thumbnail Poster Frame */}
@@ -142,10 +148,11 @@ const CinemaPosterCard: React.FC<{
               src={thumbUrl} 
               alt={group.title} 
               className="w-full h-full object-contain" 
+              loading="lazy"
             />
           ) : (
             <div className="flex flex-col items-center justify-center text-content-muted gap-1">
-              <Film className="w-8 h-8 opacity-40" />
+              <Film className="w-8 h-8 opacity-40 text-indigo-400" />
               <span className="text-[10px] font-mono">{movie.ext.toUpperCase()}</span>
             </div>
           )}
@@ -212,7 +219,7 @@ const CinemaPosterCard: React.FC<{
           </div>
 
           <h4 
-            className="text-xs font-semibold text-content-primary group-hover:text-accent transition truncate"
+            className="text-xs font-semibold text-content-primary group-hover:text-accent transition line-clamp-2 leading-snug break-all min-h-[2.4em]"
             title={group.title}
           >
             {group.title}
@@ -370,7 +377,7 @@ export const CinemaHubView: React.FC<CinemaHubViewProps> = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-content-primary">
+    <div className="flex-1 overflow-y-auto p-2.5 sm:p-6 space-y-4 text-content-primary overscroll-y-contain">
       {/* Header & Filter Bar */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pb-3 border-b border-surface-border">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none text-xs">
@@ -436,7 +443,7 @@ export const CinemaHubView: React.FC<CinemaHubViewProps> = ({
           </h4>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
           {filteredGroups.map(group => (
             <CinemaPosterCard
               key={group.id}

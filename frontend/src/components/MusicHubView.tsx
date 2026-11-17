@@ -24,6 +24,35 @@ interface MusicHubViewProps {
   onShowToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
+const MusicCoverImage: React.FC<{
+  relPath: string;
+  storageId: string;
+  className?: string;
+  fallbackIcon?: React.ReactNode;
+}> = ({
+  relPath,
+  storageId,
+  className = "w-full h-full object-cover",
+  fallbackIcon,
+}) => {
+  const [hasError, setHasError] = useState(false);
+  const coverUrl = api.getMusicCoverUrl(relPath, storageId);
+
+  if (hasError) {
+    return <>{fallbackIcon}</>;
+  }
+
+  return (
+    <img
+      src={coverUrl}
+      alt="Cover"
+      loading="lazy"
+      onError={() => setHasError(true)}
+      className={className}
+    />
+  );
+};
+
 export const MusicHubView: React.FC<MusicHubViewProps> = ({
   storages,
   onPlayTrack,
@@ -119,7 +148,7 @@ export const MusicHubView: React.FC<MusicHubViewProps> = ({
   }, [filteredTracks]);
 
   return (
-    <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 pb-28 space-y-4 text-content-primary">
+    <div className="flex-1 min-w-0 overflow-y-auto p-2.5 sm:p-6 pb-28 space-y-4 text-content-primary overscroll-y-contain">
       {/* Header & Filter Bar */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pb-3 border-b border-surface-border">
         {/* Storages Pills */}
@@ -193,7 +222,7 @@ export const MusicHubView: React.FC<MusicHubViewProps> = ({
             <>
               <button
                 onClick={handlePlayAll}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-accent-btnText text-xs font-semibold shadow hover:scale-[1.02] active:scale-[0.98] transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent-btn hover:bg-accent-btnHover text-accent-btnText border border-accent-btnBorder text-xs font-semibold hover:scale-[1.02] active:scale-[0.98] transition touch-manipulation"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
                 <span>전체 재생</span>
@@ -201,7 +230,7 @@ export const MusicHubView: React.FC<MusicHubViewProps> = ({
 
               <button
                 onClick={handleShufflePlay}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-surface-base border border-surface-border hover:bg-surface-cardHover text-content-primary text-xs font-medium transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-surface-base border border-surface-border hover:bg-surface-cardHover text-content-primary text-xs font-medium transition active:scale-[0.98] touch-manipulation"
               >
                 <Shuffle className="w-3.5 h-3.5 text-accent" />
                 <span>셔플 재생</span>
@@ -284,11 +313,27 @@ export const MusicHubView: React.FC<MusicHubViewProps> = ({
                         )}
                       </td>
                       <td className="py-2.5 px-3 min-w-0">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="truncate" title={item.title}>{item.title}</span>
-                          <span className="px-1 py-0.2 rounded bg-surface-base text-[9px] font-mono text-content-muted uppercase border border-surface-border shrink-0">
-                            {item.ext.replace('.', '')}
-                          </span>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-md bg-surface-base border border-surface-border shrink-0 overflow-hidden flex items-center justify-center shadow-xs">
+                            <MusicCoverImage
+                              relPath={item.relPath}
+                              storageId={item.storageId}
+                              className="w-full h-full object-cover"
+                              fallbackIcon={<Disc className="w-4 h-4 text-content-muted opacity-50" />}
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="truncate" title={item.title}>{item.title}</span>
+                              <span className="px-1 py-0.2 rounded bg-surface-base text-[9px] font-mono text-content-muted uppercase border border-surface-border shrink-0">
+                                {item.ext.replace('.', '')}
+                              </span>
+                            </div>
+                            {/* Mobile Vertical Sub-info (Artist & Album) */}
+                            <div className="text-[10px] text-content-muted truncate sm:hidden mt-0.5 font-mono">
+                              {item.artist || '알 수 없는 아티스트'} · {item.album || '미분류'}
+                            </div>
+                          </div>
                         </div>
                       </td>
                       <td className="py-2.5 px-3 text-content-secondary hidden sm:table-cell truncate" title={item.artist || '—'}>
@@ -323,13 +368,20 @@ export const MusicHubView: React.FC<MusicHubViewProps> = ({
               >
                 <div>
                   <div className="aspect-square w-full rounded-lg bg-surface-base border border-surface-border flex items-center justify-center relative overflow-hidden mb-3 shadow-inner">
-                    <Disc className="w-16 h-16 text-content-muted opacity-40 group-hover:scale-105 transition-transform duration-300" />
+                    <MusicCoverImage
+                      relPath={album.items[0].relPath}
+                      storageId={album.items[0].storageId}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      fallbackIcon={
+                        <Disc className="w-16 h-16 text-content-muted opacity-40 group-hover:scale-105 transition-transform duration-300" />
+                      }
+                    />
                     <button
                       onClick={() => onPlayTrack(albumPlaylist[0], albumPlaylist)}
                       className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
                       title="앨범 전곡 재생"
                     >
-                      <div className="w-10 h-10 rounded-full bg-accent text-accent-btnText flex items-center justify-center shadow-lg hover:scale-105 transition">
+                      <div className="w-10 h-10 rounded-full bg-accent-btn text-accent-btnText border border-accent-btnBorder flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition">
                         <Play className="w-4 h-4 ml-0.5 fill-current" />
                       </div>
                     </button>

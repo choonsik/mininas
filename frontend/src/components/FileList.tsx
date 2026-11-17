@@ -8,6 +8,7 @@ import {
   Archive, 
   File, 
   ChevronRight, 
+  ChevronLeft,
   Download, 
   Trash2, 
   Edit3, 
@@ -15,6 +16,7 @@ import {
   Upload, 
   Archive as ZipIcon,
   CheckSquare,
+  MinusSquare,
   Square,
   Globe,
   Copy,
@@ -138,6 +140,7 @@ export const FileList: React.FC<FileListProps> = ({
 
   const hasSelection = selectedPaths.size > 0;
   const isAllSelected = items.length > 0 && selectedPaths.size === items.length;
+  const isPartiallySelected = selectedPaths.size > 0 && selectedPaths.size < items.length;
 
   const renderSortArrow = (field: SortField) => {
     if (sortField !== field) return null;
@@ -154,9 +157,29 @@ export const FileList: React.FC<FileListProps> = ({
       onContextMenu={onBackgroundContextMenu}
     >
       {/* Top Toolbar: Breadcrumb & Actions */}
-      <div className="h-12 border-b border-surface-border px-4 sm:px-5 flex items-center justify-between bg-surface-base shrink-0 gap-3">
-        {/* Breadcrumb Navigation */}
-        <div className="flex items-center gap-1 overflow-x-auto py-1 scrollbar-none min-w-0">
+      <div className="h-11 sm:h-12 border-b border-surface-border px-2.5 sm:px-5 flex items-center justify-between bg-surface-base shrink-0 gap-2 sm:gap-3">
+        {/* Mobile: Back button + Current folder title */}
+        <div className="flex sm:hidden items-center gap-1 min-w-0 flex-1">
+          {breadcrumbs.length > 1 ? (
+            <button
+              onClick={() => onNavigate(breadcrumbs[breadcrumbs.length - 2].path)}
+              className="flex items-center gap-1 text-content-primary hover:text-accent font-medium text-xs py-1 px-1 -ml-1 rounded hover:bg-surface-card transition shrink-0 touch-manipulation active:scale-[0.95]"
+              title={`${breadcrumbs[breadcrumbs.length - 2].name} (상위 폴더)`}
+            >
+              <ChevronLeft className="w-4 h-4 text-accent" />
+              <span className="truncate max-w-[130px] font-semibold text-xs text-content-primary">
+                {breadcrumbs[breadcrumbs.length - 1].name}
+              </span>
+            </button>
+          ) : (
+            <span className="font-semibold text-xs text-content-primary truncate px-1">
+              {storageName || '저장소'}
+            </span>
+          )}
+        </div>
+
+        {/* Desktop: Full Breadcrumb trail */}
+        <div className="hidden sm:flex items-center gap-1 overflow-x-auto py-1 scrollbar-none min-w-0 flex-1">
           <nav className="flex items-center gap-1 text-xs shrink-0">
             {breadcrumbs.map((crumb, idx) => (
               <React.Fragment key={crumb.path}>
@@ -269,7 +292,7 @@ export const FileList: React.FC<FileListProps> = ({
 
               <button
                 onClick={onNewFolder}
-                className="flex items-center gap-1.5 text-xs text-content-secondary hover:text-content-primary bg-surface-card hover:bg-surface-cardHover border border-surface-border px-2.5 py-1 rounded-md transition"
+                className="flex items-center gap-1.5 text-xs text-content-secondary hover:text-content-primary bg-surface-card hover:bg-surface-cardHover border border-surface-border px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-md transition touch-manipulation active:scale-[0.97]"
                 title="새 폴더 생성"
               >
                 <FolderPlus className="w-3.5 h-3.5" />
@@ -278,7 +301,7 @@ export const FileList: React.FC<FileListProps> = ({
 
               <button
                 onClick={onUploadClick}
-                className="flex items-center gap-1.5 text-xs bg-accent-btn hover:bg-accent-btnHover text-accent-btnText border border-accent-btnBorder px-2.5 py-1 rounded-md transition font-medium"
+                className="flex items-center gap-1.5 text-xs bg-accent-btn hover:bg-accent-btnHover text-accent-btnText border border-accent-btnBorder px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-md transition font-medium touch-manipulation active:scale-[0.97]"
                 title="파일 업로드"
               >
                 <Upload className="w-3.5 h-3.5" />
@@ -290,7 +313,7 @@ export const FileList: React.FC<FileListProps> = ({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+      <div className="flex-1 overflow-y-auto p-2.5 sm:p-5 overscroll-y-contain">
         {items.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-content-muted space-y-2 py-16">
             <Folder className="w-10 h-10 stroke-[1.25] text-content-muted opacity-40 mb-1" />
@@ -308,8 +331,8 @@ export const FileList: React.FC<FileListProps> = ({
             )}
           </div>
         ) : viewMode === 'grid' ? (
-          /* Clean Grid View */
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-9 gap-3">
+          /* Clean Grid View (Mobile: 3-cols Icon-centric, Desktop: multi-cols) */
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-9 gap-2 sm:gap-3">
             {items.map((item) => {
               const isSelected = selectedPaths.has(item.path);
               const isCut = clipboard?.action === 'cut' && clipboard.paths.includes(item.path);
@@ -321,7 +344,7 @@ export const FileList: React.FC<FileListProps> = ({
                     e.stopPropagation();
                     onItemContextMenu(e, item);
                   }}
-                  className={`group relative flex flex-col items-center p-3 rounded-lg border transition cursor-pointer select-none ${
+                  className={`group relative flex flex-col items-center p-2 sm:p-3 rounded-lg border transition cursor-pointer select-none active:scale-[0.98] touch-manipulation ${
                     isSelected
                       ? 'bg-accent-subtle border-accent/40 text-content-primary'
                       : 'bg-surface-card/40 border-transparent hover:bg-surface-cardHover hover:border-surface-border text-content-primary'
@@ -333,7 +356,7 @@ export const FileList: React.FC<FileListProps> = ({
                       e.stopPropagation();
                       onToggleSelect(item.path);
                     }}
-                    className={`absolute top-2 left-2 p-0.5 rounded transition z-10 ${
+                    className={`absolute top-1.5 left-1.5 sm:top-2 sm:left-2 p-1 rounded transition z-10 touch-manipulation ${
                       isSelected
                         ? 'opacity-100 text-accent'
                         : 'opacity-0 group-hover:opacity-60 text-content-muted hover:opacity-100'
@@ -343,7 +366,7 @@ export const FileList: React.FC<FileListProps> = ({
                   </button>
 
                   {/* Icon or Thumbnail */}
-                  <div className="w-14 h-14 my-1 flex items-center justify-center relative self-center mx-auto rounded overflow-hidden">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 my-1 flex items-center justify-center relative self-center mx-auto rounded overflow-hidden">
                     {item.mediaType === 'image' ? (
                       <img
                         src={api.getStreamUrl(item.path, storageId)}
@@ -361,30 +384,30 @@ export const FileList: React.FC<FileListProps> = ({
                         showPlayBadge={false}
                       />
                     ) : (
-                      getFileIcon(item, 'w-10 h-10')
+                      getFileIcon(item, 'w-9 h-9 sm:w-10 sm:h-10')
                     )}
                   </div>
 
-                  {/* File Name */}
+                  {/* File Name (Vertical 2-line clamp for clean readability) */}
                   <span 
-                    className="text-xs font-normal text-center truncate w-full px-0.5 mt-1"
+                    className="text-[11px] sm:text-xs font-normal text-center line-clamp-2 leading-tight break-all w-full px-0.5 mt-1 min-h-[2.3em] flex items-center justify-center"
                     title={item.name}
                   >
-                    {truncateMiddle(item.name, 20)}
+                    {item.name}
                   </span>
 
                   {/* File Metadata */}
-                  <span className="text-[10px] text-content-muted font-mono mt-0.5 truncate">
+                  <span className="text-[9px] sm:text-[10px] text-content-muted font-mono mt-0.5 truncate text-center">
                     {item.isDir ? '폴더' : formatBytes(item.size)}
                   </span>
 
-                  {/* Hover Menu Button */}
+                  {/* Hover / Touch Menu Button */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onItemContextMenu(e, item);
                     }}
-                    className="absolute top-2 right-2 p-1 rounded text-content-muted hover:text-content-primary opacity-0 group-hover:opacity-100 transition z-10"
+                    className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 p-1 rounded text-content-muted hover:text-content-primary opacity-0 group-hover:opacity-100 transition z-10 touch-manipulation"
                     title="추가 작업"
                   >
                     <MoreVertical className="w-3.5 h-3.5" />
@@ -394,15 +417,24 @@ export const FileList: React.FC<FileListProps> = ({
             })}
           </div>
         ) : (
-          /* List View */
+          /* List View (Mobile: Vertical Stack with large title, Desktop: Classic Table) */
           <div className="border border-surface-border rounded-lg overflow-hidden bg-surface-card/30">
-            <div className="flex items-center px-4 py-2 border-b border-surface-border text-xs text-content-muted select-none bg-surface-base">
-              <div className="flex-1 min-w-0 flex items-center gap-3 pr-2">
+            {/* Table Header */}
+            <div className="flex items-center px-3 sm:px-4 py-2 border-b border-surface-border text-xs text-content-muted select-none bg-surface-base">
+              <div className="flex-1 min-w-0 flex items-center gap-2.5 sm:gap-3 pr-2">
                 <button
-                  onClick={onSelectAll}
-                  className="text-content-muted hover:text-content-primary shrink-0"
+                  onClick={isAllSelected ? onClearSelection : onSelectAll}
+                  className="text-content-muted hover:text-content-primary shrink-0 p-0.5 touch-manipulation"
+                  title={isAllSelected ? '전체 선택 해제' : '전체 선택'}
+                  aria-label={isAllSelected ? '전체 선택 해제' : '전체 선택'}
                 >
-                  {isAllSelected ? <CheckSquare className="w-3.5 h-3.5 text-accent" /> : <Square className="w-3.5 h-3.5" />}
+                  {isAllSelected ? (
+                    <CheckSquare className="w-3.5 h-3.5 text-accent" />
+                  ) : isPartiallySelected ? (
+                    <MinusSquare className="w-3.5 h-3.5 text-accent" />
+                  ) : (
+                    <Square className="w-3.5 h-3.5" />
+                  )}
                 </button>
                 <button
                   onClick={() => onSortChange('name')}
@@ -433,11 +465,12 @@ export const FileList: React.FC<FileListProps> = ({
                 </button>
               </div>
 
-              <div className="w-28 shrink-0 text-right">
+              <div className="hidden sm:block w-28 shrink-0 text-right">
                 작업
               </div>
             </div>
 
+            {/* List Rows */}
             <div className="divide-y divide-surface-borderSubtle">
               {items.map((item) => {
                 const isSelected = selectedPaths.has(item.path);
@@ -450,92 +483,136 @@ export const FileList: React.FC<FileListProps> = ({
                       e.stopPropagation();
                       onItemContextMenu(e, item);
                     }}
-                    className={`flex items-center px-4 py-2 text-xs cursor-pointer transition select-none ${
+                    className={`cursor-pointer transition select-none active:bg-surface-cardHover touch-manipulation ${
                       isSelected
                         ? 'bg-accent-subtle text-content-primary'
                         : 'hover:bg-surface-cardHover text-content-secondary hover:text-content-primary'
                     } ${isCut ? 'opacity-40' : ''}`}
                   >
-                    <div className="flex-1 min-w-0 flex items-center gap-3 pr-2">
+                    {/* Mobile Row Layout: Vertical 2-Line Stack + Single Action Button */}
+                    <div className="flex sm:hidden items-center gap-2.5 px-3 py-2.5 min-w-0">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onToggleSelect(item.path);
                         }}
-                        className="text-content-muted hover:text-content-primary shrink-0"
+                        className="text-content-muted hover:text-content-primary shrink-0 p-1 touch-manipulation"
                       >
-                        {isSelected ? <CheckSquare className="w-3.5 h-3.5 text-accent" /> : <Square className="w-3.5 h-3.5" />}
+                        {isSelected ? <CheckSquare className="w-4 h-4 text-accent" /> : <Square className="w-4 h-4" />}
                       </button>
-                      <span className="shrink-0 flex items-center justify-center w-5 h-5">
+
+                      <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded bg-surface-card/60 border border-surface-borderSubtle">
                         {getFileIcon(item, 'w-4 h-4')}
                       </span>
-                      <div className="min-w-0 flex-1">
-                        <span className="truncate block font-normal" title={item.name}>
+
+                      {/* Text Section: Vertical Stack (File name on top, Meta on bottom) */}
+                      <div className="min-w-0 flex-1 flex flex-col justify-center">
+                        <span className="text-xs font-medium text-content-primary truncate block leading-snug" title={item.name}>
                           {item.name}
                         </span>
+                        <div className="flex items-center gap-1.5 text-[10px] text-content-muted font-mono mt-0.5">
+                          <span>{item.isDir ? '폴더' : formatBytes(item.size)}</span>
+                          <span>·</span>
+                          <span>{formatDate(item.modTime)}</span>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="hidden sm:block w-24 shrink-0 text-right text-content-muted font-mono pr-4 text-[11px]">
-                      {item.isDir ? '—' : formatBytes(item.size)}
-                    </div>
-
-                    <div className="hidden lg:block w-36 shrink-0 text-right text-content-muted pr-4 text-[11px]">
-                      {formatDate(item.modTime)}
-                    </div>
-
-                    <div className="w-28 shrink-0 flex items-center justify-end gap-1">
+                      {/* Mobile Single Action Button: More Menu */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onShowDetails(item);
+                          onItemContextMenu(e, item);
                         }}
-                        className="p-1 text-content-muted hover:text-content-primary rounded transition"
-                        title="상세 정보"
+                        className="p-2 -mr-1 rounded-md text-content-muted hover:text-content-primary active:bg-surface-card shrink-0 touch-manipulation"
+                        title="추가 작업"
                       >
-                        <Info className="w-3.5 h-3.5" />
+                        <MoreVertical className="w-4 h-4" />
                       </button>
-                      {(item.ext === '.html' || item.ext === '.htm' || item.isDir) && (
+                    </div>
+
+                    {/* Desktop Row Layout: Horizontal Multi-Column */}
+                    <div className="hidden sm:flex items-center px-4 py-2 text-xs">
+                      <div className="flex-1 min-w-0 flex items-center gap-3 pr-2">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            window.open(api.getHostUrl(item.path, storageId), '_blank');
+                            onToggleSelect(item.path);
+                          }}
+                          className="text-content-muted hover:text-content-primary shrink-0 p-0.5"
+                        >
+                          {isSelected ? <CheckSquare className="w-3.5 h-3.5 text-accent" /> : <Square className="w-3.5 h-3.5" />}
+                        </button>
+                        <span className="shrink-0 flex items-center justify-center w-5 h-5">
+                          {getFileIcon(item, 'w-4 h-4')}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <span className="truncate block font-normal" title={item.name}>
+                            {item.name}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="w-24 shrink-0 text-right text-content-muted font-mono pr-4 text-[11px]">
+                        {item.isDir ? '—' : formatBytes(item.size)}
+                      </div>
+
+                      <div className="hidden lg:block w-36 shrink-0 text-right text-content-muted pr-4 text-[11px]">
+                        {formatDate(item.modTime)}
+                      </div>
+
+                      <div className="w-28 shrink-0 flex items-center justify-end gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onShowDetails(item);
                           }}
                           className="p-1 text-content-muted hover:text-content-primary rounded transition"
-                          title="웹페이지로 열기"
+                          title="상세 정보"
                         >
-                          <Globe className="w-3.5 h-3.5" />
+                          <Info className="w-3.5 h-3.5" />
                         </button>
-                      )}
-                      {!item.isDir && (
+                        {(item.ext === '.html' || item.ext === '.htm' || item.isDir) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(api.getHostUrl(item.path, storageId), '_blank');
+                            }}
+                            className="p-1 text-content-muted hover:text-content-primary rounded transition"
+                            title="웹페이지로 열기"
+                          >
+                            <Globe className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {!item.isDir && (
+                          <button
+                            onClick={(e) => handleDownloadSingle(item, e)}
+                            className="p-1 text-content-muted hover:text-content-primary rounded transition"
+                            title="다운로드"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button
-                          onClick={(e) => handleDownloadSingle(item, e)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRename(item);
+                          }}
                           className="p-1 text-content-muted hover:text-content-primary rounded transition"
-                          title="다운로드"
+                          title="이름 변경"
                         >
-                          <Download className="w-3.5 h-3.5" />
+                          <Edit3 className="w-3.5 h-3.5" />
                         </button>
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRename(item);
-                        }}
-                        className="p-1 text-content-muted hover:text-content-primary rounded transition"
-                        title="이름 변경"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteSingle(item);
-                        }}
-                        className="p-1 text-content-muted hover:text-red-400 rounded transition"
-                        title="삭제"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteSingle(item);
+                          }}
+                          className="p-1 text-content-muted hover:text-red-400 rounded transition"
+                          title="삭제"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

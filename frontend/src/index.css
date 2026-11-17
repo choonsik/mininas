@@ -79,10 +79,10 @@
   --accent: #e4e4e7;
   --accent-hover: #ffffff;
   --accent-subtle: rgba(255, 255, 255, 0.08);
-  --btn-primary-bg: #222225;
-  --btn-primary-hover: #2e2e33;
-  --btn-primary-text: #ffffff;
-  --btn-primary-border: #38383e;
+  --btn-primary-bg: #27272a;
+  --btn-primary-hover: #3f3f46;
+  --btn-primary-text: #f4f4f5;
+  --btn-primary-border: #3f3f46;
   --content-primary: #ffffff;
   --content-secondary: #888888;
   --content-muted: #555555;
@@ -142,10 +142,10 @@
   --accent: #e7d7c1;
   --accent-hover: #f5ede0;
   --accent-subtle: rgba(231, 215, 193, 0.1);
-  --btn-primary-bg: #26221e;
-  --btn-primary-hover: #332e29;
+  --btn-primary-bg: #2c2722;
+  --btn-primary-hover: #3a332d;
   --btn-primary-text: #f5ede0;
-  --btn-primary-border: #3d3731;
+  --btn-primary-border: #443c35;
   --content-primary: #f5ede0;
   --content-secondary: #9c9082;
   --content-muted: #665d52;
@@ -211,6 +211,13 @@ html.font-size-large {
   line-height: calc(16px * var(--font-scale, 1)) !important;
 }
 
+html,
+body {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   font-family: var(--font-family);
   background-color: var(--surface-base);
@@ -219,6 +226,15 @@ body {
   color-scheme: dark;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Momentum scrolling & scroll chaining containment for mobile */
+.overflow-y-auto,
+.overflow-x-auto,
+.overflow-auto,
+.overflow-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 html.theme-light,

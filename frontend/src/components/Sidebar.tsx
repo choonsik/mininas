@@ -8,9 +8,10 @@ import {
   X,
   Trash2,
   Server,
-  Music
+  Music,
+  Palette
 } from 'lucide-react';
-import { SystemStats, StorageInfo, NavTab } from '../types';
+import { SystemStats, StorageInfo, NavTab, ThemeStyle, ThemeTone, FontSizeMode } from '../types';
 import { formatBytes } from '../utils/format';
 
 interface SidebarProps {
@@ -21,6 +22,12 @@ interface SidebarProps {
   onSelectTab: (tab: NavTab) => void;
   stats: SystemStats | null;
   onCloseMobile?: () => void;
+  themeStyle?: ThemeStyle;
+  onSelectThemeStyle?: (style: ThemeStyle) => void;
+  themeTone?: ThemeTone;
+  onSelectThemeTone?: (tone: ThemeTone) => void;
+  fontSize?: FontSizeMode;
+  onFontSizeChange?: (size: FontSizeMode) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -31,6 +38,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   stats,
   onCloseMobile,
+  themeStyle,
+  onSelectThemeStyle,
+  themeTone,
+  onSelectThemeTone,
+  fontSize,
+  onFontSizeChange,
 }) => {
   const hubItems: { id: NavTab; label: string; icon: React.ElementType }[] = [
     { id: 'cinema', label: '시네마', icon: Film },
@@ -48,8 +61,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside className="w-64 border-r border-surface-border bg-surface-sidebar flex flex-col justify-between p-3 select-none overflow-y-auto h-full shrink-0">
-      <div className="space-y-5">
+    <aside className="w-64 border-r border-surface-border bg-surface-sidebar flex flex-col p-3 select-none overflow-y-auto h-full shrink-0 overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="space-y-4 pb-3">
         {/* Mobile Header with Close button */}
         {onCloseMobile && (
           <div className="flex md:hidden items-center justify-between pb-2 border-b border-surface-border">
@@ -161,15 +174,125 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </nav>
         </div>
+
+        {/* 4. Theme & Appearance (Particularly for Mobile) */}
+        {themeStyle && onSelectThemeStyle && (
+          <div>
+            <span className="text-[11px] font-medium text-content-muted px-2 block mb-1.5 flex items-center gap-1.5">
+              <Palette className="w-3 h-3 text-content-muted" />
+              <span>외형 및 스타일</span>
+            </span>
+            <div className="space-y-1.5 px-0.5">
+              {/* Theme Style Tabs */}
+              <div className="grid grid-cols-3 gap-1 p-0.5 rounded-lg bg-surface-base border border-surface-border">
+                {(
+                  [
+                    { id: 'macos', label: 'macOS' },
+                    { id: 'console', label: 'Console' },
+                    { id: 'studio', label: 'Studio' },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => onSelectThemeStyle(opt.id)}
+                    className={`py-1 text-[11px] font-medium rounded transition ${
+                      themeStyle === opt.id
+                        ? 'bg-surface-card text-content-primary shadow-xs'
+                        : 'text-content-muted hover:text-content-secondary'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tone Tabs */}
+              {themeTone && onSelectThemeTone && (
+                <div className="grid grid-cols-3 gap-1 p-0.5 rounded-lg bg-surface-base border border-surface-border">
+                  {(
+                    [
+                      { id: 'dark', label: '다크' },
+                      { id: 'night', label: '나이트' },
+                      { id: 'light', label: '라이트' },
+                    ] as const
+                  ).map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => onSelectThemeTone(t.id)}
+                      className={`py-1 text-[11px] font-medium rounded transition ${
+                        themeTone === t.id
+                          ? 'bg-surface-card text-content-primary shadow-xs'
+                          : 'text-content-muted hover:text-content-secondary'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Font Size Tabs */}
+              {fontSize && onFontSizeChange && (
+                <div className="grid grid-cols-3 gap-1 p-0.5 rounded-lg bg-surface-base border border-surface-border">
+                  {(
+                    [
+                      { id: 'small', label: '작게' },
+                      { id: 'medium', label: '보통' },
+                      { id: 'large', label: '크게' },
+                    ] as const
+                  ).map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => onFontSizeChange(f.id)}
+                      className={`py-1 text-[11px] font-medium rounded transition ${
+                        fontSize === f.id
+                          ? 'bg-surface-card text-content-primary shadow-xs'
+                          : 'text-content-muted hover:text-content-secondary'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Clean, quiet System Info footer */}
       {stats && (
-        <div className="pt-3 border-t border-surface-border text-[11px] text-content-muted space-y-1">
+        <div className="mt-auto pt-3 border-t border-surface-border text-[11px] text-content-muted space-y-1.5 shrink-0">
           <div className="flex items-center justify-between">
             <span>호스트</span>
-            <span className="font-mono text-content-secondary">{stats.hostname}</span>
+            <span className="font-mono text-content-secondary truncate max-w-[120px]">{stats.hostname}</span>
           </div>
+          <div className="flex items-center justify-between">
+            <span>CPU</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-content-secondary">{stats.cpuPercent.toFixed(0)}%</span>
+              <div className="w-12 h-1 bg-surface-borderSubtle rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${stats.cpuPercent > 80 ? 'bg-red-500' : 'bg-accent'}`}
+                  style={{ width: `${Math.min(stats.cpuPercent, 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+          {stats.memory && (
+            <div className="flex items-center justify-between">
+              <span>메모리</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-content-secondary">{stats.memory.usedPercent.toFixed(0)}%</span>
+                <div className="w-12 h-1 bg-surface-borderSubtle rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${stats.memory.usedPercent > 85 ? 'bg-red-500' : 'bg-accent'}`}
+                    style={{ width: `${Math.min(stats.memory.usedPercent, 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
           {stats.uptimeSeconds > 0 && (
             <div className="flex items-center justify-between">
               <span>가동 시간</span>

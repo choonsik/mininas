@@ -1,7 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  HardDrive, 
-  Activity, 
   LayoutGrid, 
   List, 
   RefreshCw, 
@@ -12,16 +10,13 @@ import {
   ArrowDown,
   Check,
   Menu,
-  Palette,
-  Type
+  ChevronLeft,
+  X
 } from 'lucide-react';
-import { SystemStats, StorageInfo, SortField, SortOrder, NavTab, ThemeStyle, ThemeTone, FontSizeMode } from '../types';
-import { formatBytes } from '../utils/format';
+import { SortField, SortOrder, NavTab } from '../types';
 import { APP_VERSION } from '../version';
 
 interface HeaderProps {
-  stats: SystemStats | null;
-  activeStorage: StorageInfo | null;
   activeTab: NavTab;
   searchQuery: string;
   onSearchChange: (q: string) => void;
@@ -33,17 +28,9 @@ interface HeaderProps {
   sortOrder: SortOrder;
   onSortChange: (field: SortField) => void;
   onToggleSidebar?: () => void;
-  themeStyle: ThemeStyle;
-  onThemeStyleChange: (style: ThemeStyle) => void;
-  themeTone: ThemeTone;
-  onThemeToneChange: (tone: ThemeTone) => void;
-  fontSize: FontSizeMode;
-  onFontSizeChange: (size: FontSizeMode) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  stats,
-  activeStorage,
   activeTab,
   searchQuery,
   onSearchChange,
@@ -55,31 +42,15 @@ export const Header: React.FC<HeaderProps> = ({
   sortOrder,
   onSortChange,
   onToggleSidebar,
-  themeStyle,
-  onThemeStyleChange,
-  themeTone,
-  onThemeToneChange,
-  fontSize,
-  onFontSizeChange,
 }) => {
-  const disk = activeStorage ? activeStorage.disk : stats?.disk;
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
-  const [isThemeOpen, setIsThemeOpen] = useState(false);
-  const [isFontSizeOpen, setIsFontSizeOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
-  const themeRef = useRef<HTMLDivElement>(null);
-  const fontSizeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
         setIsSortOpen(false);
-      }
-      if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
-        setIsThemeOpen(false);
-      }
-      if (fontSizeRef.current && !fontSizeRef.current.contains(e.target as Node)) {
-        setIsFontSizeOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -93,194 +64,101 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'type', label: '종류순' },
   ];
 
-  const styleOptions: { id: ThemeStyle; label: string; desc: string }[] = [
-    { id: 'macos', label: 'macOS Native', desc: 'Apple 데스크톱 유틸리티' },
-    { id: 'console', label: 'Hardware Console', desc: '산업용 계측기 콘솔' },
-    { id: 'studio', label: 'Studio Minimal', desc: '흑백 초미니멀' },
-  ];
-
-  const toneOptions: { id: ThemeTone; label: string }[] = [
-    { id: 'dark', label: '다크' },
-    { id: 'night', label: '나이트' },
-    { id: 'light', label: '라이트' },
-  ];
-
-  const fontSizeOptions: { id: FontSizeMode; label: string; desc: string }[] = [
-    { id: 'small', label: '작게 (88%)', desc: '작은 폰트' },
-    { id: 'medium', label: '보통 (100%)', desc: '기본 폰트' },
-    { id: 'large', label: '크게 (122%)', desc: '큰 폰트' },
-  ];
-
   return (
-    <header className="h-14 border-b border-surface-border bg-surface-header px-4 sm:px-5 flex items-center justify-between sticky top-0 z-30 select-none">
-      {/* Brand & System Title */}
-      <div className="flex items-center gap-3 shrink-0">
-        {onToggleSidebar && (
+    <header className="h-14 border-b border-surface-border bg-surface-header px-2.5 sm:px-5 flex items-center justify-between sticky top-0 z-30 select-none pt-[env(safe-area-inset-top,0px)]">
+      {isMobileSearchOpen ? (
+        /* Mobile Full-Width Search Bar */
+        <div className="flex-1 flex items-center gap-2 py-1 w-full animate-fadeIn">
           <button
-            onClick={onToggleSidebar}
-            className="p-1.5 -ml-1 text-content-secondary hover:text-content-primary md:hidden rounded hover:bg-surface-cardHover transition"
-            title="사이드바 열기"
+            onClick={() => {
+              setIsMobileSearchOpen(false);
+              onSearchChange('');
+            }}
+            className="p-1.5 -ml-1 text-content-secondary hover:text-content-primary rounded touch-manipulation active:scale-[0.95]"
+            title="검색 닫기"
           >
-            <Menu className="w-4 h-4" />
+            <ChevronLeft className="w-5 h-5" />
           </button>
-        )}
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded bg-surface-card border border-surface-border flex items-center justify-center text-content-primary shrink-0">
-            <Server className="w-3.5 h-3.5 text-accent" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-semibold text-sm text-content-primary tracking-tight">MiniNAS</span>
-            <span className="text-[11px] font-mono text-content-muted">{APP_VERSION}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Center: Search input */}
-      <div className="flex-1 max-w-md mx-4 min-w-0">
-        {activeTab === 'files' ? (
-          <div className="relative">
+          <div className="flex-1 relative">
             <Search className="w-3.5 h-3.5 text-content-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
+              autoFocus
               type="text"
-              placeholder="파일 필터 및 검색..."
+              placeholder="파일명 필터 및 검색..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full bg-surface-base border border-surface-border focus:border-accent rounded pl-8 pr-3 py-1 text-xs text-content-primary placeholder-content-muted focus:outline-none transition"
+              className="w-full bg-surface-base border border-accent rounded pl-8 pr-7 py-1.5 text-xs text-content-primary placeholder-content-muted focus:outline-none"
             />
+            {searchQuery && (
+              <button
+                onClick={() => onSearchChange('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-content-muted hover:text-content-primary p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-        ) : (
-          <div className="text-center">
-            <span className="text-xs font-medium text-content-secondary">
-              {activeTab === 'cinema' && '시네마'}
-              {activeTab === 'photos' && '사진 및 비디오'}
-              {activeTab === 'sites' && '웹 사이트'}
-              {activeTab === 'trash' && '휴지통'}
-            </span>
+          <button
+            onClick={() => setIsMobileSearchOpen(false)}
+            className="text-xs text-accent font-medium px-2 py-1 rounded shrink-0 touch-manipulation active:scale-[0.95]"
+          >
+            완료
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Brand & System Title */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {onToggleSidebar && (
+              <button
+                onClick={onToggleSidebar}
+                className="p-1.5 -ml-1 text-content-secondary hover:text-content-primary md:hidden rounded hover:bg-surface-cardHover transition touch-manipulation active:scale-[0.95]"
+                title="사이드바 열기"
+              >
+                <Menu className="w-4 h-4" />
+              </button>
+            )}
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded bg-surface-card border border-surface-border flex items-center justify-center text-content-primary shrink-0">
+                <Server className="w-3.5 h-3.5 text-accent" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="font-semibold text-sm text-content-primary tracking-tight">MiniNAS</span>
+                <span className="text-[11px] font-mono text-content-muted">{APP_VERSION}</span>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Right: Stats, Theme & View controls */}
-      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-        {/* Hardware Status Chips */}
-        {stats && (
-          <div className="hidden lg:flex items-center gap-3 text-[11px] text-content-secondary px-2.5 py-1 rounded bg-surface-base border border-surface-borderSubtle">
-            {disk && (
-              <div className="flex items-center gap-1.5" title={`저장소: ${formatBytes(disk.usedBytes)} / ${formatBytes(disk.totalBytes)}`}>
-                <HardDrive className="w-3 h-3 text-content-muted" />
-                <span className="font-mono">{disk.usedPercent.toFixed(0)}%</span>
+          {/* Center: Search input (Files mode only, Desktop only) */}
+          <div className="hidden md:flex flex-1 max-w-md mx-4 min-w-0">
+            {activeTab === 'files' && (
+              <div className="relative w-full">
+                <Search className="w-3.5 h-3.5 text-content-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="파일 필터 및 검색..."
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  className="w-full bg-surface-base border border-surface-border focus:border-accent rounded pl-8 pr-3 py-1 text-xs text-content-primary placeholder-content-muted focus:outline-none transition"
+                />
               </div>
             )}
-            <div className="w-px h-3 bg-surface-border" />
-            <div className="flex items-center gap-1.5" title={`RAM: ${formatBytes(stats.memory.usedBytes)} / ${formatBytes(stats.memory.totalBytes)}`}>
-              <Activity className="w-3 h-3 text-content-muted" />
-              <span className="font-mono">RAM {stats.memory.usedPercent.toFixed(0)}%</span>
-            </div>
-            <div className="w-px h-3 bg-surface-border" />
-            <div className="flex items-center gap-1.5" title="CPU 부하">
-              <span className="font-mono">CPU {stats.cpuPercent.toFixed(0)}%</span>
-            </div>
           </div>
-        )}
 
-        {/* Theme Switcher Dropdown */}
-        <div className="relative" ref={themeRef}>
-          <button
-            onClick={() => setIsThemeOpen(!isThemeOpen)}
-            className="flex items-center gap-1.5 px-2 py-1 text-xs text-content-secondary hover:text-content-primary bg-surface-base hover:bg-surface-cardHover border border-surface-border rounded transition"
-            title="테마 스타일 및 모드 변경"
-          >
-            <Palette className="w-3.5 h-3.5 text-accent" />
-            <span className="hidden sm:inline font-medium">
-              {themeStyle === 'macos' ? 'macOS' : themeStyle === 'console' ? 'Console' : 'Studio'} · {themeTone === 'dark' ? '다크' : themeTone === 'night' ? '나이트' : '라이트'}
-            </span>
-          </button>
-
-          {isThemeOpen && (
-            <div className="absolute right-0 mt-1 w-52 bg-surface-card border border-surface-border rounded shadow-xl py-2 z-40 text-xs">
-              <div className="px-3 pb-1 text-[10px] text-content-muted font-medium border-b border-surface-borderSubtle">
-                스타일 선택
-              </div>
-              <div className="py-1">
-                {styleOptions.map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => onThemeStyleChange(opt.id)}
-                    className="w-full px-3 py-1.5 text-left flex items-start justify-between text-content-primary hover:bg-surface-cardHover transition"
-                  >
-                    <div>
-                      <div className="font-medium">{opt.label}</div>
-                      <div className="text-[10px] text-content-muted">{opt.desc}</div>
-                    </div>
-                    {themeStyle === opt.id && (
-                      <Check className="w-3.5 h-3.5 text-accent mt-0.5 shrink-0" />
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              <div className="px-3 pt-2 pb-1 text-[10px] text-content-muted font-medium border-t border-surface-borderSubtle">
-                모드 (다크 / 나이트 / 라이트)
-              </div>
-              <div className="px-2 pt-1.5 flex items-center gap-1">
-                {toneOptions.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => onThemeToneChange(t.id)}
-                    className={`flex-1 py-1 rounded text-center transition font-medium text-[11px] ${
-                      themeTone === t.id
-                        ? 'bg-accent-btn text-accent-btnText shadow-sm'
-                        : 'text-content-secondary hover:text-content-primary hover:bg-surface-cardHover border border-surface-borderSubtle'
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Font Size Switcher Dropdown */}
-        <div className="relative" ref={fontSizeRef}>
-          <button
-            onClick={() => setIsFontSizeOpen(!isFontSizeOpen)}
-            className="flex items-center gap-1.5 px-2 py-1 text-xs text-content-secondary hover:text-content-primary bg-surface-base hover:bg-surface-cardHover border border-surface-border rounded transition"
-            title="폰트 크기 변경"
-          >
-            <Type className="w-3.5 h-3.5 text-accent" />
-            <span className="hidden sm:inline font-medium">
-              {fontSize === 'small' ? '폰트 작게' : fontSize === 'medium' ? '폰트 보통' : '폰트 크게'}
-            </span>
-          </button>
-
-          {isFontSizeOpen && (
-            <div className="absolute right-0 mt-1 w-40 bg-surface-card border border-surface-border rounded shadow-xl py-1 z-40 text-xs">
-              <div className="px-3 py-1 text-[10px] text-content-muted font-medium border-b border-surface-borderSubtle">
-                폰트 크기 설정
-              </div>
-              {fontSizeOptions.map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() => {
-                    onFontSizeChange(opt.id);
-                    setIsFontSizeOpen(false);
-                  }}
-                  className="w-full px-3 py-1.5 text-left flex items-start justify-between text-content-primary hover:bg-surface-cardHover transition"
-                >
-                  <div>
-                    <div className="font-medium">{opt.label}</div>
-                    <div className="text-[10px] text-content-muted">{opt.desc}</div>
-                  </div>
-                  {fontSize === opt.id && (
-                    <Check className="w-3.5 h-3.5 text-accent mt-0.5 shrink-0" />
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
+          {/* Right: Stats, Theme & View controls */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Mobile Search Button (Only in files mode) */}
+            {activeTab === 'files' && (
+              <button
+                onClick={() => setIsMobileSearchOpen(true)}
+                className={`p-1.5 md:hidden rounded transition touch-manipulation active:scale-[0.95] ${
+                  searchQuery ? 'bg-accent/20 text-accent font-semibold' : 'text-content-secondary hover:text-content-primary hover:bg-surface-cardHover'
+                }`}
+                title="파일 검색"
+              >
+                <Search className="w-4 h-4" />
+              </button>
+            )}
         {/* Sorting Dropdown (Only in 'files' mode) */}
         {activeTab === 'files' && (
           <div className="relative" ref={sortRef}>
@@ -327,14 +205,14 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center bg-surface-base border border-surface-border rounded p-0.5">
             <button
               onClick={() => onViewModeChange('grid')}
-              className={`p-1 rounded transition ${viewMode === 'grid' ? 'bg-surface-cardHover text-content-primary' : 'text-content-muted hover:text-content-primary'}`}
+              className={`p-1.5 sm:p-1 rounded transition touch-manipulation active:scale-[0.95] ${viewMode === 'grid' ? 'bg-surface-cardHover text-content-primary' : 'text-content-muted hover:text-content-primary'}`}
               title="아이콘 보기"
             >
               <LayoutGrid className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => onViewModeChange('list')}
-              className={`p-1 rounded transition ${viewMode === 'list' ? 'bg-surface-cardHover text-content-primary' : 'text-content-muted hover:text-content-primary'}`}
+              className={`p-1.5 sm:p-1 rounded transition touch-manipulation active:scale-[0.95] ${viewMode === 'list' ? 'bg-surface-cardHover text-content-primary' : 'text-content-muted hover:text-content-primary'}`}
               title="목록 보기"
             >
               <List className="w-3.5 h-3.5" />
@@ -346,12 +224,14 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onRefresh}
           disabled={isRefreshing}
-          className="p-1.5 text-content-muted hover:text-content-primary hover:bg-surface-cardHover rounded transition disabled:opacity-40"
+          className="p-1.5 text-content-muted hover:text-content-primary hover:bg-surface-cardHover rounded transition disabled:opacity-40 touch-manipulation active:scale-[0.95]"
           title="새로고침"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-accent' : ''}`} />
         </button>
       </div>
+      </>
+      )}
     </header>
   );
 };

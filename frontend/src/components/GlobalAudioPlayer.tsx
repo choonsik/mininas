@@ -26,6 +26,28 @@ interface GlobalAudioPlayerProps {
 
 type RepeatMode = 'none' | 'all' | 'one';
 
+const TrackCoverImage: React.FC<{ track: AudioTrack; isPlaying: boolean }> = ({ track, isPlaying }) => {
+  const [hasError, setHasError] = useState(false);
+  const coverUrl = api.getMusicCoverUrl(track.path, track.storageId);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [track.id, track.path, track.storageId]);
+
+  if (hasError) {
+    return <Disc3 className={`w-5 h-5 text-accent transition-transform duration-700 ${isPlaying ? 'animate-spin' : ''}`} />;
+  }
+
+  return (
+    <img
+      src={coverUrl}
+      alt="Cover"
+      onError={() => setHasError(true)}
+      className="w-full h-full object-cover"
+    />
+  );
+};
+
 export const GlobalAudioPlayer: React.FC<GlobalAudioPlayerProps> = ({
   currentTrack,
   playlist,
@@ -271,7 +293,7 @@ export const GlobalAudioPlayer: React.FC<GlobalAudioPlayerProps> = ({
         {/* Left: Track Info */}
         <div className="flex items-center gap-3 w-1/4 min-w-[140px] max-w-[260px] truncate">
           <div className="relative w-10 h-10 rounded-lg bg-surface-base border border-surface-border flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
-            <Disc3 className={`w-5 h-5 text-accent transition-transform duration-700 ${isPlaying ? 'animate-spin' : ''}`} />
+            <TrackCoverImage track={currentTrack} isPlaying={isPlaying} />
           </div>
           <div className="min-w-0 flex-1 truncate">
             <p className="text-xs font-semibold truncate text-content-primary">
@@ -313,7 +335,7 @@ export const GlobalAudioPlayer: React.FC<GlobalAudioPlayerProps> = ({
 
             <button
               onClick={handleTogglePlay}
-              className="w-8 h-8 rounded-full bg-accent text-accent-btnText flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition"
+              className="w-8 h-8 rounded-full bg-accent-btn text-accent-btnText border border-accent-btnBorder flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition"
               title={isPlaying ? '일시 정지 (Space)' : '재생 (Space)'}
             >
               {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}

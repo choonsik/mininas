@@ -417,5 +417,12 @@ export const api = {
       throw new Error('음악 라이브러리 로드 실패');
     }
     return res.json();
+  },
+
+  getMusicCoverUrl(path: string, storageId: string = ''): string {
+    const params = new URLSearchParams();
+    params.set('path', path);
+    if (storageId) params.set('storage', storageId);
+    return `${API_BASE}/music/cover?${params.toString()}`;
   }
 };

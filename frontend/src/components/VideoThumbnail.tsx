@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Film, Play } from 'lucide-react';
 import { api } from '../api';
+import { thumbnailQueue } from '../utils/thumbnailQueue';
 
 interface VideoThumbnailProps {
   relPath: string;
@@ -19,100 +20,79 @@ export const VideoThumbnail: React.FC<VideoThumbnailProps> = ({
   className = 'w-full h-full object-contain transition-transform duration-300 group-hover:scale-105',
   showPlayBadge = true,
 }) => {
-  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [thumbUrl, setThumbUrl] = useState<string | null>(() => {
+    return thumbnailQueue.getCached(`${storageId}:${relPath}`) || null;
+  });
+  const [isVisible, setIsVisible] = useState(false);
 
+  // Lazy loading observer
   useEffect(() => {
+    if (thumbUrl) return; // Already cached
+    const el = containerRef.current;
+    if (!el) return;
+
+    if (!('IntersectionObserver' in window)) {
+      setIsVisible(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [thumbUrl]);
+
+  // Request thumbnail once visible
+  useEffect(() => {
+    if (!isVisible || thumbUrl) return;
+
     const lowerExt = ext.toLowerCase();
-    // Only capture HTML5 video formats
     if (lowerExt !== '.mp4' && lowerExt !== '.webm' && lowerExt !== '.mov') {
       return;
     }
 
-    let isMounted = true;
-    const video = document.createElement('video');
-    video.src = api.getStreamUrl(relPath, storageId);
-    video.crossOrigin = 'anonymous';
-    video.muted = true;
-    video.preload = 'metadata';
+    const taskId = `${storageId}:${relPath}`;
+    const cancel = thumbnailQueue.enqueue({
+      id: taskId,
+      url: api.getStreamUrl(relPath, storageId),
+      ext: lowerExt,
+      onSuccess: (url) => setThumbUrl(url),
+      onError: () => {},
+    });
 
-    const handleLoadedMetadata = () => {
-      // Seek slightly into the video (0.8s to 2.5s) to avoid black initial frame
-      video.currentTime = Math.min(2.5, Math.max(0.8, (video.duration || 10) * 0.05));
-    };
+    return () => cancel();
+  }, [isVisible, relPath, storageId, ext, thumbUrl]);
 
-    const handleSeeked = () => {
-      if (!isMounted) return;
-      try {
-        const vw = video.videoWidth || 640;
-        const vh = video.videoHeight || 360;
-        const canvas = document.createElement('canvas');
-
-        // Preserve 100% accurate original aspect ratio (width-based or height-based)
-        const maxDimension = 480;
-        if (vw >= vh) {
-          canvas.width = maxDimension;
-          canvas.height = Math.max(1, Math.round(maxDimension * (vh / vw)));
-        } else {
-          canvas.height = maxDimension;
-          canvas.width = Math.max(1, Math.round(maxDimension * (vw / vh)));
-        }
-
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          setThumbUrl(dataUrl);
-        }
-      } catch (e) {
-        // Fallback silently
-      } finally {
-        video.src = '';
-        video.remove();
-      }
-    };
-
-    const handleError = () => {
-      video.src = '';
-      video.remove();
-    };
-
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('seeked', handleSeeked);
-    video.addEventListener('error', handleError);
-
-    return () => {
-      isMounted = false;
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('seeked', handleSeeked);
-      video.removeEventListener('error', handleError);
-      video.src = '';
-      video.remove();
-    };
-  }, [relPath, storageId, ext]);
-
-  if (thumbUrl) {
-    return (
-      <div className="relative w-full h-full flex items-center justify-center bg-[#0c0c12] overflow-hidden">
-        <img src={thumbUrl} alt={alt} className={className} loading="lazy" />
-        {showPlayBadge && (
-          <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/75 backdrop-blur-md text-amber-300 text-[9px] font-bold flex items-center gap-1 shadow pointer-events-none z-10">
-            <Play className="w-2.5 h-2.5 fill-current" />
-            <span>영상</span>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Fallback placeholder while loading or for non-HTML5 formats (MKV, AVI)
   return (
-    <div className="w-full h-full bg-[#12121c] flex flex-col items-center justify-center relative">
-      <Film className="w-8 h-8 text-amber-400/60" />
-      <span className="text-[10px] font-mono text-gray-500 mt-1 uppercase">{ext.replace('.', '')}</span>
-      {showPlayBadge && (
-        <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/75 backdrop-blur-md text-amber-300 text-[9px] font-bold flex items-center gap-1 shadow pointer-events-none z-10">
-          <Play className="w-2.5 h-2.5 fill-current" />
-          <span>영상</span>
+    <div
+      ref={containerRef}
+      className="relative w-full h-full flex items-center justify-center bg-[#0c0c12] overflow-hidden"
+    >
+      {thumbUrl ? (
+        <>
+          <img src={thumbUrl} alt={alt} className={className} loading="lazy" />
+          {showPlayBadge && (
+            <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/75 backdrop-blur-md text-amber-300 text-[9px] font-bold flex items-center gap-1 shadow pointer-events-none z-10">
+              <Play className="w-2.5 h-2.5 fill-current" />
+              <span>영상</span>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="flex flex-col items-center justify-center text-content-muted gap-1 select-none pointer-events-none">
+          <Film className="w-6 h-6 sm:w-8 sm:h-8 opacity-40 text-indigo-400" />
+          <span className="text-[9px] font-mono text-content-muted uppercase">
+            {ext.replace('.', '')}
+          </span>
         </div>
       )}
     </div>

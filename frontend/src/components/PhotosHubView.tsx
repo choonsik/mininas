@@ -112,7 +112,7 @@ export const PhotosHubView: React.FC<PhotosHubViewProps> = ({
   const totalVideos = photos.filter(p => p.mediaType === 'video').length;
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-content-primary">
+    <div className="flex-1 overflow-y-auto p-2.5 sm:p-6 space-y-4 text-content-primary overscroll-y-contain">
       {/* Header & Filter Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-surface-border text-xs">
         {/* Storage Tabs */}
@@ -233,8 +233,8 @@ export const PhotosHubView: React.FC<PhotosHubViewProps> = ({
                 </div>
               </div>
 
-              {/* Square Photos & Clips Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+              {/* Square Photos & Clips Grid (Mobile 3-col photo layout) */}
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-1.5 sm:gap-2">
                 {group.items.map(photo => {
                   const isVideo = photo.mediaType === 'video';
                   const isHeic = photo.ext.toLowerCase() === '.heic' || photo.ext.toLowerCase() === '.heif';
@@ -243,7 +243,7 @@ export const PhotosHubView: React.FC<PhotosHubViewProps> = ({
                     <div
                       key={photo.id}
                       onClick={() => handleItemClick(photo)}
-                      className="group relative aspect-square rounded-md overflow-hidden bg-surface-card border border-surface-border hover:border-accent/40 cursor-pointer select-none transition"
+                      className="group relative aspect-square rounded-md overflow-hidden bg-surface-card border border-surface-border hover:border-accent/40 cursor-pointer select-none transition active:scale-[0.98] touch-manipulation"
                       title={`${photo.name} (${formatBytes(photo.size)})`}
                     >
                       {/* Photo / Video Preview */}

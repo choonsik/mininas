@@ -643,6 +643,16 @@ export const App: React.FC = () => {
 
       const isCmdOrCtrl = e.metaKey || e.ctrlKey;
 
+      if (isCmdOrCtrl && (e.key === 'a' || e.key === 'A') && activeTab === 'files' && items.length > 0) {
+        e.preventDefault();
+        if (selectedPaths.size === items.length) {
+          setSelectedPaths(new Set());
+        } else {
+          setSelectedPaths(new Set(items.map(i => i.path)));
+        }
+        return;
+      }
+
       if (e.key === 'Escape') {
         if (clipboard) {
           e.preventDefault();
@@ -671,7 +681,7 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedPaths, clipboard, currentPath, activeStorageId]);
+  }, [selectedPaths, clipboard, currentPath, activeStorageId, items, activeTab]);
 
   // Context Menu handlers
   const handlePinToSites = async (item: FileItem) => {
@@ -737,15 +747,13 @@ export const App: React.FC = () => {
 
   return (
     <div 
-      className="flex flex-col h-screen w-screen bg-surface-base text-content-primary overflow-hidden"
+      className="flex flex-col h-screen h-[100dvh] w-screen bg-surface-base text-content-primary overflow-hidden"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {/* Top Header */}
       <Header
-        stats={stats}
-        activeStorage={activeStorage}
         activeTab={activeTab}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -757,12 +765,6 @@ export const App: React.FC = () => {
         sortOrder={sortOrder}
         onSortChange={handleSortChange}
         onToggleSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
-        themeStyle={themeStyle}
-        onThemeStyleChange={setThemeStyle}
-        themeTone={themeTone}
-        onThemeToneChange={setThemeTone}
-        fontSize={fontSize}
-        onFontSizeChange={setFontSize}
       />
 
       {/* Main Body */}
@@ -777,7 +779,7 @@ export const App: React.FC = () => {
 
         {/* Sidebar Container: Fixed Drawer on Mobile, Relative Flex Column on Desktop */}
         <div className={`
-          ${isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-50 flex shadow-2xl animate-slideRight' : 'hidden'}
+          ${isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-50 flex shadow-2xl animate-slideRight max-h-[100dvh] overflow-hidden' : 'hidden'}
           md:relative md:z-0 md:flex h-full
         `}>
           <Sidebar
@@ -788,6 +790,12 @@ export const App: React.FC = () => {
             onSelectTab={handleSelectTab}
             stats={stats}
             onCloseMobile={() => setIsMobileSidebarOpen(false)}
+            themeStyle={themeStyle}
+            onSelectThemeStyle={setThemeStyle}
+            themeTone={themeTone}
+            onSelectThemeTone={setThemeTone}
+            fontSize={fontSize}
+            onFontSizeChange={setFontSize}
           />
         </div>
 

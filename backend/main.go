@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/md5"
 	"embed"
 	"encoding/json"
@@ -1760,6 +1761,222 @@ func handleMusicList(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(results)
 }
 
+type musicCoverCacheItem struct {
+	Data    []byte
+	Mime    string
+	ModTime time.Time
+}
+
+var musicCoverCache sync.Map
+
+func extractImageFromFrame(content []byte) ([]byte, string) {
+	if len(content) < 16 {
+		return nil, ""
+	}
+	jpegIdx := bytes.Index(content, []byte{0xFF, 0xD8, 0xFF})
+	pngIdx := bytes.Index(content, []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A})
+	webpIdx := bytes.Index(content, []byte("WEBP"))
+
+	if jpegIdx != -1 && (pngIdx == -1 || jpegIdx < pngIdx) {
+		return content[jpegIdx:], "image/jpeg"
+	}
+	if pngIdx != -1 {
+		return content[pngIdx:], "image/png"
+	}
+	if webpIdx >= 8 && bytes.Equal(content[webpIdx-8:webpIdx-4], []byte("RIFF")) {
+		return content[webpIdx-8:], "image/webp"
+	}
+	return nil, ""
+}
+
+func extractMusicCover(filePath string) ([]byte, string, error) {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, "", err
+	}
+	defer f.Close()
+
+	if ext == ".mp3" || ext == ".flac" || ext == ".m4a" || ext == ".aac" {
+		header := make([]byte, 10)
+		n, _ := io.ReadFull(f, header)
+		if n == 10 && string(header[0:3]) == "ID3" {
+			version := header[3]
+			tagSize := int(header[6]&0x7F)<<21 | int(header[7]&0x7F)<<14 | int(header[8]&0x7F)<<7 | int(header[9]&0x7F)
+			if tagSize > 0 && tagSize <= 25*1024*1024 {
+				tagData := make([]byte, tagSize)
+				if _, err := io.ReadFull(f, tagData); err == nil {
+					pos := 0
+					if version == 2 {
+						for pos+6 <= len(tagData) {
+							frameID := string(tagData[pos : pos+3])
+							if frameID[0] == 0 {
+								break
+							}
+							frameSize := int(tagData[pos+3])<<16 | int(tagData[pos+4])<<8 | int(tagData[pos+5])
+							pos += 6
+							if frameSize <= 0 || pos+frameSize > len(tagData) {
+								break
+							}
+							if frameID == "PIC" {
+								data, mime := extractImageFromFrame(tagData[pos : pos+frameSize])
+								if len(data) > 0 {
+									return data, mime, nil
+								}
+							}
+							pos += frameSize
+						}
+					} else {
+						for pos+10 <= len(tagData) {
+							frameID := string(tagData[pos : pos+4])
+							if frameID[0] == 0 {
+								break
+							}
+							var frameSize int
+							if version == 4 {
+								frameSize = int(tagData[pos+4]&0x7F)<<21 | int(tagData[pos+5]&0x7F)<<14 | int(tagData[pos+6]&0x7F)<<7 | int(tagData[pos+7]&0x7F)
+							} else {
+								frameSize = int(tagData[pos+4])<<24 | int(tagData[pos+5])<<16 | int(tagData[pos+6])<<8 | int(tagData[pos+7])
+							}
+							pos += 10
+							if frameSize <= 0 || pos+frameSize > len(tagData) {
+								break
+							}
+							if frameID == "APIC" {
+								data, mime := extractImageFromFrame(tagData[pos : pos+frameSize])
+								if len(data) > 0 {
+									return data, mime, nil
+								}
+							}
+							pos += frameSize
+						}
+					}
+				}
+			}
+		}
+
+		if ext == ".flac" {
+			_, _ = f.Seek(0, io.SeekStart)
+			magic := make([]byte, 4)
+			if _, err := io.ReadFull(f, magic); err == nil && string(magic) == "fLaC" {
+				for {
+					blockHeader := make([]byte, 4)
+					if _, err := io.ReadFull(f, blockHeader); err != nil {
+						break
+					}
+					isLast := (blockHeader[0] & 0x80) != 0
+					blockType := blockHeader[0] & 0x7F
+					blockSize := int(blockHeader[1])<<16 | int(blockHeader[2])<<8 | int(blockHeader[3])
+					if blockSize <= 0 || blockSize > 25*1024*1024 {
+						break
+					}
+					if blockType == 6 {
+						buf := make([]byte, blockSize)
+						if _, err := io.ReadFull(f, buf); err == nil {
+							data, mime := extractImageFromFrame(buf)
+							if len(data) > 0 {
+								return data, mime, nil
+							}
+						}
+						break
+					} else {
+						if _, err := f.Seek(int64(blockSize), io.SeekCurrent); err != nil {
+							break
+						}
+					}
+					if isLast {
+						break
+					}
+				}
+			}
+		}
+	}
+
+	dir := filepath.Dir(filePath)
+	candidates := []string{
+		"cover.jpg", "cover.jpeg", "cover.png", "cover.webp",
+		"folder.jpg", "folder.jpeg", "folder.png",
+		"album.jpg", "album.jpeg", "album.png",
+		"front.jpg", "front.jpeg", "front.png",
+	}
+
+	for _, name := range candidates {
+		candPath := filepath.Join(dir, name)
+		if info, err := os.Stat(candPath); err == nil && !info.IsDir() && info.Size() > 0 && info.Size() < 25*1024*1024 {
+			data, err := os.ReadFile(candPath)
+			if err == nil {
+				cExt := strings.ToLower(filepath.Ext(name))
+				mime := "image/jpeg"
+				if cExt == ".png" {
+					mime = "image/png"
+				} else if cExt == ".webp" {
+					mime = "image/webp"
+				}
+				return data, mime, nil
+			}
+		}
+	}
+
+	return nil, "", os.ErrNotExist
+}
+
+func handleMusicCover(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	storageId := r.URL.Query().Get("storage")
+	relPath := r.URL.Query().Get("path")
+	if storageId == "" || relPath == "" {
+		http.Error(w, "Missing storage or path", http.StatusBadRequest)
+		return
+	}
+
+	fullPath, err := resolveSafePath(storageId, relPath)
+	if err != nil {
+		http.Error(w, "Access denied", http.StatusForbidden)
+		return
+	}
+
+	fi, err := os.Stat(fullPath)
+	if err != nil || fi.IsDir() {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+
+	cacheKey := storageId + ":" + relPath
+	if cachedVal, ok := musicCoverCache.Load(cacheKey); ok {
+		item := cachedVal.(*musicCoverCacheItem)
+		if item.ModTime.Equal(fi.ModTime()) {
+			w.Header().Set("Content-Type", item.Mime)
+			w.Header().Set("Cache-Control", "public, max-age=86400")
+			w.Header().Set("Content-Length", strconv.Itoa(len(item.Data)))
+			w.Write(item.Data)
+			return
+		}
+	}
+
+	data, mime, err := extractMusicCover(fullPath)
+	if err != nil || len(data) == 0 {
+		http.Error(w, "Cover not found", http.StatusNotFound)
+		return
+	}
+
+	if len(data) < 5*1024*1024 {
+		musicCoverCache.Store(cacheKey, &musicCoverCacheItem{
+			Data:    data,
+			Mime:    mime,
+			ModTime: fi.ModTime(),
+		})
+	}
+
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.Write(data)
+}
+
 func handleSystemStats(w http.ResponseWriter, r *http.Request) {
 	stats := getSystemStats()
 	w.Header().Set("Content-Type", "application/json")
@@ -2315,6 +2532,7 @@ func main() {
 	mux.HandleFunc("/api/cinema", handleCinemaList)
 	mux.HandleFunc("/api/photos", handlePhotosList)
 	mux.HandleFunc("/api/music", handleMusicList)
+	mux.HandleFunc("/api/music/cover", handleMusicCover)
 
 	// Static website hosting route (serves HTML/sites directly)
 	mux.HandleFunc("/sites/", handleSitesHosting)

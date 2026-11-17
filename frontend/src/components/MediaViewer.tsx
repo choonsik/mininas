@@ -481,11 +481,11 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
       {/* Floating Prev / Next Navigation Buttons on left & right sides */}
       {playlist.length > 1 && (
         <>
-          {/* Previous Floating Button */}
+          {/* Previous Floating Button (Desktop) */}
           <button
             onClick={handlePrev}
             disabled={!hasPrev}
-            className={`fixed left-4 top-1/2 -translate-y-1/2 z-40 p-3.5 rounded-full backdrop-blur-md border transition-all duration-200 group ${
+            className={`hidden sm:flex fixed left-4 top-1/2 -translate-y-1/2 z-40 p-3.5 rounded-full backdrop-blur-md border transition-all duration-200 group ${
               hasPrev
                 ? 'bg-surface-card/80 hover:bg-surface-card border-surface-border text-content-primary hover:scale-110 shadow-2xl cursor-pointer'
                 : 'opacity-0 pointer-events-none'
@@ -495,11 +495,11 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
             <ChevronLeft className="w-6 h-6 transform group-hover:-translate-x-0.5 transition-transform" />
           </button>
 
-          {/* Next Floating Button */}
+          {/* Next Floating Button (Desktop) */}
           <button
             onClick={handleNext}
             disabled={!hasNext}
-            className={`fixed right-4 top-1/2 -translate-y-1/2 z-40 p-3.5 rounded-full backdrop-blur-md border transition-all duration-200 group ${
+            className={`hidden sm:flex fixed right-4 top-1/2 -translate-y-1/2 z-40 p-3.5 rounded-full backdrop-blur-md border transition-all duration-200 group ${
               hasNext
                 ? 'bg-surface-card/80 hover:bg-surface-card border-surface-border text-content-primary hover:scale-110 shadow-2xl cursor-pointer'
                 : 'opacity-0 pointer-events-none'
@@ -508,6 +508,33 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
           >
             <ChevronRight className="w-6 h-6 transform group-hover:translate-x-0.5 transition-transform" />
           </button>
+
+          {/* Mobile Bottom Capsule Controller */}
+          <div className="flex sm:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 items-center gap-1.5 bg-surface-card/95 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-surface-border shadow-2xl whitespace-nowrap select-none shrink-0">
+            <button
+              onClick={handlePrev}
+              disabled={!hasPrev}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition shrink-0 ${
+                hasPrev ? 'text-content-primary active:scale-90 hover:bg-surface-card' : 'text-content-muted/30 cursor-not-allowed'
+              }`}
+              aria-label="이전"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-mono tabular-nums text-content-secondary px-1 text-center min-w-[4.8rem] shrink-0 font-medium">
+              {currentIndex + 1} / {playlist.length}
+            </span>
+            <button
+              onClick={handleNext}
+              disabled={!hasNext}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition shrink-0 ${
+                hasNext ? 'text-content-primary active:scale-90 hover:bg-surface-card' : 'text-content-muted/30 cursor-not-allowed'
+              }`}
+              aria-label="다음"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </>
       )}
 
@@ -807,14 +834,14 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
         )}
       </div>
 
-      {/* Bottom Footer Info Bar */}
-      <div className="h-10 px-6 flex items-center justify-between border-t border-surface-border bg-surface-header text-[11px] text-content-muted">
+      {/* Bottom Footer Info Bar (Desktop only, hidden on mobile) */}
+      <div className="hidden sm:flex h-10 px-6 items-center justify-between border-t border-surface-border bg-surface-header text-[11px] text-content-muted">
         <div>
           <span>경로: {item.path}</span>
         </div>
         <div className="flex items-center gap-4">
           {playlist.length > 1 && (
-            <span className="hidden sm:inline text-content-muted">
+            <span className="text-content-muted">
               단축키: 이전 (<kbd className="px-1.5 py-0.5 bg-surface-base border border-surface-border rounded font-mono text-content-primary">←</kbd>) / 다음 (<kbd className="px-1.5 py-0.5 bg-surface-base border border-surface-border rounded font-mono text-content-primary">→</kbd>) / 재생 (<kbd className="px-1.5 py-0.5 bg-surface-base border border-surface-border rounded font-mono text-content-primary">Space</kbd>)
             </span>
           )}
