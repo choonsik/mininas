@@ -1,5 +1,13 @@
 # MiniNAS
 
+[![Latest Release](https://img.shields.io/github/v/release/choonsik/mininas?style=flat-square&color=0969da)](https://github.com/choonsik/mininas/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-macOS%2010.13%2B-24292f?style=flat-square)](https://github.com/choonsik/mininas)
+[![Architecture](https://img.shields.io/badge/arch-Intel%20x86__64-informational?style=flat-square)](https://github.com/choonsik/mininas)
+[![Go Version](https://img.shields.io/badge/Go-1.24-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
+[![Binary Size](https://img.shields.io/badge/binary-7.5MB-success?style=flat-square)](https://github.com/choonsik/mininas/releases)
+[![Memory Footprint](https://img.shields.io/badge/RAM-15~25MB-brightgreen?style=flat-square)](https://github.com/choonsik/mininas)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+
 구형 2011 Mac mini(macOS High Sierra 10.13+)를 모니터 없는 헤드리스 홈 NAS로 운용하기 위한 초경량 독립형(Standalone) 웹 애플리케이션입니다.
 
 Docker나 외부 런타임 없이 단일 바이너리(Pure Go, CGO=0)로 구동합니다. React 기반 단일 페이지 애플리케이션(SPA)이 바이너리에 내장되어 있어 파일 복사만으로 즉시 구동합니다.
