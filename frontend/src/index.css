@@ -139,6 +139,17 @@ body {
   background: var(--content-muted);
 }
 
+/* Completely suppress scrollbars in preview iframes */
+iframe {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+iframe::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 button:focus-visible,
 input:focus-visible,
 select:focus-visible {

@@ -43,7 +43,7 @@ const SitePreviewThumbnail: React.FC<{ url: string; title: string }> = ({ url, t
       title="새 탭에서 사이트 열기"
     >
       <div 
-        className="w-[1280px] h-[720px] shrink-0 origin-center pointer-events-none"
+        className="w-[1280px] h-[720px] shrink-0 origin-center pointer-events-none overflow-hidden relative"
         style={{
           transform: `scale(${scale})`,
         }}
@@ -54,8 +54,33 @@ const SitePreviewThumbnail: React.FC<{ url: string; title: string }> = ({ url, t
           tabIndex={-1}
           loading="lazy"
           scrolling="no"
-          className="w-full h-full border-none select-none overflow-hidden"
-          style={{ overflow: 'hidden' }}
+          onLoad={(e) => {
+            try {
+              const doc = e.currentTarget.contentDocument;
+              if (doc) {
+                const style = doc.createElement('style');
+                style.textContent = `
+                  html, body {
+                    overflow: hidden !important;
+                    scrollbar-width: none !important;
+                    -ms-overflow-style: none !important;
+                  }
+                  ::-webkit-scrollbar {
+                    display: none !important;
+                    width: 0 !important;
+                    height: 0 !important;
+                  }
+                `;
+                doc.head.appendChild(style);
+              }
+            } catch {}
+          }}
+          className="w-[1330px] h-[750px] border-none select-none"
+          style={{ 
+            overflow: 'hidden',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}
         />
       </div>
 
