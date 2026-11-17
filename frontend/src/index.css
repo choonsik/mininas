@@ -74,6 +74,22 @@
   --radius-sm: 0px;
 }
 
+/* Font Size / UI Density Controls */
+html.font-size-small {
+  zoom: 0.9;
+  font-size: 14.5px;
+}
+
+html.font-size-medium {
+  zoom: 1;
+  font-size: 16px;
+}
+
+html.font-size-large {
+  zoom: 1.12;
+  font-size: 18px;
+}
+
 body {
   font-family: var(--font-family);
   background-color: var(--surface-base);

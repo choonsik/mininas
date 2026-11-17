@@ -13,7 +13,7 @@ import { TrashView } from './components/TrashView';
 import { SitesHubView } from './components/SitesHubView';
 import { CinemaHubView } from './components/CinemaHubView';
 import { PhotosHubView } from './components/PhotosHubView';
-import { FileItem, SystemStats, StorageInfo, SortField, SortOrder, ClipboardItem, NavTab, ThemeMode } from './types';
+import { FileItem, SystemStats, StorageInfo, SortField, SortOrder, ClipboardItem, NavTab, ThemeMode, FontSizeMode } from './types';
 import { api } from './api';
 import { UploadCloud, CheckCircle, AlertCircle, X, Clipboard, ArrowRight } from 'lucide-react';
 
@@ -28,6 +28,17 @@ export const App: React.FC = () => {
     document.documentElement.classList.add(`theme-${theme}`);
     localStorage.setItem('mininas_theme', theme);
   }, [theme]);
+
+  // Font size state
+  const [fontSize, setFontSize] = useState<FontSizeMode>(() => {
+    return (localStorage.getItem('mininas_fontsize') as FontSizeMode) || 'medium';
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.remove('font-size-small', 'font-size-medium', 'font-size-large');
+    document.documentElement.classList.add(`font-size-${fontSize}`);
+    localStorage.setItem('mininas_fontsize', fontSize);
+  }, [fontSize]);
 
   // Storage state
   const [storages, setStorages] = useState<StorageInfo[]>([]);
@@ -655,6 +666,8 @@ export const App: React.FC = () => {
         onToggleSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
         theme={theme}
         onThemeChange={setTheme}
+        fontSize={fontSize}
+        onFontSizeChange={setFontSize}
       />
 
       {/* Main Body */}

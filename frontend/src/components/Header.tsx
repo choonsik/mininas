@@ -12,9 +12,10 @@ import {
   ArrowDown,
   Check,
   Menu,
-  Palette
+  Palette,
+  Type
 } from 'lucide-react';
-import { SystemStats, StorageInfo, SortField, SortOrder, NavTab, ThemeMode } from '../types';
+import { SystemStats, StorageInfo, SortField, SortOrder, NavTab, ThemeMode, FontSizeMode } from '../types';
 import { formatBytes } from '../utils/format';
 import { APP_VERSION } from '../version';
 
@@ -34,6 +35,8 @@ interface HeaderProps {
   onToggleSidebar?: () => void;
   theme: ThemeMode;
   onThemeChange: (theme: ThemeMode) => void;
+  fontSize: FontSizeMode;
+  onFontSizeChange: (size: FontSizeMode) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -52,12 +55,16 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleSidebar,
   theme,
   onThemeChange,
+  fontSize,
+  onFontSizeChange,
 }) => {
   const disk = activeStorage ? activeStorage.disk : stats?.disk;
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isThemeOpen, setIsThemeOpen] = useState(false);
+  const [isFontSizeOpen, setIsFontSizeOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
   const themeRef = useRef<HTMLDivElement>(null);
+  const fontSizeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -66,6 +73,9 @@ export const Header: React.FC<HeaderProps> = ({
       }
       if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
         setIsThemeOpen(false);
+      }
+      if (fontSizeRef.current && !fontSizeRef.current.contains(e.target as Node)) {
+        setIsFontSizeOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -83,6 +93,12 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'macos', label: 'macOS Native', desc: 'Apple 데스크톱 유틸리티' },
     { id: 'console', label: 'Hardware Console', desc: '산업용 계측기 콘솔' },
     { id: 'studio', label: 'Studio Minimal', desc: '흑백 초미니멀' },
+  ];
+
+  const fontSizeOptions: { id: FontSizeMode; label: string; desc: string }[] = [
+    { id: 'small', label: '작게 (90%)', desc: '고밀도 화면' },
+    { id: 'medium', label: '보통 (100%)', desc: '표준 크기' },
+    { id: 'large', label: '크게 (112%)', desc: '시인성 향상' },
   ];
 
   return (
@@ -189,6 +205,46 @@ export const Header: React.FC<HeaderProps> = ({
                     <div className="text-[10px] text-content-muted">{opt.desc}</div>
                   </div>
                   {theme === opt.id && (
+                    <Check className="w-3.5 h-3.5 text-accent mt-0.5 shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Font Size Switcher Dropdown */}
+        <div className="relative" ref={fontSizeRef}>
+          <button
+            onClick={() => setIsFontSizeOpen(!isFontSizeOpen)}
+            className="flex items-center gap-1.5 px-2 py-1 text-xs text-content-secondary hover:text-content-primary bg-surface-base hover:bg-surface-cardHover border border-surface-border rounded transition"
+            title="글자 크기 변경"
+          >
+            <Type className="w-3.5 h-3.5 text-accent" />
+            <span className="hidden sm:inline font-medium">
+              {fontSize === 'small' ? '작게' : fontSize === 'medium' ? '보통' : '크게'}
+            </span>
+          </button>
+
+          {isFontSizeOpen && (
+            <div className="absolute right-0 mt-1 w-40 bg-surface-card border border-surface-border rounded shadow-xl py-1 z-40 text-xs">
+              <div className="px-3 py-1 text-[10px] text-content-muted font-medium border-b border-surface-borderSubtle">
+                글자 크기 조절
+              </div>
+              {fontSizeOptions.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => {
+                    onFontSizeChange(opt.id);
+                    setIsFontSizeOpen(false);
+                  }}
+                  className="w-full px-3 py-1.5 text-left flex items-start justify-between text-content-primary hover:bg-surface-cardHover transition"
+                >
+                  <div>
+                    <div className="font-medium">{opt.label}</div>
+                    <div className="text-[10px] text-content-muted">{opt.desc}</div>
+                  </div>
+                  {fontSize === opt.id && (
                     <Check className="w-3.5 h-3.5 text-accent mt-0.5 shrink-0" />
                   )}
                 </button>

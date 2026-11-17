@@ -1,6 +1,7 @@
 export type NavTab = 'files' | 'cinema' | 'photos' | 'sites' | 'trash';
 export type MediaFilter = 'all' | 'image' | 'video';
 export type ThemeMode = 'macos' | 'console' | 'studio';
+export type FontSizeMode = 'small' | 'medium' | 'large';
 
 export interface StorageInfo {
   id: string;
