@@ -13,21 +13,37 @@ import { TrashView } from './components/TrashView';
 import { SitesHubView } from './components/SitesHubView';
 import { CinemaHubView } from './components/CinemaHubView';
 import { PhotosHubView } from './components/PhotosHubView';
-import { FileItem, SystemStats, StorageInfo, SortField, SortOrder, ClipboardItem, NavTab, ThemeMode, FontSizeMode } from './types';
+import { FileItem, SystemStats, StorageInfo, SortField, SortOrder, ClipboardItem, NavTab, ThemeStyle, ThemeTone, FontSizeMode } from './types';
 import { api } from './api';
 import { UploadCloud, CheckCircle, AlertCircle, X, Clipboard, ArrowRight } from 'lucide-react';
 
 export const App: React.FC = () => {
-  // Theme state
-  const [theme, setTheme] = useState<ThemeMode>(() => {
-    return (localStorage.getItem('mininas_theme') as ThemeMode) || 'macos';
+  // Theme style & tone state
+  const [themeStyle, setThemeStyle] = useState<ThemeStyle>(() => {
+    const saved = localStorage.getItem('mininas_theme_style') as ThemeStyle;
+    if (saved === 'macos' || saved === 'console' || saved === 'studio') return saved;
+    const old = localStorage.getItem('mininas_theme');
+    if (old === 'console' || old === 'studio') return old;
+    return 'macos';
+  });
+
+  const [themeTone, setThemeTone] = useState<ThemeTone>(() => {
+    const saved = localStorage.getItem('mininas_theme_tone') as ThemeTone;
+    if (saved === 'dark' || saved === 'night' || saved === 'light') return saved;
+    const old = localStorage.getItem('mininas_theme');
+    if (old === 'light') return 'light';
+    return 'dark';
   });
 
   useEffect(() => {
-    document.documentElement.classList.remove('theme-macos', 'theme-console', 'theme-studio', 'theme-light');
-    document.documentElement.classList.add(`theme-${theme}`);
-    localStorage.setItem('mininas_theme', theme);
-  }, [theme]);
+    document.documentElement.classList.remove(
+      'theme-macos', 'theme-console', 'theme-studio', 'theme-light',
+      'tone-dark', 'tone-night', 'tone-light'
+    );
+    document.documentElement.classList.add(`theme-${themeStyle}`, `tone-${themeTone}`);
+    localStorage.setItem('mininas_theme_style', themeStyle);
+    localStorage.setItem('mininas_theme_tone', themeTone);
+  }, [themeStyle, themeTone]);
 
   // Font size state
   const [fontSize, setFontSize] = useState<FontSizeMode>(() => {
@@ -664,8 +680,10 @@ export const App: React.FC = () => {
         sortOrder={sortOrder}
         onSortChange={handleSortChange}
         onToggleSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
-        theme={theme}
-        onThemeChange={setTheme}
+        themeStyle={themeStyle}
+        onThemeStyleChange={setThemeStyle}
+        themeTone={themeTone}
+        onThemeToneChange={setThemeTone}
         fontSize={fontSize}
         onFontSizeChange={setFontSize}
       />

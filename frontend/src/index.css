@@ -2,8 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 1. Default / macOS Native Theme */
+/* =========================================
+   1. Base Style Tokens (Typography & Radius)
+   ========================================= */
 :root, .theme-macos {
+  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", sans-serif;
+  --radius: 6px;
+  --radius-sm: 4px;
+}
+.theme-console {
+  --font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+  --radius: 2px;
+  --radius-sm: 2px;
+}
+.theme-studio {
+  --font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --radius: 0px;
+  --radius-sm: 0px;
+}
+
+/* =========================================
+   2. Dark Tone Palettes (Default)
+   ========================================= */
+:root,
+.theme-macos,
+.theme-macos.tone-dark {
   --surface-base: #0f1115;
   --surface-header: #14171d;
   --surface-sidebar: #121419;
@@ -21,13 +44,10 @@
   --content-primary: #f3f4f6;
   --content-secondary: #9ca3af;
   --content-muted: #6b7280;
-  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", sans-serif;
-  --radius: 6px;
-  --radius-sm: 4px;
 }
 
-/* 2. Hardware Console Theme */
-.theme-console {
+.theme-console,
+.theme-console.tone-dark {
   --surface-base: #0a0c0e;
   --surface-header: #0e1115;
   --surface-sidebar: #0c0e12;
@@ -45,13 +65,10 @@
   --content-primary: #e2e8f0;
   --content-secondary: #94a3b8;
   --content-muted: #64748b;
-  --font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
-  --radius: 2px;
-  --radius-sm: 2px;
 }
 
-/* 3. Studio Minimal Theme - Glare-free, high contrast */
-.theme-studio {
+.theme-studio,
+.theme-studio.tone-dark {
   --surface-base: #000000;
   --surface-header: #050505;
   --surface-sidebar: #000000;
@@ -69,13 +86,79 @@
   --content-primary: #ffffff;
   --content-secondary: #888888;
   --content-muted: #555555;
-  --font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
-  --radius: 0px;
-  --radius-sm: 0px;
 }
 
-/* 4. macOS Light Theme - Clean desktop daytime light mode */
-.theme-light {
+/* =========================================
+   3. Night Tone Palettes (Eye-Care Warm Amber)
+   ========================================= */
+.theme-macos.tone-night {
+  --surface-base: #0d0b0a;
+  --surface-header: #14110f;
+  --surface-sidebar: #100e0c;
+  --surface-card: #181512;
+  --surface-card-hover: #221e1a;
+  --surface-border: #2d2621;
+  --surface-border-subtle: #1f1a16;
+  --accent: #f59e0b;
+  --accent-hover: #d97706;
+  --accent-subtle: rgba(245, 158, 11, 0.12);
+  --btn-primary-bg: #f59e0b;
+  --btn-primary-hover: #d97706;
+  --btn-primary-text: #181512;
+  --btn-primary-border: transparent;
+  --content-primary: #f5ede0;
+  --content-secondary: #ab9f90;
+  --content-muted: #73695c;
+}
+
+.theme-console.tone-night {
+  --surface-base: #0b0907;
+  --surface-header: #100e0a;
+  --surface-sidebar: #0e0b08;
+  --surface-card: #15120c;
+  --surface-card-hover: #1e1910;
+  --surface-border: #2e2518;
+  --surface-border-subtle: #20190f;
+  --accent: #fbbf24;
+  --accent-hover: #f59e0b;
+  --accent-subtle: rgba(251, 191, 36, 0.12);
+  --btn-primary-bg: #fbbf24;
+  --btn-primary-hover: #f59e0b;
+  --btn-primary-text: #0b0907;
+  --btn-primary-border: transparent;
+  --content-primary: #fde68a;
+  --content-secondary: #d97706;
+  --content-muted: #78350f;
+}
+
+.theme-studio.tone-night {
+  --surface-base: #080706;
+  --surface-header: #0d0b0a;
+  --surface-sidebar: #080706;
+  --surface-card: #13110f;
+  --surface-card-hover: #1c1916;
+  --surface-border: #26221e;
+  --surface-border-subtle: #191613;
+  --accent: #e7d7c1;
+  --accent-hover: #f5ede0;
+  --accent-subtle: rgba(231, 215, 193, 0.1);
+  --btn-primary-bg: #26221e;
+  --btn-primary-hover: #332e29;
+  --btn-primary-text: #f5ede0;
+  --btn-primary-border: #3d3731;
+  --content-primary: #f5ede0;
+  --content-secondary: #9c9082;
+  --content-muted: #665d52;
+}
+
+/* =========================================
+   4. Light Tone Palettes (Daytime Clean)
+   ========================================= */
+.tone-light,
+.theme-light,
+.theme-macos.tone-light,
+.theme-console.tone-light,
+.theme-studio.tone-light {
   --surface-base: #f5f6f8;
   --surface-header: #ffffff;
   --surface-sidebar: #ebedf0;
@@ -93,9 +176,6 @@
   --content-primary: #1f2328;
   --content-secondary: #57606a;
   --content-muted: #8c959f;
-  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", sans-serif;
-  --radius: 6px;
-  --radius-sm: 4px;
 }
 
 /* Font Size Controls: scales typography font-size only, without zooming layout or icons */
@@ -142,7 +222,9 @@ body {
 }
 
 html.theme-light,
-html.theme-light body {
+html.tone-light,
+html.theme-light body,
+html.tone-light body {
   color-scheme: light;
 }
 
@@ -168,10 +250,12 @@ html.theme-light body {
   background: var(--content-muted);
 }
 
-html.theme-light ::-webkit-scrollbar-thumb {
+html.theme-light ::-webkit-scrollbar-thumb,
+html.tone-light ::-webkit-scrollbar-thumb {
   background: #c5cbd1;
 }
-html.theme-light ::-webkit-scrollbar-thumb:hover {
+html.theme-light ::-webkit-scrollbar-thumb:hover,
+html.tone-light ::-webkit-scrollbar-thumb:hover {
   background: #a3abb4;
 }
 

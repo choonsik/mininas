@@ -15,7 +15,7 @@ import {
   Palette,
   Type
 } from 'lucide-react';
-import { SystemStats, StorageInfo, SortField, SortOrder, NavTab, ThemeMode, FontSizeMode } from '../types';
+import { SystemStats, StorageInfo, SortField, SortOrder, NavTab, ThemeStyle, ThemeTone, FontSizeMode } from '../types';
 import { formatBytes } from '../utils/format';
 import { APP_VERSION } from '../version';
 
@@ -33,8 +33,10 @@ interface HeaderProps {
   sortOrder: SortOrder;
   onSortChange: (field: SortField) => void;
   onToggleSidebar?: () => void;
-  theme: ThemeMode;
-  onThemeChange: (theme: ThemeMode) => void;
+  themeStyle: ThemeStyle;
+  onThemeStyleChange: (style: ThemeStyle) => void;
+  themeTone: ThemeTone;
+  onThemeToneChange: (tone: ThemeTone) => void;
   fontSize: FontSizeMode;
   onFontSizeChange: (size: FontSizeMode) => void;
 }
@@ -53,8 +55,10 @@ export const Header: React.FC<HeaderProps> = ({
   sortOrder,
   onSortChange,
   onToggleSidebar,
-  theme,
-  onThemeChange,
+  themeStyle,
+  onThemeStyleChange,
+  themeTone,
+  onThemeToneChange,
   fontSize,
   onFontSizeChange,
 }) => {
@@ -89,11 +93,16 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'type', label: '종류순' },
   ];
 
-  const themeOptions: { id: ThemeMode; label: string; desc: string }[] = [
-    { id: 'macos', label: 'macOS Dark', desc: 'Apple 데스크톱 다크' },
-    { id: 'light', label: 'macOS Light', desc: '화이트 주간 라이트 모드' },
+  const styleOptions: { id: ThemeStyle; label: string; desc: string }[] = [
+    { id: 'macos', label: 'macOS Native', desc: 'Apple 데스크톱 유틸리티' },
     { id: 'console', label: 'Hardware Console', desc: '산업용 계측기 콘솔' },
     { id: 'studio', label: 'Studio Minimal', desc: '흑백 초미니멀' },
+  ];
+
+  const toneOptions: { id: ThemeTone; label: string }[] = [
+    { id: 'dark', label: '다크' },
+    { id: 'night', label: '나이트' },
+    { id: 'light', label: '라이트' },
   ];
 
   const fontSizeOptions: { id: FontSizeMode; label: string; desc: string }[] = [
@@ -179,37 +188,55 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={() => setIsThemeOpen(!isThemeOpen)}
             className="flex items-center gap-1.5 px-2 py-1 text-xs text-content-secondary hover:text-content-primary bg-surface-base hover:bg-surface-cardHover border border-surface-border rounded transition"
-            title="테마 스타일 변경"
+            title="테마 스타일 및 모드 변경"
           >
             <Palette className="w-3.5 h-3.5 text-accent" />
             <span className="hidden sm:inline font-medium">
-              {theme === 'macos' ? 'macOS' : theme === 'light' ? 'Light' : theme === 'console' ? 'Console' : 'Studio'}
+              {themeStyle === 'macos' ? 'macOS' : themeStyle === 'console' ? 'Console' : 'Studio'} · {themeTone === 'dark' ? '다크' : themeTone === 'night' ? '나이트' : '라이트'}
             </span>
           </button>
 
           {isThemeOpen && (
-            <div className="absolute right-0 mt-1 w-44 bg-surface-card border border-surface-border rounded shadow-xl py-1 z-40 text-xs">
-              <div className="px-3 py-1 text-[10px] text-content-muted font-medium border-b border-surface-borderSubtle">
-                디자인 스타일 선택
+            <div className="absolute right-0 mt-1 w-52 bg-surface-card border border-surface-border rounded shadow-xl py-2 z-40 text-xs">
+              <div className="px-3 pb-1 text-[10px] text-content-muted font-medium border-b border-surface-borderSubtle">
+                스타일 선택
               </div>
-              {themeOptions.map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() => {
-                    onThemeChange(opt.id);
-                    setIsThemeOpen(false);
-                  }}
-                  className="w-full px-3 py-1.5 text-left flex items-start justify-between text-content-primary hover:bg-surface-cardHover transition"
-                >
-                  <div>
-                    <div className="font-medium">{opt.label}</div>
-                    <div className="text-[10px] text-content-muted">{opt.desc}</div>
-                  </div>
-                  {theme === opt.id && (
-                    <Check className="w-3.5 h-3.5 text-accent mt-0.5 shrink-0" />
-                  )}
-                </button>
-              ))}
+              <div className="py-1">
+                {styleOptions.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => onThemeStyleChange(opt.id)}
+                    className="w-full px-3 py-1.5 text-left flex items-start justify-between text-content-primary hover:bg-surface-cardHover transition"
+                  >
+                    <div>
+                      <div className="font-medium">{opt.label}</div>
+                      <div className="text-[10px] text-content-muted">{opt.desc}</div>
+                    </div>
+                    {themeStyle === opt.id && (
+                      <Check className="w-3.5 h-3.5 text-accent mt-0.5 shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="px-3 pt-2 pb-1 text-[10px] text-content-muted font-medium border-t border-surface-borderSubtle">
+                모드 (다크 / 나이트 / 라이트)
+              </div>
+              <div className="px-2 pt-1.5 flex items-center gap-1">
+                {toneOptions.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => onThemeToneChange(t.id)}
+                    className={`flex-1 py-1 rounded text-center transition font-medium text-[11px] ${
+                      themeTone === t.id
+                        ? 'bg-accent-btn text-accent-btnText shadow-sm'
+                        : 'text-content-secondary hover:text-content-primary hover:bg-surface-cardHover border border-surface-borderSubtle'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>

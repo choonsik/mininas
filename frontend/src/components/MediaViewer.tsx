@@ -366,46 +366,47 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
   const needsConversion = !isWebFile && (inspection === null || inspection.needsConversion);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col justify-between animate-fadeIn select-none">
+    <div className="fixed inset-0 z-50 bg-surface-base/95 backdrop-blur-md flex flex-col justify-between animate-fadeIn select-none text-content-primary">
       {/* Top Header */}
-      <div className="h-16 px-3 sm:px-6 flex items-center justify-between border-b border-white/10 bg-black/60 z-20 gap-2">
+      <div className="h-16 px-3 sm:px-6 flex items-center justify-between border-b border-surface-border bg-surface-header z-20 gap-2">
         {/* Left: File Info & Icon */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="p-1.5 sm:p-2 rounded-lg bg-white/10 text-white shrink-0">
+          <div className="p-1.5 sm:p-2 rounded-lg bg-surface-card border border-surface-border text-content-primary shrink-0">
             {item.mediaType === 'image' && <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />}
             {item.mediaType === 'video' && <Play className="w-4 h-4 sm:w-5 sm:h-5 text-violet-400" />}
             {item.mediaType === 'audio' && <Music className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400" />}
             {item.mediaType === 'text' && <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />}
+            {item.ext?.toLowerCase() === '.pdf' && <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-rose-400" />}
           </div>
           <div className="min-w-0">
-            <h3 className="text-white font-medium text-xs sm:text-sm truncate max-w-[140px] sm:max-w-md" title={item.name}>
+            <h3 className="text-content-primary font-medium text-xs sm:text-sm truncate max-w-[140px] sm:max-w-md" title={item.name}>
               {truncateMiddle(item.name, 40)}
             </h3>
-            <span className="text-[10px] sm:text-xs text-gray-400 font-mono">{formatBytes(item.size)}</span>
+            <span className="text-[10px] sm:text-xs text-content-muted font-mono">{formatBytes(item.size)}</span>
           </div>
         </div>
 
         {/* Center: Navigation Controls (Prev / Index / Next) */}
         {playlist.length > 1 && (
-          <div className="hidden sm:flex items-center gap-2 bg-white/10 border border-white/10 px-3 py-1.5 rounded-xl shadow-inner">
+          <div className="hidden sm:flex items-center gap-2 bg-surface-card border border-surface-border px-3 py-1.5 rounded-xl shadow-inner">
             <button
               onClick={handlePrev}
               disabled={!hasPrev}
               className={`p-1 rounded-lg transition ${
                 hasPrev 
-                  ? 'text-gray-200 hover:text-white hover:bg-white/15' 
-                  : 'text-gray-600 cursor-not-allowed'
+                  ? 'text-content-secondary hover:text-content-primary hover:bg-surface-cardHover' 
+                  : 'text-content-muted opacity-40 cursor-not-allowed'
               }`}
               title={hasPrev && prevItem ? `이전 파일: ${prevItem.name} (단축키: Shift+← / [)` : '이전 파일 없음'}
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center gap-1.5 px-2 text-xs font-mono text-gray-300">
-              <ListOrdered className="w-3.5 h-3.5 text-blue-400" />
-              <span className="font-bold text-white">{currentIndex + 1}</span>
-              <span className="text-gray-500">/</span>
-              <span className="text-gray-400">{playlist.length}</span>
+            <div className="flex items-center gap-1.5 px-2 text-xs font-mono text-content-secondary">
+              <ListOrdered className="w-3.5 h-3.5 text-accent" />
+              <span className="font-bold text-content-primary">{currentIndex + 1}</span>
+              <span className="text-content-muted">/</span>
+              <span className="text-content-muted">{playlist.length}</span>
             </div>
 
             <button
@@ -413,8 +414,8 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
               disabled={!hasNext}
               className={`p-1 rounded-lg transition ${
                 hasNext 
-                  ? 'text-gray-200 hover:text-white hover:bg-white/15' 
-                  : 'text-gray-600 cursor-not-allowed'
+                  ? 'text-content-secondary hover:text-content-primary hover:bg-surface-cardHover' 
+                  : 'text-content-muted opacity-40 cursor-not-allowed'
               }`}
               title={hasNext && nextItem ? `다음 파일: ${nextItem.name} (단축키: Shift+→ / ])` : '다음 파일 없음'}
             >
@@ -426,12 +427,12 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
         {/* Right: Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {item.mediaType === 'video' && playlist.length > 1 && (
-            <label className="hidden md:flex items-center gap-1.5 text-xs text-gray-300 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-lg cursor-pointer hover:bg-white/10 transition" title="영상 종료 시 다음 파일 자동 재생">
+            <label className="hidden md:flex items-center gap-1.5 text-xs text-content-secondary bg-surface-card border border-surface-border px-2.5 py-1.5 rounded-lg cursor-pointer hover:bg-surface-cardHover transition" title="영상 종료 시 다음 파일 자동 재생">
               <input
                 type="checkbox"
                 checked={autoPlayNext}
                 onChange={(e) => setAutoPlayNext(e.target.checked)}
-                className="rounded bg-black/40 border-white/20 text-blue-500 focus:ring-0 w-3.5 h-3.5"
+                className="rounded bg-surface-base border-surface-border text-accent focus:ring-0 w-3.5 h-3.5"
               />
               <span className="text-[11px]">다음 영상 자동 재생</span>
             </label>
@@ -462,14 +463,14 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
           <a
             href={api.getDownloadUrl(item.path, storageId)}
             download
-            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition"
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-surface-card hover:bg-surface-cardHover border border-surface-border text-content-primary text-xs font-medium transition"
           >
             <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">다운로드</span>
           </a>
           <button
             onClick={onClose}
-            className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition"
+            className="p-1.5 sm:p-2 rounded-lg bg-surface-card hover:bg-surface-cardHover border border-surface-border text-content-secondary hover:text-content-primary transition"
             title="닫기 (ESC)"
           >
             <X className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -486,7 +487,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
             disabled={!hasPrev}
             className={`fixed left-4 top-1/2 -translate-y-1/2 z-40 p-3.5 rounded-full backdrop-blur-md border transition-all duration-200 group ${
               hasPrev
-                ? 'bg-black/60 hover:bg-black/90 border-white/20 hover:border-white/40 text-white hover:scale-110 shadow-2xl cursor-pointer'
+                ? 'bg-surface-card/80 hover:bg-surface-card border-surface-border text-content-primary hover:scale-110 shadow-2xl cursor-pointer'
                 : 'opacity-0 pointer-events-none'
             }`}
             title={prevItem ? `이전: ${prevItem.name}` : ''}
@@ -500,7 +501,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
             disabled={!hasNext}
             className={`fixed right-4 top-1/2 -translate-y-1/2 z-40 p-3.5 rounded-full backdrop-blur-md border transition-all duration-200 group ${
               hasNext
-                ? 'bg-black/60 hover:bg-black/90 border-white/20 hover:border-white/40 text-white hover:scale-110 shadow-2xl cursor-pointer'
+                ? 'bg-surface-card/80 hover:bg-surface-card border-surface-border text-content-primary hover:scale-110 shadow-2xl cursor-pointer'
                 : 'opacity-0 pointer-events-none'
             }`}
             title={nextItem ? `다음: ${nextItem.name}` : ''}
@@ -518,6 +519,16 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
             alt={item.name}
             className="max-h-[82vh] max-w-[90vw] object-contain rounded-lg shadow-2xl animate-scaleUp"
           />
+        )}
+
+        {item.ext?.toLowerCase() === '.pdf' && (
+          <div className="w-full max-w-5xl h-[80vh] bg-surface-card border border-surface-border rounded-xl overflow-hidden shadow-2xl flex flex-col">
+            <iframe
+              src={streamUrl}
+              title={item.name}
+              className="w-full h-full border-none"
+            />
+          </div>
         )}
 
         {item.mediaType === 'video' && (
@@ -582,7 +593,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
             )}
 
             {/* Video Player & Streaming Buffer HUD */}
-            <div className="w-full bg-black rounded-xl overflow-hidden shadow-2xl border border-white/10 relative group">
+            <div className="w-full bg-black rounded-xl overflow-hidden shadow-2xl border border-surface-border relative group">
               <video
                 ref={videoRef}
                 key={item.path}
@@ -616,20 +627,20 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
 
               {/* Compact Floating Buffer Badge (Non-Intrusive, never blocks the video) */}
               {isBuffering && (
-                <div className="absolute top-3 right-3 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/80 backdrop-blur-md border border-cyan-400/30 text-white shadow-xl animate-fadeIn">
-                  <div className="w-3.5 h-3.5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin shrink-0" />
-                  <span className="text-xs font-medium text-cyan-200">
+                <div className="absolute top-3 right-3 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-card/90 backdrop-blur-md border border-accent/40 text-content-primary shadow-xl animate-fadeIn">
+                  <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin shrink-0" />
+                  <span className="text-xs font-medium text-content-primary">
                     안전 버퍼 충전 중
                   </span>
-                  <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono">
+                  <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-accent-subtle text-accent font-mono font-medium">
                     {bufferAhead.toFixed(1)}s / {safeBufferTarget.toFixed(1)}s
                   </span>
                   <button
                     onClick={cancelBufferingAndPlay}
-                    className="ml-1 px-2 py-0.5 rounded-full bg-white/15 hover:bg-white/25 text-white text-[11px] font-semibold transition flex items-center gap-1 border border-white/20 active:scale-95"
+                    className="ml-1 px-2 py-0.5 rounded-full bg-accent-btn hover:bg-accent-btnHover text-accent-btnText text-[11px] font-semibold transition flex items-center gap-1 active:scale-95"
                     title="기다리지 않고 즉시 재생합니다"
                   >
-                    <Play className="w-2.5 h-2.5 fill-current text-cyan-300" />
+                    <Play className="w-2.5 h-2.5 fill-current" />
                     <span>재생</span>
                   </button>
                 </div>
@@ -637,9 +648,9 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
             </div>
 
             {/* Streaming Buffer Realtime Status HUD (Clean, Information-Only) */}
-            <div className="flex flex-wrap items-center justify-between w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-300 gap-2.5 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between w-full px-4 py-2.5 rounded-xl bg-surface-card border border-surface-border text-xs text-content-secondary gap-2.5 shadow-sm">
               <div className="flex items-center gap-2.5 flex-wrap">
-                <span className="flex items-center gap-1.5 font-medium text-gray-300">
+                <span className="flex items-center gap-1.5 font-medium text-content-secondary">
                   <span className="relative flex h-2 w-2">
                     <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
                       bufferAhead >= 15 ? 'bg-emerald-400' : bufferAhead >= 4 ? 'bg-amber-400' : 'bg-rose-400'
@@ -659,13 +670,13 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                 }`}>
                   {bufferAhead.toFixed(1)}초 확보 ({bufferAhead >= 15 ? '매우 쾌적' : bufferAhead >= 4 ? '안전' : '버퍼 부족'})
                 </span>
-                <span className="text-[11px] text-gray-400 hidden sm:inline">
+                <span className="text-[11px] text-content-muted hidden sm:inline">
                   (전체 대비 {bufferedPercent.toFixed(1)}% 로드됨)
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 text-[11px] text-gray-400">
-                <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-cyan-300/80 font-mono">
+              <div className="flex items-center gap-2 text-[11px] text-content-muted">
+                <span className="px-2 py-0.5 rounded bg-surface-base border border-surface-border text-accent font-mono font-medium">
                   100% 무손실 원본
                 </span>
                 <span className="hidden md:inline">자동 스마트 버퍼링 작동 중</span>
@@ -674,10 +685,10 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
 
             {/* Interactive Subtitle Control Bar */}
             {subtitles.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between w-full px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-xs text-gray-200 gap-2 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between w-full px-4 py-2 rounded-xl bg-surface-card border border-surface-border text-xs text-content-secondary gap-2 shadow-sm">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <div className="flex items-center gap-1.5 text-cyan-300 font-semibold mr-1">
-                    <SubtitlesIcon className="w-4 h-4 text-cyan-400" />
+                  <div className="flex items-center gap-1.5 text-accent font-semibold mr-1">
+                    <SubtitlesIcon className="w-4 h-4" />
                     <span>자막 트랙:</span>
                   </div>
 
@@ -686,8 +697,8 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                     onClick={() => selectSubtitle(null)}
                     className={`px-2.5 py-1 rounded-lg border text-xs transition ${
                       selectedSubtitleUrl === null
-                        ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
-                        : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                        ? 'bg-accent-subtle border-accent text-accent font-bold'
+                        : 'bg-surface-base border-surface-border text-content-muted hover:text-content-primary hover:bg-surface-cardHover'
                     }`}
                   >
                     자막 끄기
@@ -700,12 +711,12 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                       onClick={() => selectSubtitle(sub.url)}
                       className={`px-2.5 py-1 rounded-lg border text-xs transition flex items-center gap-1.5 ${
                         selectedSubtitleUrl === sub.url
-                          ? 'bg-cyan-500/30 border-cyan-400 text-white font-bold shadow-sm'
-                          : 'bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10'
+                          ? 'bg-accent-subtle border-accent text-accent font-bold shadow-sm'
+                          : 'bg-surface-base border-surface-border text-content-secondary hover:text-content-primary hover:bg-surface-cardHover'
                       }`}
                     >
                       <span>🇰🇷 {sub.label}</span>
-                      <span className="text-[10px] uppercase font-mono px-1 py-0.2 rounded bg-black/40 text-cyan-300">
+                      <span className="text-[10px] uppercase font-mono px-1 py-0.2 rounded bg-surface-base border border-surface-border text-accent">
                         {sub.format}
                       </span>
                     </button>
@@ -717,8 +728,8 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                       onClick={() => selectSubtitle(enSub.url)}
                       className={`px-2.5 py-1 rounded-lg border text-xs transition ${
                         selectedSubtitleUrl === enSub.url
-                          ? 'bg-cyan-500/30 border-cyan-400 text-white font-bold'
-                          : 'bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10'
+                          ? 'bg-accent-subtle border-accent text-accent font-bold'
+                          : 'bg-surface-base border-surface-border text-content-secondary hover:text-content-primary hover:bg-surface-cardHover'
                       }`}
                     >
                       🇺🇸 English
@@ -731,8 +742,8 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                       onClick={() => selectSubtitle(jaSub.url)}
                       className={`px-2.5 py-1 rounded-lg border text-xs transition ${
                         selectedSubtitleUrl === jaSub.url
-                          ? 'bg-cyan-500/30 border-cyan-400 text-white font-bold'
-                          : 'bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10'
+                          ? 'bg-accent-subtle border-accent text-accent font-bold'
+                          : 'bg-surface-base border-surface-border text-content-secondary hover:text-content-primary hover:bg-surface-cardHover'
                       }`}
                     >
                       🇯🇵 日本語
@@ -744,7 +755,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                     <select
                       value={selectedSubtitleUrl && otherSubs.some(s => s.url === selectedSubtitleUrl) ? selectedSubtitleUrl : ''}
                       onChange={(e) => selectSubtitle(e.target.value || null)}
-                      className="px-2.5 py-1 rounded-lg bg-black/60 border border-white/20 text-gray-300 hover:text-white text-xs focus:outline-none focus:border-cyan-400"
+                      className="px-2.5 py-1 rounded-lg bg-surface-base border border-surface-border text-content-secondary hover:text-content-primary text-xs focus:outline-none focus:border-accent"
                     >
                       <option value="">🌐 기타 언어 ({otherSubs.length}개)...</option>
                       {otherSubs.map((sub) => (
@@ -756,7 +767,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                   )}
                 </div>
 
-                <div className="text-[11px] text-gray-400">
+                <div className="text-[11px] text-content-muted">
                   총 {subtitles.length}개 자막 감지됨 (WebVTT 자동 변환)
                 </div>
               </div>
@@ -765,27 +776,27 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
         )}
 
         {item.mediaType === 'audio' && (
-          <div className="flex flex-col items-center gap-6 p-8 bg-white/5 rounded-2xl border border-white/10 shadow-2xl max-w-md w-full">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-pink-500 to-rose-400 flex items-center justify-center shadow-lg shadow-pink-500/20">
-              <Music className="w-12 h-12 text-white" />
+          <div className="flex flex-col items-center gap-6 p-8 bg-surface-card rounded-2xl border border-surface-border shadow-2xl max-w-md w-full">
+            <div className="w-24 h-24 rounded-full bg-accent-subtle border border-accent/20 flex items-center justify-center shadow-lg">
+              <Music className="w-12 h-12 text-accent" />
             </div>
             <div className="text-center">
-              <h4 className="text-white font-bold text-base truncate max-w-xs">{item.name}</h4>
-              <p className="text-xs text-gray-400 mt-1">{formatBytes(item.size)}</p>
+              <h4 className="text-content-primary font-bold text-base truncate max-w-xs">{item.name}</h4>
+              <p className="text-xs text-content-muted mt-1">{formatBytes(item.size)}</p>
             </div>
             <audio src={streamUrl} controls autoPlay className="w-full" onEnded={handleVideoEnded} />
           </div>
         )}
 
         {item.mediaType === 'text' && (
-          <div className="w-full max-w-4xl h-[78vh] bg-[#16161f] border border-white/10 rounded-xl overflow-hidden flex flex-col shadow-2xl">
-            <div className="px-4 py-2 bg-white/5 border-b border-white/10 text-xs text-gray-400 font-mono flex items-center justify-between">
+          <div className="w-full max-w-4xl h-[78vh] bg-surface-card border border-surface-border rounded-xl overflow-hidden flex flex-col shadow-2xl">
+            <div className="px-4 py-2 bg-surface-header border-b border-surface-border text-xs text-content-secondary font-mono flex items-center justify-between">
               <span>{item.name}</span>
               <span>{loadingText ? '불러오는 중...' : `${textContent?.length || 0} characters`}</span>
             </div>
-            <div className="flex-1 p-4 overflow-auto font-mono text-xs text-gray-200 whitespace-pre-wrap leading-relaxed select-text">
+            <div className="flex-1 p-4 overflow-auto font-mono text-xs text-content-primary whitespace-pre-wrap leading-relaxed select-text">
               {loadingText ? (
-                <div className="flex items-center justify-center h-full text-gray-500">
+                <div className="flex items-center justify-center h-full text-content-muted">
                   <RefreshCw className="w-5 h-5 animate-spin mr-2" /> 텍스트 파일을 불러오고 있습니다...
                 </div>
               ) : (
@@ -797,58 +808,58 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
       </div>
 
       {/* Bottom Footer Info Bar */}
-      <div className="h-10 px-6 flex items-center justify-between border-t border-white/10 bg-black/40 text-[11px] text-gray-400">
+      <div className="h-10 px-6 flex items-center justify-between border-t border-surface-border bg-surface-header text-[11px] text-content-muted">
         <div>
           <span>경로: {item.path}</span>
         </div>
         <div className="flex items-center gap-4">
           {playlist.length > 1 && (
-            <span className="hidden sm:inline text-gray-400">
-              단축키: 이전 (<kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono text-gray-200">←</kbd>) / 다음 (<kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono text-gray-200">→</kbd>) / 재생 (<kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono text-gray-200">Space</kbd>)
+            <span className="hidden sm:inline text-content-muted">
+              단축키: 이전 (<kbd className="px-1.5 py-0.5 bg-surface-base border border-surface-border rounded font-mono text-content-primary">←</kbd>) / 다음 (<kbd className="px-1.5 py-0.5 bg-surface-base border border-surface-border rounded font-mono text-content-primary">→</kbd>) / 재생 (<kbd className="px-1.5 py-0.5 bg-surface-base border border-surface-border rounded font-mono text-content-primary">Space</kbd>)
             </span>
           )}
-          <span>닫기: <kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono text-gray-200">ESC</kbd></span>
+          <span>닫기: <kbd className="px-1.5 py-0.5 bg-surface-base border border-surface-border rounded font-mono text-content-primary">ESC</kbd></span>
         </div>
       </div>
 
       {/* Batch Conversion Modal */}
       {showConvertModal && (
-        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#1b1b24] border border-white/15 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-scaleUp">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+        <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-surface-card border border-surface-border rounded-2xl p-6 max-w-md w-full shadow-2xl animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-surface-border">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-400" />
-                <h3 className="font-bold text-white text-base">웹 호환 고속 변환</h3>
+                <Sparkles className="w-5 h-5 text-accent" />
+                <h3 className="font-bold text-content-primary text-base">웹 호환 고속 변환</h3>
               </div>
               <button
                 onClick={() => setShowConvertModal(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-white"
+                className="p-1 rounded-lg text-content-muted hover:text-content-primary hover:bg-surface-cardHover"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="mt-4 space-y-4 text-xs">
-              <p className="text-gray-300 leading-relaxed">
+              <p className="text-content-secondary leading-relaxed">
                 현재 브라우저에서 재생이 원활하지 않은 오디오(EAC3 등)를 <strong>무손실 비디오 복사 + AAC 고속 변환</strong>하여 브라우저에서 버퍼링 없이 즉시 재생되도록 변환합니다.
               </p>
 
               {/* Conversion Scope */}
               <div className="space-y-2">
-                <label className="font-semibold text-gray-200">변환 대상</label>
+                <label className="font-semibold text-content-primary">변환 대상</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setConvertTarget('folder')}
                     className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition ${
                       convertTarget === 'folder'
-                        ? 'bg-amber-500/15 border-amber-500/60 text-white'
-                        : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                        ? 'bg-amber-500/15 border-amber-500/60 text-amber-300'
+                        : 'bg-surface-base border-surface-border text-content-muted hover:bg-surface-cardHover'
                     }`}
                   >
                     <FolderSync className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
                     <div>
-                      <span className="font-medium block text-white">폴더 전체 일괄</span>
-                      <span className="text-[11px] text-gray-400">현재 폴더 내 모든 영상</span>
+                      <span className="font-medium block text-content-primary">폴더 전체 일괄</span>
+                      <span className="text-[11px] text-content-muted">현재 폴더 내 모든 영상</span>
                     </div>
                   </button>
 
@@ -856,31 +867,31 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                     onClick={() => setConvertTarget('single')}
                     className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition ${
                       convertTarget === 'single'
-                        ? 'bg-amber-500/15 border-amber-500/60 text-white'
-                        : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                        ? 'bg-amber-500/15 border-amber-500/60 text-amber-300'
+                        : 'bg-surface-base border-surface-border text-content-muted hover:bg-surface-cardHover'
                     }`}
                   >
                     <Play className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
                     <div>
-                      <span className="font-medium block text-white">현재 파일만</span>
-                      <span className="text-[11px] text-gray-400">선택한 영상 1편</span>
+                      <span className="font-medium block text-content-primary">현재 파일만</span>
+                      <span className="text-[11px] text-content-muted">선택한 영상 1편</span>
                     </div>
                   </button>
                 </div>
               </div>
 
               {/* Conversion Options */}
-              <div className="space-y-2.5 p-3.5 bg-white/5 rounded-xl border border-white/10">
+              <div className="space-y-2.5 p-3.5 bg-surface-base rounded-xl border border-surface-border">
                 <label className="flex items-center gap-2.5 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={extractSubtitles}
                     onChange={(e) => setExtractSubtitles(e.target.checked)}
-                    className="rounded bg-black/40 border-white/20 text-amber-500 focus:ring-0"
+                    className="rounded bg-surface-card border-surface-border text-amber-500 focus:ring-0"
                   />
                   <span>
-                    <strong className="text-white block font-medium">한국어 내장 자막 자동 추출</strong>
-                    <span className="text-[11px] text-gray-400">MKV 속 한국어 자막을 .ko.srt 파일로 분리</span>
+                    <strong className="text-content-primary block font-medium">한국어 내장 자막 자동 추출</strong>
+                    <span className="text-[11px] text-content-muted">MKV 속 한국어 자막을 .ko.srt 파일로 분리</span>
                   </span>
                 </label>
 
@@ -889,11 +900,11 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                     type="checkbox"
                     checked={convertAudio}
                     onChange={(e) => setConvertAudio(e.target.checked)}
-                    className="rounded bg-black/40 border-white/20 text-amber-500 focus:ring-0"
+                    className="rounded bg-surface-card border-surface-border text-amber-500 focus:ring-0"
                   />
                   <span>
-                    <strong className="text-white block font-medium">오디오 AAC 변환 (EAC3 ➔ AAC)</strong>
-                    <span className="text-[11px] text-gray-400">비디오는 그대로 복사(무손실), 소리만 표준 변환</span>
+                    <strong className="text-content-primary block font-medium">오디오 AAC 변환 (EAC3 ➔ AAC)</strong>
+                    <span className="text-[11px] text-content-muted">비디오는 그대로 복사(무손실), 소리만 표준 변환</span>
                   </span>
                 </label>
 
@@ -902,28 +913,28 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                     type="checkbox"
                     checked={optimizeFastStart}
                     onChange={(e) => setOptimizeFastStart(e.target.checked)}
-                    className="rounded bg-black/40 border-white/20 text-cyan-400 focus:ring-0"
+                    className="rounded bg-surface-card border-surface-border text-cyan-400 focus:ring-0"
                   />
                   <span>
-                    <strong className="text-white block font-medium flex items-center gap-1.5">
+                    <strong className="text-content-primary block font-medium flex items-center gap-1.5">
                       <span>무손실 스트리밍 최적화 (FastStart)</span>
                       <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-mono">100% 무손실</span>
                     </strong>
-                    <span className="text-[11px] text-gray-400">화질 손실 없이 메타데이터를 앞으로 이동하여 버퍼링 및 Seek 즉각 반응</span>
+                    <span className="text-[11px] text-content-muted">화질 손실 없이 메타데이터를 앞으로 이동하여 버퍼링 및 Seek 즉각 반응</span>
                   </span>
                 </label>
               </div>
 
               {/* Save Mode */}
               <div className="space-y-2">
-                <label className="font-semibold text-gray-200">저장 방식</label>
+                <label className="font-semibold text-content-primary">저장 방식</label>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setReplaceOriginal(true)}
                     className={`flex-1 py-2 px-3 rounded-lg border text-xs font-medium transition ${
                       replaceOriginal
                         ? 'bg-amber-500/20 border-amber-500/60 text-amber-300'
-                        : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                        : 'bg-surface-base border-surface-border text-content-muted hover:bg-surface-cardHover'
                     }`}
                   >
                     원본 대체 (용량 절약)
@@ -933,7 +944,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
                     className={`flex-1 py-2 px-3 rounded-lg border text-xs font-medium transition ${
                       !replaceOriginal
                         ? 'bg-amber-500/20 border-amber-500/60 text-amber-300'
-                        : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                        : 'bg-surface-base border-surface-border text-content-muted hover:bg-surface-cardHover'
                     }`}
                   >
                     _web.mp4 생성 (원본 보존)
@@ -951,7 +962,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
             <div className="mt-6 flex items-center justify-end gap-2.5">
               <button
                 onClick={() => setShowConvertModal(false)}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-gray-300 text-xs font-medium transition"
+                className="px-4 py-2 rounded-xl bg-surface-base hover:bg-surface-cardHover border border-surface-border text-content-secondary text-xs font-medium transition"
               >
                 취소
               </button>
