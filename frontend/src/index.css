@@ -74,6 +74,30 @@
   --radius-sm: 0px;
 }
 
+/* 4. macOS Light Theme - Clean desktop daytime light mode */
+.theme-light {
+  --surface-base: #f5f6f8;
+  --surface-header: #ffffff;
+  --surface-sidebar: #ebedf0;
+  --surface-card: #ffffff;
+  --surface-card-hover: #f0f2f5;
+  --surface-border: #d0d7de;
+  --surface-border-subtle: #e1e4e8;
+  --accent: #0969da;
+  --accent-hover: #0858b7;
+  --accent-subtle: rgba(9, 105, 218, 0.08);
+  --btn-primary-bg: #0969da;
+  --btn-primary-hover: #0858b7;
+  --btn-primary-text: #ffffff;
+  --btn-primary-border: transparent;
+  --content-primary: #1f2328;
+  --content-secondary: #57606a;
+  --content-muted: #8c959f;
+  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", sans-serif;
+  --radius: 6px;
+  --radius-sm: 4px;
+}
+
 /* Font Size Controls: scales typography font-size only, without zooming layout or icons */
 html {
   --font-scale: 1;
@@ -117,6 +141,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html.theme-light,
+html.theme-light body {
+  color-scheme: light;
+}
+
 /* Dynamic Text Selection */
 ::selection {
   background: var(--accent-subtle);
@@ -137,6 +166,13 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--content-muted);
+}
+
+html.theme-light ::-webkit-scrollbar-thumb {
+  background: #c5cbd1;
+}
+html.theme-light ::-webkit-scrollbar-thumb:hover {
+  background: #a3abb4;
 }
 
 /* Completely suppress scrollbars in preview iframes */

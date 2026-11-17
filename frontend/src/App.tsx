@@ -24,7 +24,7 @@ export const App: React.FC = () => {
   });
 
   useEffect(() => {
-    document.documentElement.classList.remove('theme-macos', 'theme-console', 'theme-studio');
+    document.documentElement.classList.remove('theme-macos', 'theme-console', 'theme-studio', 'theme-light');
     document.documentElement.classList.add(`theme-${theme}`);
     localStorage.setItem('mininas_theme', theme);
   }, [theme]);

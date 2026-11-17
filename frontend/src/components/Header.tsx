@@ -90,7 +90,8 @@ export const Header: React.FC<HeaderProps> = ({
   ];
 
   const themeOptions: { id: ThemeMode; label: string; desc: string }[] = [
-    { id: 'macos', label: 'macOS Native', desc: 'Apple 데스크톱 유틸리티' },
+    { id: 'macos', label: 'macOS Dark', desc: 'Apple 데스크톱 다크' },
+    { id: 'light', label: 'macOS Light', desc: '화이트 주간 라이트 모드' },
     { id: 'console', label: 'Hardware Console', desc: '산업용 계측기 콘솔' },
     { id: 'studio', label: 'Studio Minimal', desc: '흑백 초미니멀' },
   ];
@@ -182,7 +183,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Palette className="w-3.5 h-3.5 text-accent" />
             <span className="hidden sm:inline font-medium">
-              {theme === 'macos' ? 'macOS' : theme === 'console' ? 'Console' : 'Studio'}
+              {theme === 'macos' ? 'macOS' : theme === 'light' ? 'Light' : theme === 'console' ? 'Console' : 'Studio'}
             </span>
           </button>
 
