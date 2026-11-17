@@ -83,3 +83,40 @@ When writing PR comments, issue replies, release notes, or documentation in Kore
 - **장식용 이모지 최소화 (AI Slop 배제)**:
   - 제목(Header), 목록 머리글(Bullet), 커밋 메시지, 본문에 의미 없는 장식용 이모지(🌟, 🚀, 📌, 💡, ⚡, 🛡️ 등)를 사용하지 않습니다.
   - 과장된 수식어와 이모지 도배를 배제하고, 절제되고 신뢰성 있는 엔지니어링 문서 톤앤매너를 유지합니다.
+
+---
+
+## 4. Release and Documentation Verification Standard
+
+### 4.1 Synchronized Files on Version Bump
+When updating the version (for example, v0.7 to v0.8), update all the following files at the same time:
+1. `frontend/src/version.ts`: UI footer display version.
+2. `frontend/package.json`: Frontend package metadata.
+3. `deploy/package.sh`: Packaging script version banner and archive filename.
+4. `deploy/remote-deploy.sh`: Remote deploy script version definition.
+5. `README.md`: Version badge, architecture diagram, and feature notes.
+6. `SPEC.md`: Architecture spec, version history, and API table.
+7. `docs/README.md`: Documentation index and latest release pointer.
+8. `docs/RELEASE_NOTES_vX.Y.md`: Dedicated release note for the new version.
+
+### 4.2 Strict Anonymization (No PII)
+- Do not include personal names, personal machine hostnames, or private usernames in documents, scripts, and commits.
+  - Prohibited: `choonsik-macmini`, `choonsik-macmini.local`, `/Users/choonsik/...`
+- Always use neutral, generic placeholders:
+  - Allowed: `my-nas.local`, `<macmini-ip>`, `http://my-nas.local:8080`, `$HOME/...`
+
+### 4.3 Typography and Tone Constraints (No Markdown Abuse)
+- Do not overuse bold formatting (`**text**`) in documentation, release notes, and commit summaries.
+- Use plain text for normal descriptions.
+- Use backticks (`` `code` ``) only for commands, paths, parameters, and identifiers.
+- Do not use decorative emojis (No AI Slop).
+
+### 4.4 Deployment Safeguards
+- Do not suggest or write unverified SSH remote deploy commands (`make deploy TARGET=...`) in user-facing setup docs.
+- The primary delivery workflow copies build outputs to the mounted network volume (`/Volumes/...`).
+- Never overwrite the existing `config.json` on the deployment target.
+
+### 4.5 GitHub Release Naming Standard
+- Keep GitHub release titles strictly uniform: `MiniNAS vX.Y`.
+- Do not add verbose subtitles or decorative slogans to release titles.
+
