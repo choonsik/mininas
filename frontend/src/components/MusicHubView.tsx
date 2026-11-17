@@ -119,7 +119,7 @@ export const MusicHubView: React.FC<MusicHubViewProps> = ({
   }, [filteredTracks]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-28 space-y-4 text-content-primary">
+    <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 pb-28 space-y-4 text-content-primary">
       {/* Header & Filter Bar */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pb-3 border-b border-surface-border">
         {/* Storages Pills */}
@@ -250,15 +250,15 @@ export const MusicHubView: React.FC<MusicHubViewProps> = ({
         /* Tracks Table View */
         <div className="bg-surface-card border border-surface-border rounded-xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-content-primary">
+            <table className="w-full table-fixed text-left text-xs text-content-primary">
               <thead className="bg-surface-header border-b border-surface-border text-[11px] text-content-muted">
                 <tr>
                   <th className="py-2.5 px-3 w-10 text-center font-mono">#</th>
                   <th className="py-2.5 px-3 font-medium">곡명</th>
-                  <th className="py-2.5 px-3 font-medium hidden sm:table-cell">아티스트</th>
-                  <th className="py-2.5 px-3 font-medium hidden md:table-cell">앨범 / 폴더</th>
-                  <th className="py-2.5 px-3 font-medium text-right">용량</th>
-                  <th className="py-2.5 px-3 font-medium text-center w-14">재생</th>
+                  <th className="py-2.5 px-3 font-medium hidden sm:table-cell w-32 md:w-40 lg:w-48">아티스트</th>
+                  <th className="py-2.5 px-3 font-medium hidden md:table-cell w-36 lg:w-56">앨범 / 폴더</th>
+                  <th className="py-2.5 px-3 font-medium text-right w-20">용량</th>
+                  <th className="py-2.5 px-3 font-medium text-center w-12 sm:w-14">재생</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-borderSubtle">
@@ -284,24 +284,24 @@ export const MusicHubView: React.FC<MusicHubViewProps> = ({
                           </>
                         )}
                       </td>
-                      <td className="py-2.5 px-3">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate">{item.title}</span>
+                      <td className="py-2.5 px-3 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="truncate" title={item.title}>{item.title}</span>
                           <span className="px-1 py-0.2 rounded bg-surface-base text-[9px] font-mono text-content-muted uppercase border border-surface-border shrink-0">
                             {item.ext.replace('.', '')}
                           </span>
                         </div>
                       </td>
-                      <td className="py-2.5 px-3 text-content-secondary hidden sm:table-cell truncate">
+                      <td className="py-2.5 px-3 text-content-secondary hidden sm:table-cell truncate" title={item.artist || '—'}>
                         {item.artist || '—'}
                       </td>
-                      <td className="py-2.5 px-3 text-content-muted hidden md:table-cell truncate">
-                        <span className="flex items-center gap-1.5">
-                          <Folder className="w-3 h-3 text-content-muted" />
+                      <td className="py-2.5 px-3 text-content-muted hidden md:table-cell truncate" title={item.album || '루트'}>
+                        <span className="flex items-center gap-1.5 truncate">
+                          <Folder className="w-3 h-3 text-content-muted shrink-0" />
                           <span className="truncate">{item.album || '루트'}</span>
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-[11px] text-content-muted">
+                      <td className="py-2.5 px-3 text-right font-mono text-[11px] text-content-muted whitespace-nowrap">
                         {formatBytes(item.size)}
                       </td>
                       <td className="py-2.5 px-3 text-center">
