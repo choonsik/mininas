@@ -24,13 +24,14 @@ Docker나 외부 런타임 없이 단일 바이너리(Pure Go, CGO=0)로 구동�
 
 ### 2. 통합 미디어 허브
 - 시네마 (Cinema):
-  - 영화 및 시리즈 드라마 자동 그룹화 라이브러리.
+  - 전용 폴더(`영화`, `드라마`, `movies`, `cinema` 등) 기반 영화 및 시리즈 드라마 자동 그룹화 라이브러리.
   - 무손실 원본 스트리밍(FastStart 최적화) 및 한국어 자막(SRT, SMI, VTT) 실시간 UTF-8 변환 지원.
 - 포토 (Photos):
-  - 전체 저장소 사진과 동영상을 날짜순 타임라인으로 통합 수집.
-  - 원본 비율 보존 썸네일 그리드 및 전체화면 슬라이드쇼.
+  - 전용 폴더(`사진`, `앨범`, `photos`, `albums` 등) 기반 앨범(폴더) 단위 카드 보기 및 촬영일(연·월) 타임라인 전환.
+  - EXIF(JPEG/HEIC), MP4/MOV(`mvhd`/QuickTime), 라이브 포토 짝꿍 날짜 기반 실제 촬영일 자동 분류 및 메타 정보 표시.
+  - 원본 종횡비 및 EXIF 회전 방향(`Orientation`)을 보존하는 초경량 캐시 썸네일(`/api/photos/thumb`) 서빙.
 - 음악 (Music):
-  - MP3/FLAC 내장 ID3v2 앨범 표지(Cover Art) 고속 추출 및 카드 표시.
+  - 전용 폴더(`음악`, `노래`, `music`, `audio` 등) 기반 오디오 자동 분류 및 MP3/FLAC 내장 ID3v2 앨범 표지 고속 추출.
   - 탭 이동 중에도 끊김 없는 전역 백그라운드 오디오 플레이어 탑재.
 
 ### 3. 정적 웹사이트 호스팅 (`/sites/...`)
@@ -59,10 +60,10 @@ Docker나 외부 런타임 없이 단일 바이너리(Pure Go, CGO=0)로 구동�
 ## 빠른 시작
 
 ### 1. 패키지 다운로드 및 실행
-최신 릴리즈 아카이브(`mininas-v0.7-intel-mac.tar.gz`)를 맥 미니의 원하는 경로에 압축 해제합니다:
+최신 릴리즈 아카이브(`mininas-v0.8-intel-mac.tar.gz`)를 맥 미니의 원하는 경로에 압축 해제합니다:
 
 ```bash
-tar -xzf mininas-v0.7-intel-mac.tar.gz
+tar -xzf mininas-v0.8-intel-mac.tar.gz
 cd MiniNAS
 ./start-nas.command
 ```

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   X, 
   FileText, 
@@ -10,9 +10,13 @@ import {
   Film, 
   Music, 
   Image as ImageIcon, 
-  Folder 
+  Folder,
+  Camera,
+  Clock,
+  Maximize2,
+  MapPin
 } from 'lucide-react';
-import { FileItem } from '../types';
+import { FileItem, MediaMeta } from '../types';
 import { formatBytes, formatDate } from '../utils/format';
 import { api } from '../api';
 
@@ -24,6 +28,34 @@ interface FileDetailsModalProps {
   onOpenMedia?: (item: FileItem) => void;
 }
 
+function getDateSourceLabel(source?: string): string {
+  switch (source) {
+    case 'exif':
+      return 'EXIF 원본 촬영일';
+    case 'mp4':
+      return '미디어 컨테이너 생성일';
+    case 'filename':
+      return '파일명/폴더 날짜';
+    default:
+      return '파일 수정일';
+  }
+}
+
+function formatDuration(sec?: number): string {
+  if (!sec || sec <= 0) return '';
+  const total = Math.round(sec);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) {
+    return `${h}시간 ${m}분 ${s}초`;
+  }
+  if (m > 0) {
+    return `${m}분 ${s}초`;
+  }
+  return `${s}초`;
+}
+
 export const FileDetailsModal: React.FC<FileDetailsModalProps> = ({
   item,
   storageId,
@@ -31,6 +63,18 @@ export const FileDetailsModal: React.FC<FileDetailsModalProps> = ({
   onClose,
   onOpenMedia,
 }) => {
+  const [mediaMeta, setMediaMeta] = useState<MediaMeta | null>(null);
+
+  useEffect(() => {
+    setMediaMeta(null);
+    if (!item || item.isDir) return;
+    if (item.mediaType === 'image' || item.mediaType === 'video') {
+      api.getMediaMeta(item.path, storageId)
+        .then(setMediaMeta)
+        .catch(() => setMediaMeta(null));
+    }
+  }, [item, storageId]);
+
   if (!item) return null;
 
   const getItemIcon = () => {
@@ -44,6 +88,12 @@ export const FileDetailsModal: React.FC<FileDetailsModalProps> = ({
   };
 
   const downloadUrl = api.getDownloadUrl(item.path, storageId);
+  const cameraLabel = [mediaMeta?.cameraMake, mediaMeta?.cameraModel].filter(Boolean).join(' ');
+  const exposureSummary = [
+    mediaMeta?.fNumber,
+    mediaMeta?.exposureTime,
+    mediaMeta?.iso ? `ISO ${mediaMeta.iso}` : undefined,
+  ].filter(Boolean).join(' · ');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-[2px]">
@@ -57,7 +107,7 @@ export const FileDetailsModal: React.FC<FileDetailsModalProps> = ({
             {getItemIcon()}
             <div>
               <h2 className="text-sm font-semibold leading-tight">
-                {item.isDir ? '폴더 정보' : '파일 정보'}
+                {item.isDir ? '폴더 정보' : '파일 및 메타 정보'}
               </h2>
               <span className="text-[11px] text-content-muted font-mono">
                 {storageName}
@@ -73,7 +123,7 @@ export const FileDetailsModal: React.FC<FileDetailsModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-5 space-y-3 text-xs">
+        <div className="p-5 space-y-3 text-xs max-h-[75vh] overflow-y-auto">
           <div className="bg-surface-base p-3 rounded border border-surface-borderSubtle">
             <span className="text-[11px] text-content-muted block mb-0.5">이름</span>
             <p className="font-medium break-all select-all text-content-primary">
@@ -102,10 +152,77 @@ export const FileDetailsModal: React.FC<FileDetailsModalProps> = ({
               </div>
             </div>
 
+            {mediaMeta?.takenAt && (
+              <div className="bg-surface-base p-2.5 rounded border border-surface-borderSubtle flex items-start gap-2 col-span-2">
+                <Calendar className="w-3.5 h-3.5 text-accent shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-content-muted">촬영/생성일시</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-surface-card border border-surface-border text-content-secondary">
+                      {getDateSourceLabel(mediaMeta.dateSource)}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-medium">
+                    {formatDate(mediaMeta.takenAt)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {(mediaMeta?.width && mediaMeta?.height) ? (
+              <div className="bg-surface-base p-2.5 rounded border border-surface-borderSubtle flex items-start gap-2">
+                <Maximize2 className="w-3.5 h-3.5 text-content-muted shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-[10px] text-content-muted block">해상도</span>
+                  <span className="font-mono text-[11px]">
+                    {mediaMeta.width} × {mediaMeta.height}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+
+            {mediaMeta?.durationSec ? (
+              <div className="bg-surface-base p-2.5 rounded border border-surface-borderSubtle flex items-start gap-2">
+                <Clock className="w-3.5 h-3.5 text-content-muted shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-[10px] text-content-muted block">재생 시간</span>
+                  <span className="font-mono text-[11px]">
+                    {formatDuration(mediaMeta.durationSec)}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+
+            {(cameraLabel || exposureSummary) && (
+              <div className="bg-surface-base p-2.5 rounded border border-surface-borderSubtle flex items-start gap-2 col-span-2">
+                <Camera className="w-3.5 h-3.5 text-content-muted shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-[10px] text-content-muted block">카메라 및 촬영 설정</span>
+                  {cameraLabel && (
+                    <span className="text-[11px] block font-medium">{cameraLabel}</span>
+                  )}
+                  {exposureSummary && (
+                    <span className="text-[11px] font-mono text-content-secondary block">
+                      {exposureSummary}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {mediaMeta?.hasGps && (
+              <div className="bg-surface-base p-2.5 rounded border border-surface-borderSubtle flex items-center gap-2 col-span-2">
+                <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="text-[11px] text-content-secondary">
+                  EXIF GPS 위치 좌표가 포함된 사진입니다
+                </span>
+              </div>
+            )}
+
             <div className="bg-surface-base p-2.5 rounded border border-surface-borderSubtle flex items-start gap-2 col-span-2">
               <Calendar className="w-3.5 h-3.5 text-content-muted shrink-0 mt-0.5" />
               <div>
-                <span className="text-[10px] text-content-muted block">수정일시</span>
+                <span className="text-[10px] text-content-muted block">파일 시스템 수정일시</span>
                 <span className="text-[11px]">
                   {formatDate(item.modTime)}
                 </span>

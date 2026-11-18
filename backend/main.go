@@ -328,6 +328,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	files := r.MultipartForm.File["files"]
 	paths := r.MultipartForm.Value["paths"]
+	mtimes := r.MultipartForm.Value["mtimes"]
 
 	savedCount := 0
 	for i, fileHeader := range files {
@@ -357,6 +358,12 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := copyUploadedFile(fileHeader, dstPath); err == nil {
+			if i < len(mtimes) && mtimes[i] != "" {
+				if ms, err := strconv.ParseInt(mtimes[i], 10, 64); err == nil && ms > 0 {
+					origTime := time.UnixMilli(ms)
+					_ = os.Chtimes(dstPath, origTime, origTime)
+				}
+			}
 			savedCount++
 		}
 	}
@@ -964,11 +971,18 @@ type CinemaItem struct {
 type PhotoItem struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
+	Album       string    `json:"album"`
 	StorageID   string    `json:"storageId"`
 	StorageName string    `json:"storageName"`
 	RelPath     string    `json:"relPath"`
 	Size        int64     `json:"size"`
 	ModTime     time.Time `json:"modTime"`
+	TakenAt     time.Time `json:"takenAt"`
+	DateSource  string    `json:"dateSource,omitempty"`
+	Width       int       `json:"width,omitempty"`
+	Height      int       `json:"height,omitempty"`
+	CameraModel string    `json:"cameraModel,omitempty"`
+	DurationSec float64   `json:"durationSec,omitempty"`
 	Ext         string    `json:"ext"`
 	MediaType   string    `json:"mediaType"`
 }
@@ -1431,6 +1445,90 @@ func handleUnpinSite(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
+func isSystemSkipDir(name string) bool {
+	lower := strings.ToLower(name)
+	return lower == "node_modules" || lower == ".trash" || lower == "trash" || lower == ".mininas_cache" || lower == ".git"
+}
+
+func isSitesDir(name string) bool {
+	lower := strings.ToLower(name)
+	return lower == "sites" || lower == "htdocs" || lower == "public_html" || lower == "my-site" || lower == "www"
+}
+
+func isCinemaDir(name string) bool {
+	switch strings.ToLower(name) {
+	case "cinema", "movies", "movie", "dramas", "drama", "series", "vod", "tv", "ani", "anime", "animation",
+		"시네마", "영화", "드라마", "애니", "애니메이션", "예능", "방송", "동영상 보관함":
+		return true
+	default:
+		return false
+	}
+}
+
+func isCinemaStorage(storage StorageEntry) bool {
+	id := strings.ToLower(storage.ID)
+	return id == "movies" || id == "movie" || id == "cinema" || id == "dramas" || id == "drama" ||
+		isCinemaDir(filepath.Base(storage.Path)) || isCinemaDir(storage.Name)
+}
+
+func isPhotosDir(name string) bool {
+	switch strings.ToLower(name) {
+	case "photos", "photo", "albums", "album", "pictures", "picture", "dcim", "camera", "moments", "moment",
+		"포토", "사진", "앨범", "카메라", "일상", "가족", "여행", "추억":
+		return true
+	default:
+		return false
+	}
+}
+
+func isPhotosStorage(storage StorageEntry) bool {
+	id := strings.ToLower(storage.ID)
+	return id == "photos" || id == "photo" || id == "albums" || id == "album" || id == "pictures" ||
+		isPhotosDir(filepath.Base(storage.Path)) || isPhotosDir(storage.Name)
+}
+
+func isMusicDir(name string) bool {
+	switch strings.ToLower(name) {
+	case "music", "musics", "audio", "songs", "song", "ost", "playlist", "playlists",
+		"음악", "노래", "오디오":
+		return true
+	default:
+		return false
+	}
+}
+
+func isMusicStorage(storage StorageEntry) bool {
+	id := strings.ToLower(storage.ID)
+	return id == "music" || id == "audio" || id == "songs" ||
+		isMusicDir(filepath.Base(storage.Path)) || isMusicDir(storage.Name)
+}
+
+func resolveHubCandidateDirs(storage StorageEntry, matchStorage func(StorageEntry) bool, matchDir func(string) bool, dedicatedOnly bool) []string {
+	rootDir := storage.Path
+	if rootDir == "" {
+		return nil
+	}
+	if !dedicatedOnly || matchStorage(storage) {
+		return []string{rootDir}
+	}
+
+	entries, err := os.ReadDir(rootDir)
+	if err != nil {
+		return nil
+	}
+
+	var candidates []string
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		if matchDir(e.Name()) {
+			candidates = append(candidates, filepath.Join(rootDir, e.Name()))
+		}
+	}
+	return candidates
+}
+
 // handleCinemaList scans registered storages for video files to build an OTT library
 func handleCinemaList(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -1439,10 +1537,15 @@ func handleCinemaList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	storageFilter := r.URL.Query().Get("storage")
+	dedicatedOnly := r.URL.Query().Get("dedicated") == "true"
+	skipSpecial := r.URL.Query().Get("skip_special") == "true"
 	var results []CinemaItem
 
 	for _, storage := range activeStorages {
 		if storageFilter != "" && storage.ID != storageFilter {
+			continue
+		}
+		if (dedicatedOnly || skipSpecial) && (isPhotosStorage(storage) || isMusicStorage(storage)) {
 			continue
 		}
 		rootDir := storage.Path
@@ -1450,83 +1553,90 @@ func handleCinemaList(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		_ = filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return nil
-			}
+		candidateDirs := resolveHubCandidateDirs(storage, isCinemaStorage, isCinemaDir, dedicatedOnly)
+		for _, scanDir := range candidateDirs {
+			_ = filepath.WalkDir(scanDir, func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return nil
+				}
 
-			name := d.Name()
-			if strings.HasPrefix(name, ".") {
+				name := d.Name()
+				if strings.HasPrefix(name, ".") {
+					if d.IsDir() {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+
+				// Skip deep directories (limit depth to 4 for Mac mini HDD performance)
+				rel, err := filepath.Rel(rootDir, path)
+				if err != nil {
+					return nil
+				}
+				depth := strings.Count(filepath.ToSlash(rel), "/")
+				if depth > 4 && d.IsDir() {
+					return filepath.SkipDir
+				}
+
 				if d.IsDir() {
-					return filepath.SkipDir
+					if isSystemSkipDir(name) {
+						return filepath.SkipDir
+					}
+					if path != scanDir && (dedicatedOnly || skipSpecial) {
+						if isSitesDir(name) || isPhotosDir(name) || isMusicDir(name) {
+							return filepath.SkipDir
+						}
+					}
+					return nil
 				}
-				return nil
-			}
 
-			// Skip deep directories (limit depth to 4 for Mac mini HDD performance)
-			rel, err := filepath.Rel(rootDir, path)
-			if err != nil {
-				return nil
-			}
-			depth := strings.Count(filepath.ToSlash(rel), "/")
-			if depth > 4 && d.IsDir() {
-				return filepath.SkipDir
-			}
-
-			if d.IsDir() {
-				lower := strings.ToLower(name)
-				if lower == "node_modules" || lower == ".trash" || lower == "trash" || lower == ".mininas_cache" {
-					return filepath.SkipDir
+				ext := strings.ToLower(filepath.Ext(name))
+				if getMediaType(ext) != "video" {
+					return nil
 				}
-				return nil
-			}
 
-			ext := strings.ToLower(filepath.Ext(name))
-			if getMediaType(ext) != "video" {
-				return nil
-			}
-
-			info, err := d.Info()
-			if err != nil {
-				return nil
-			}
-
-			// Filter out files smaller than 1MB
-			if info.Size() < 1024*1024 {
-				return nil
-			}
-
-			relPath := "/" + filepath.ToSlash(rel)
-			parentDir := filepath.Dir(path)
-			baseWithoutExt := strings.TrimSuffix(name, filepath.Ext(name))
-
-			// Check for subtitle in the same directory
-			hasSub := false
-			for _, subExt := range []string{".srt", ".smi", ".vtt"} {
-				if _, err := os.Stat(filepath.Join(parentDir, baseWithoutExt+subExt)); err == nil {
-					hasSub = true
-					break
+				info, err := d.Info()
+				if err != nil {
+					return nil
 				}
-				if _, err := os.Stat(filepath.Join(parentDir, baseWithoutExt+strings.ToUpper(subExt))); err == nil {
-					hasSub = true
-					break
-				}
-			}
 
-			results = append(results, CinemaItem{
-				ID:          storage.ID + ":" + relPath,
-				Title:       baseWithoutExt,
-				Name:        name,
-				StorageID:   storage.ID,
-				StorageName: storage.Name,
-				RelPath:     relPath,
-				Size:        info.Size(),
-				ModTime:     info.ModTime(),
-				Ext:         ext,
-				HasSubtitle: hasSub,
+				// Filter out files smaller than 1MB
+				if info.Size() < 1024*1024 {
+					return nil
+				}
+
+				relPath := "/" + filepath.ToSlash(rel)
+				parentDir := filepath.Dir(path)
+				baseWithoutExt := strings.TrimSuffix(name, filepath.Ext(name))
+
+				// Check for subtitle in the same directory
+				hasSub := false
+				for _, subExt := range []string{".srt", ".smi", ".vtt"} {
+					if _, err := os.Stat(filepath.Join(parentDir, baseWithoutExt+subExt)); err == nil {
+						hasSub = true
+						break
+					}
+					if _, err := os.Stat(filepath.Join(parentDir, baseWithoutExt+strings.ToUpper(subExt))); err == nil {
+						hasSub = true
+						break
+					}
+				}
+
+				results = append(results, CinemaItem{
+					ID:          storage.ID + ":" + relPath,
+					Title:       baseWithoutExt,
+					Name:        name,
+					StorageID:   storage.ID,
+					StorageName: storage.Name,
+					RelPath:     relPath,
+					Size:        info.Size(),
+					ModTime:     info.ModTime(),
+					Ext:         ext,
+					HasSubtitle: hasSub,
+				})
+				return nil
 			})
-			return nil
-		})
+		}
 	}
 
 	if results == nil {
@@ -1550,6 +1660,7 @@ func handlePhotosList(w http.ResponseWriter, r *http.Request) {
 
 	storageFilter := r.URL.Query().Get("storage")
 	typeFilter := strings.ToLower(r.URL.Query().Get("type")) // "image", "video", or "" ("all")
+	dedicatedOnly := r.URL.Query().Get("dedicated") == "true"
 	skipSpecial := r.URL.Query().Get("skip_special") == "true" // User toggle: exclude movies/sites folders
 	var results []PhotoItem
 
@@ -1557,8 +1668,8 @@ func handlePhotosList(w http.ResponseWriter, r *http.Request) {
 		if storageFilter != "" && storage.ID != storageFilter {
 			continue
 		}
-		// If skipSpecial is requested, exclude dedicated movie storage
-		if skipSpecial && storage.ID == "movies" {
+		// If dedicatedOnly or skipSpecial is requested, exclude dedicated movie/music storage
+		if (dedicatedOnly || skipSpecial) && (isCinemaStorage(storage) || isMusicStorage(storage)) {
 			continue
 		}
 		rootDir := storage.Path
@@ -1566,95 +1677,110 @@ func handlePhotosList(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		_ = filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return nil
-			}
+		candidateDirs := resolveHubCandidateDirs(storage, isPhotosStorage, isPhotosDir, dedicatedOnly)
+		activeRelPaths := make(map[string]bool)
+		for _, scanDir := range candidateDirs {
+			_ = filepath.WalkDir(scanDir, func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return nil
+				}
 
-			name := d.Name()
-			if strings.HasPrefix(name, ".") {
+				name := d.Name()
+				if strings.HasPrefix(name, ".") {
+					if d.IsDir() {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+
 				if d.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-
-			if d.IsDir() {
-				lower := strings.ToLower(name)
-				// Always exclude system, cache, and trash folders
-				if lower == "node_modules" || lower == ".trash" || lower == "trash" || lower == ".mininas_cache" || lower == ".git" {
-					return filepath.SkipDir
-				}
-
-				// Only skip movie and website folders when skipSpecial toggle is explicitly enabled
-				if skipSpecial {
-					// 1) Static website folders
-					if lower == "sites" || lower == "htdocs" || lower == "public_html" || lower == "my-site" || lower == "www" {
+					// Always exclude system, cache, and trash folders
+					if isSystemSkipDir(name) {
 						return filepath.SkipDir
 					}
-					// 2) Cinema, movie, drama, series folders (singular & plural, Korean & English)
-					if lower == "movies" || lower == "movie" || lower == "영화" ||
-						lower == "dramas" || lower == "drama" || lower == "드라마" ||
-						lower == "cinema" || lower == "series" || lower == "tv" ||
-						lower == "vod" || lower == "방송" || lower == "예능" {
-						return filepath.SkipDir
+
+					// Skip movie, music, and website folders when dedicatedOnly or skipSpecial is enabled
+					if path != scanDir && (dedicatedOnly || skipSpecial) {
+						if isSitesDir(name) || isCinemaDir(name) || isMusicDir(name) {
+							return filepath.SkipDir
+						}
 					}
+					return nil
 				}
-				return nil
-			}
 
-			ext := strings.ToLower(filepath.Ext(name))
-			mediaType := getMediaType(ext)
+				ext := strings.ToLower(filepath.Ext(name))
+				mediaType := getMediaType(ext)
 
-			// Photos Hub collects both images and videos (no size limit)
-			if mediaType != "image" && mediaType != "video" {
-				return nil
-			}
+				// Photos Hub collects both images and videos (no size limit)
+				if mediaType != "image" && mediaType != "video" {
+					return nil
+				}
 
-			if typeFilter == "image" && mediaType != "image" {
-				return nil
-			}
-			if typeFilter == "video" && mediaType != "video" {
-				return nil
-			}
+				if typeFilter == "image" && mediaType != "image" {
+					return nil
+				}
+				if typeFilter == "video" && mediaType != "video" {
+					return nil
+				}
 
-			info, err := d.Info()
-			if err != nil {
-				return nil
-			}
+				info, err := d.Info()
+				if err != nil {
+					return nil
+				}
 
-			// Skip 0-byte files
-			if info.Size() == 0 {
-				return nil
-			}
+				// Skip 0-byte files
+				if info.Size() == 0 {
+					return nil
+				}
 
-			rel, err := filepath.Rel(rootDir, path)
-			if err != nil {
-				return nil
-			}
-			relPath := "/" + filepath.ToSlash(rel)
+				rel, err := filepath.Rel(rootDir, path)
+				if err != nil {
+					return nil
+				}
+				relPath := "/" + filepath.ToSlash(rel)
+				activeRelPaths[relPath] = true
+				meta := getOrExtractMediaMeta(storage, relPath, path, info)
+				takenAt := meta.TakenAt
+				if takenAt.IsZero() {
+					takenAt = info.ModTime()
+				}
 
-			results = append(results, PhotoItem{
-				ID:          storage.ID + ":" + relPath,
-				Name:        name,
-				StorageID:   storage.ID,
-				StorageName: storage.Name,
-				RelPath:     relPath,
-				Size:        info.Size(),
-				ModTime:     info.ModTime(),
-				Ext:         ext,
-				MediaType:   mediaType,
+				results = append(results, PhotoItem{
+					ID:          storage.ID + ":" + relPath,
+					Name:        name,
+					Album:       resolvePhotoAlbumName(relPath, storage.Name),
+					StorageID:   storage.ID,
+					StorageName: storage.Name,
+					RelPath:     relPath,
+					Size:        info.Size(),
+					ModTime:     info.ModTime(),
+					TakenAt:     takenAt,
+					DateSource:  meta.DateSource,
+					Width:       meta.Width,
+					Height:      meta.Height,
+					CameraModel: meta.CameraModel,
+					DurationSec: meta.DurationSec,
+					Ext:         ext,
+					MediaType:   mediaType,
+				})
+				return nil
 			})
-			return nil
-		})
+		}
+		if typeFilter == "" {
+			pruneAndFlushStorageMetaIndex(storage, activeRelPaths)
+		} else {
+			flushStorageMetaIndex(storage, getStorageMetaIndex(storage))
+		}
 	}
 
 	if results == nil {
 		results = []PhotoItem{}
+	} else {
+		resolveCompanionAndFolderDates(results)
 	}
 
 	sort.Slice(results, func(i, j int) bool {
-		return results[i].ModTime.After(results[j].ModTime)
+		return results[i].TakenAt.After(results[j].TakenAt)
 	})
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1668,10 +1794,15 @@ func handleMusicList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	storageFilter := r.URL.Query().Get("storage")
+	dedicatedOnly := r.URL.Query().Get("dedicated") == "true"
+	skipSpecial := r.URL.Query().Get("skip_special") == "true"
 	var results []MusicItem
 
 	for _, storage := range activeStorages {
 		if storageFilter != "" && storage.ID != storageFilter {
+			continue
+		}
+		if (dedicatedOnly || skipSpecial) && (isCinemaStorage(storage) || isPhotosStorage(storage)) {
 			continue
 		}
 		rootDir := storage.Path
@@ -1679,74 +1810,81 @@ func handleMusicList(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		_ = filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return nil
-			}
+		candidateDirs := resolveHubCandidateDirs(storage, isMusicStorage, isMusicDir, dedicatedOnly)
+		for _, scanDir := range candidateDirs {
+			_ = filepath.WalkDir(scanDir, func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return nil
+				}
 
-			name := d.Name()
-			if strings.HasPrefix(name, ".") {
+				name := d.Name()
+				if strings.HasPrefix(name, ".") {
+					if d.IsDir() {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+
 				if d.IsDir() {
-					return filepath.SkipDir
+					if isSystemSkipDir(name) {
+						return filepath.SkipDir
+					}
+					if path != scanDir && (dedicatedOnly || skipSpecial) {
+						if isSitesDir(name) || isCinemaDir(name) || isPhotosDir(name) {
+							return filepath.SkipDir
+						}
+					}
+					return nil
 				}
-				return nil
-			}
 
-			if d.IsDir() {
-				lower := strings.ToLower(name)
-				if lower == "node_modules" || lower == ".trash" || lower == "trash" || lower == ".mininas_cache" {
-					return filepath.SkipDir
+				ext := strings.ToLower(filepath.Ext(name))
+				if getMediaType(ext) != "audio" {
+					return nil
 				}
+
+				info, err := d.Info()
+				if err != nil || info.Size() == 0 {
+					return nil
+				}
+
+				rel, err := filepath.Rel(rootDir, path)
+				if err != nil {
+					return nil
+				}
+				relPath := "/" + filepath.ToSlash(rel)
+
+				cleanName := strings.TrimSuffix(name, filepath.Ext(name))
+				title := cleanName
+				artist := ""
+				album := ""
+
+				parentDir := filepath.Dir(relPath)
+				if parentDir != "/" && parentDir != "." {
+					album = filepath.Base(parentDir)
+				}
+
+				if strings.Contains(cleanName, " - ") {
+					parts := strings.SplitN(cleanName, " - ", 2)
+					artist = strings.TrimSpace(parts[0])
+					title = strings.TrimSpace(parts[1])
+				}
+
+				results = append(results, MusicItem{
+					ID:          storage.ID + ":" + relPath,
+					Title:       title,
+					Artist:      artist,
+					Album:       album,
+					Name:        name,
+					StorageID:   storage.ID,
+					StorageName: storage.Name,
+					RelPath:     relPath,
+					Size:        info.Size(),
+					ModTime:     info.ModTime(),
+					Ext:         ext,
+				})
 				return nil
-			}
-
-			ext := strings.ToLower(filepath.Ext(name))
-			if getMediaType(ext) != "audio" {
-				return nil
-			}
-
-			info, err := d.Info()
-			if err != nil || info.Size() == 0 {
-				return nil
-			}
-
-			rel, err := filepath.Rel(rootDir, path)
-			if err != nil {
-				return nil
-			}
-			relPath := "/" + filepath.ToSlash(rel)
-
-			cleanName := strings.TrimSuffix(name, filepath.Ext(name))
-			title := cleanName
-			artist := ""
-			album := ""
-
-			parentDir := filepath.Dir(relPath)
-			if parentDir != "/" && parentDir != "." {
-				album = filepath.Base(parentDir)
-			}
-
-			if strings.Contains(cleanName, " - ") {
-				parts := strings.SplitN(cleanName, " - ", 2)
-				artist = strings.TrimSpace(parts[0])
-				title = strings.TrimSpace(parts[1])
-			}
-
-			results = append(results, MusicItem{
-				ID:          storage.ID + ":" + relPath,
-				Title:       title,
-				Artist:      artist,
-				Album:       album,
-				Name:        name,
-				StorageID:   storage.ID,
-				StorageName: storage.Name,
-				RelPath:     relPath,
-				Size:        info.Size(),
-				ModTime:     info.ModTime(),
-				Ext:         ext,
 			})
-			return nil
-		})
+		}
 	}
 
 	if results == nil {
@@ -2531,6 +2669,8 @@ func main() {
 	mux.HandleFunc("/api/sites/unpin", handleUnpinSite)
 	mux.HandleFunc("/api/cinema", handleCinemaList)
 	mux.HandleFunc("/api/photos", handlePhotosList)
+	mux.HandleFunc("/api/photos/thumb", handlePhotoThumb)
+	mux.HandleFunc("/api/media/meta", handleMediaMeta)
 	mux.HandleFunc("/api/music", handleMusicList)
 	mux.HandleFunc("/api/music/cover", handleMusicCover)
 

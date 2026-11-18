@@ -254,5 +254,19 @@ if [[ "$EMPTY_RESP" != *"ok"* ]]; then
 fi
 echo "  [PASS] 15. Trash lifecycle (soft delete, list, restore, selective delete, empty) verified"
 
+# 16. Dedicated folder isolation, Media Meta API (/api/media/meta), and Thumbnail Cache (/api/photos/thumb)
+mkdir -p "$TEST_DIR/s1/photos/2024/06" "$TEST_DIR/s1/general_upload"
+echo "isolated album photo" > "$TEST_DIR/s1/photos/2024/06/trip.jpg"
+echo "general folder photo" > "$TEST_DIR/s1/general_upload/work.jpg"
+
+DED_PHOTOS=$(curl -s "http://localhost:$PORT/api/photos?dedicated=true")
+META_JSON=$(curl -s "http://localhost:$PORT/api/media/meta?storage=test_s1&path=%2Fphotos%2F2024%2F06%2Ftrip.jpg")
+THUMB_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT/api/photos/thumb?storage=test_s1&path=%2Fphotos%2F2024%2F06%2Ftrip.jpg")
+if [[ "$DED_PHOTOS" != *"trip.jpg"* ]] || [[ "$DED_PHOTOS" == *"work.jpg"* ]] || [[ "$META_JSON" != *"2024-06"* ]] || [ "$THUMB_STATUS" != "200" ]; then
+    echo "[FAIL] 16. Dedicated isolation, /api/media/meta, or /api/photos/thumb failed"
+    exit 1
+fi
+echo "  [PASS] 16. Dedicated folder isolation, media metadata (/api/media/meta), and thumbnail cache (/api/photos/thumb) verified"
+
 echo ""
-echo "[Harness] All 15 E2E runtime verification scenarios passed."
+echo "[Harness] All 16 E2E runtime verification scenarios passed."

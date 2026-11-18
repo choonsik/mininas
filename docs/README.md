@@ -46,6 +46,13 @@ MiniNAS 프로젝트의 아키텍처, 검증 하네스, 성능 벤치마크, 버
 
 ## 버전별 릴리즈 노트 (Release Notes)
 
+- [RELEASE_NOTES_v0.8.md (v0.8 릴리즈 노트)](./RELEASE_NOTES_v0.8.md)
+  - 미디어 허브(시네마 / 포토 / 음악) 전용 폴더 격리 스캔 적용.
+  - 포토 & 모먼트 앨범(폴더) 단위 카드 보기 및 촬영일 타임라인 보기 전환.
+  - EXIF(JPEG/HEIC) 및 MP4/MOV(`mvhd`/QuickTime) 실제 촬영일 추출, 라이브 포토 짝꿍 날짜 상속.
+  - EXIF 회전(`Orientation`) 보정 경량 썸네일 캐시(`/api/photos/thumb`) 및 고아 캐시 자동 정리.
+  - 파일 탐색기, 포토 허브, 미디어 뷰어 상세 메타 정보(`i` 버튼, `/api/media/meta`) 표시.
+
 - [RELEASE_NOTES_v0.7.md (v0.7 릴리즈 노트)](./RELEASE_NOTES_v0.7.md)
   - 모바일 UX 전면 개편 (하단 캡슐 내비게이션, 터치 반응 최적화, 스크롤 겹침 해소).
   - 음원 내장 ID3v2 앨범 표지(Cover Art) 고속 추출 및 앨범/플레이어 연동.

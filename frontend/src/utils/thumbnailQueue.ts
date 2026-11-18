@@ -1,12 +1,17 @@
 /**
  * Concurrent Video Thumbnail Processing Queue
- * Limits concurrent video decoding on mobile/desktop browsers to prevent main-thread freezing and memory spikes.
+ * 1) Checks persistent server-side disk cache (/api/photos/thumb) first for instant <1ms loading.
+ * 2) On cache miss, decodes 1 video frame with concurrency limit (max 2) and persists it to server cache.
  */
+
+import { api } from '../api';
 
 type ThumbnailTask = {
   id: string;
   url: string;
   ext: string;
+  storageId?: string;
+  relPath?: string;
   onSuccess: (dataUrl: string) => void;
   onError: () => void;
 };
@@ -58,6 +63,28 @@ class ThumbnailQueue {
     }
 
     this.activeCount++;
+    this.runTask(task);
+  }
+
+  private async runTask(task: ThumbnailTask) {
+    // 1. Check server-side persistent thumbnail cache first (.mininas_cache/thumbs)
+    if (task.storageId && task.relPath) {
+      const serverThumbUrl = api.getPhotoThumbUrl(task.relPath, task.storageId);
+      try {
+        const res = await fetch(serverThumbUrl, { method: 'GET' });
+        if (res.ok) {
+          const blob = await res.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          thumbnailCache.set(task.id, objectUrl);
+          task.onSuccess(objectUrl);
+          this.activeCount--;
+          this.processNext();
+          return;
+        }
+      } catch {
+        // Proceed to client-side frame capture on error
+      }
+    }
 
     let isDone = false;
     const cleanup = () => {
@@ -87,11 +114,10 @@ class ThumbnailQueue {
     }, 6000);
 
     const handleLoadedMetadata = () => {
-      // Seek slightly into the video
       try {
         const seekTime = Math.min(2.5, Math.max(0.8, (video.duration || 10) * 0.05));
         video.currentTime = seekTime;
-      } catch (e) {
+      } catch {
         task.onError();
         cleanup();
       }
@@ -103,7 +129,6 @@ class ThumbnailQueue {
         const vh = video.videoHeight || 240;
         const canvas = document.createElement('canvas');
 
-        // Optimal dimension for mobile grid/list thumbnails (320px max)
         const maxDimension = 320;
         if (vw >= vh) {
           canvas.width = maxDimension;
@@ -116,13 +141,16 @@ class ThumbnailQueue {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
           thumbnailCache.set(task.id, dataUrl);
           task.onSuccess(dataUrl);
+          if (task.storageId && task.relPath) {
+            api.saveVideoThumb(task.storageId, task.relPath, dataUrl);
+          }
         } else {
           task.onError();
         }
-      } catch (e) {
+      } catch {
         task.onError();
       } finally {
         cleanup();
@@ -140,7 +168,7 @@ class ThumbnailQueue {
 
     try {
       video.src = task.url;
-    } catch (e) {
+    } catch {
       task.onError();
       cleanup();
     }

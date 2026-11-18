@@ -1,4 +1,4 @@
-import { FileItem, SystemStats, StorageInfo, SubtitleTrack, MediaCapabilities, MediaInspection, BatchConvertJob, TrashResponse, SiteItem, CinemaItem, PhotoItem, MusicItem } from './types';
+import { FileItem, SystemStats, StorageInfo, SubtitleTrack, MediaCapabilities, MediaInspection, BatchConvertJob, TrashResponse, SiteItem, CinemaItem, PhotoItem, MusicItem, MediaMeta } from './types';
 
 const API_BASE = '/api';
 
@@ -156,6 +156,7 @@ export const api = {
         batch.forEach(item => {
           formData.append('files', item.file);
           formData.append('paths', item.relativePath);
+          formData.append('mtimes', String(item.file.lastModified || 0));
         });
 
         try {
@@ -388,22 +389,22 @@ export const api = {
   },
 
   async getCinemaVideos(storageId?: string): Promise<CinemaItem[]> {
-    const url = storageId ? `${API_BASE}/cinema?storage=${encodeURIComponent(storageId)}` : `${API_BASE}/cinema`;
-    const res = await fetch(url);
+    const params = new URLSearchParams();
+    if (storageId && storageId !== 'all') params.set('storage', storageId);
+    params.set('dedicated', 'true');
+    const res = await fetch(`${API_BASE}/cinema?${params.toString()}`);
     if (!res.ok) {
       throw new Error('영화/영상 라이브러리 로드 실패');
     }
     return res.json();
   },
 
-  async getPhotos(storageId?: string, typeFilter?: string, skipSpecial?: boolean): Promise<PhotoItem[]> {
+  async getPhotos(storageId?: string, typeFilter?: string): Promise<PhotoItem[]> {
     const params = new URLSearchParams();
     if (storageId && storageId !== 'all') params.set('storage', storageId);
     if (typeFilter && typeFilter !== 'all') params.set('type', typeFilter);
-    if (skipSpecial) params.set('skip_special', 'true');
-    const qs = params.toString();
-    const url = qs ? `${API_BASE}/photos?${qs}` : `${API_BASE}/photos`;
-    const res = await fetch(url);
+    params.set('dedicated', 'true');
+    const res = await fetch(`${API_BASE}/photos?${params.toString()}`);
     if (!res.ok) {
       throw new Error('사진 & 모먼트 로드 실패');
     }
@@ -411,8 +412,10 @@ export const api = {
   },
 
   async getMusicLibrary(storageId?: string): Promise<MusicItem[]> {
-    const url = storageId && storageId !== 'all' ? `${API_BASE}/music?storage=${encodeURIComponent(storageId)}` : `${API_BASE}/music`;
-    const res = await fetch(url);
+    const params = new URLSearchParams();
+    if (storageId && storageId !== 'all') params.set('storage', storageId);
+    params.set('dedicated', 'true');
+    const res = await fetch(`${API_BASE}/music?${params.toString()}`);
     if (!res.ok) {
       throw new Error('음악 라이브러리 로드 실패');
     }
@@ -424,5 +427,34 @@ export const api = {
     params.set('path', path);
     if (storageId) params.set('storage', storageId);
     return `${API_BASE}/music/cover?${params.toString()}`;
+  },
+
+  getPhotoThumbUrl(path: string, storageId: string = '', size?: number, modTime?: string): string {
+    const params = new URLSearchParams();
+    params.set('path', path);
+    if (storageId) params.set('storage', storageId);
+    if (size !== undefined || modTime) {
+      params.set('v', `${size ?? 0}_${modTime ?? ''}`);
+    }
+    return `${API_BASE}/photos/thumb?${params.toString()}`;
+  },
+
+  async getMediaMeta(path: string, storageId: string = ''): Promise<MediaMeta> {
+    const params = new URLSearchParams();
+    params.set('path', path);
+    if (storageId) params.set('storage', storageId);
+    const res = await fetch(`${API_BASE}/media/meta?${params.toString()}`);
+    if (!res.ok) {
+      throw new Error('메타데이터 로드 실패');
+    }
+    return res.json();
+  },
+
+  async saveVideoThumb(storageId: string, path: string, dataUrl: string): Promise<void> {
+    await fetch(`${API_BASE}/photos/thumb`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storage: storageId, path, dataUrl }),
+    }).catch(() => {});
   }
 };

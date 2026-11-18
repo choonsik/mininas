@@ -1,7 +1,7 @@
 # MiniNAS 시스템 요구사항 및 기술 규격서 (SPEC.md)
 
-> 문서 버전: v0.7  
-> 최신 개정일: 2026-11-17  
+> 문서 버전: v0.8  
+> 최신 개정일: 2026-11-18  
 > 최초 작성일: 2026-11-07  
 > 목적: 2011 Mac mini 등 구형 인텔 맥 하드웨어를 활용한 초경량 독립형 홈 NAS 애플리케이션의 아키텍처 원칙, 기능별 요구사항, API 규격, 제약 조건을 정의합니다.
 
@@ -130,27 +130,30 @@ graph TD
 ### 3.4 4대 미디어 & 공유 허브 (Media & Sharing Hubs)
 
 #### 1. 시네마 허브 (Cinema Hub)
-- 전 저장소 영화/드라마 통합 라이브러리 (`GET /api/cinema`):
-  - 외장 HDD와 내장 저장소의 영상 파일을 자동 스캔하여 OTT 스타일의 카드 그리드로 렌더링합니다.
+- 전용 폴더 기반 영화/드라마 통합 라이브러리 (`GET /api/cinema?dedicated=true`):
+  - 시네마 전용 저장소(`movies`, `cinema`) 및 각 저장소 1단계 하위의 시네마 전용 폴더(`영화`, `드라마`, `시네마`, `애니`, `예능`, `방송`, `cinema`, `movies`, `dramas`, `series`, `vod`, `tv` 등)만 격리 스캔하여 일반 폴더 파일의 혼입을 방지합니다.
   - 회차 표기가 포함된 시리즈 영상을 단일 카드로 자동 그룹화합니다.
 - 자막 자동 매칭 & 실시간 WebVTT 변환:
   - 영상 파일명과 일치하는 외부 자막(`.srt`, `.smi`, `.vtt`)을 자동 매칭합니다.
   - 텍스트 인코딩을 자동 판별하여 브라우저 표준 UTF-8 WebVTT로 실시간 변환 스트리밍합니다.
-- 모바일 썸네일 디코딩 큐:
-  - 동시 캔버스 비디오 디코딩을 최대 2개로 제한하여 모바일 메인 스레드 멈춤을 방지합니다.
+- 서버 영구 캐시 연동 비디오 썸네일 큐:
+  - 최초 1회 캡처된 비디오 썸네일을 서버 `.mininas_cache/thumbs/`에 영구 저장하고 이후 요청에서는 정적 JPEG로 즉시 서빙합니다.
 
 #### 2. 포토 & 모먼트 (Photos Hub)
-- 전 저장소 통합 타임라인 (`GET /api/photos`):
-  - 모든 마운트된 저장소의 사진과 동영상을 날짜순(연월별 타임라인)으로 통합 수집합니다.
-  - 수량 및 용량 제한 없이 대용량 갤러리를 지원합니다.
-- 스마트 스킵 폴더 토글:
-  - 기본 모드에서는 `movies`, `dramas`, `sites` 폴더를 제외하여 순수 개인 일상 미디어만 정갈하게 표시합니다.
-- 원본 종횡비 보존 썸네일:
-  - 원본 비율을 보존하는 캔버스 캡처 썸네일과 라이트박스 뷰어를 제공합니다.
+- 전용 폴더 기반 앨범(폴더) 카드 보기 및 촬영일 타임라인 (`GET /api/photos?dedicated=true`):
+  - 포토 전용 저장소(`photos`, `albums`) 및 각 저장소 1단계 하위의 포토 전용 폴더(`사진`, `앨범`, `포토`, `카메라`, `일상`, `가족`, `여행`, `추억`, `photos`, `albums`, `pictures`, `dcim`, `camera` 등)만 격리 스캔합니다.
+  - 하위 폴더별 앨범 카드 보기(기본)와 연월별 촬영일 타임라인 보기 전환을 지원합니다.
+- 메타데이터 기반 실제 촬영일 추출 및 인덱스 캐시 (`GET /api/media/meta`):
+  - 1순위: JPEG/HEIC EXIF(`DateTimeOriginal`) 및 MP4/MOV(`mvhd` 박스 `Seek` 점프, QuickTime 생성 시각) 파싱.
+  - 2순위: 아이폰 라이브 포토(`.mov`) 및 파생 이미지의 동일 폴더 짝꿍 사진(`IMG_XXXX`) 촬영일 상속 및 인접 항목 날짜 보정.
+  - 3순위: 파일명·폴더 경로 날짜 패턴 추출 및 업로드 시 클라이언트 `lastModified` 시각 보존.
+  - 추출된 메타데이터는 `.mininas_cache/media_index_v2.json`에 캐싱하고 파일 삭제 시 고아 캐시를 자동 청소합니다.
+- EXIF 회전 보정 및 경량 썸네일 서빙 (`GET /api/photos/thumb`, `POST /api/photos/thumb`):
+  - EXIF 내장 썸네일 추출 시 원본의 `Orientation`(`0x0112`) 회전 태그를 함께 주입하고, `sips` 리사이즈 캐시와 연동하여 원본 비율(`object-contain`)을 유지한 고속 썸네일을 서빙합니다.
 
 #### 3. 음악 허브 (Music Hub)
-- 전 저장소 오디오 통합 라이브러리 (`GET /api/music`):
-  - 저장소 내 오디오 파일(MP3, FLAC, M4A, AAC, WAV)을 자동 스캔하여 트랙 및 앨범별로 분류합니다.
+- 전용 폴더 기반 오디오 통합 라이브러리 (`GET /api/music?dedicated=true`):
+  - 음악 전용 저장소(`music`) 및 전용 폴더(`음악`, `노래`, `오디오`, `music`, `audio`, `songs`, `ost` 등) 내 오디오 파일(MP3, FLAC, M4A, AAC, WAV)을 자동 스캔하여 트랙 및 앨범별로 분류합니다.
 - ID3v2 앨범 표지(Cover Art) 고속 추출 (`GET /api/music/cover`):
   - Go 표준 라이브러리 기반 파서로 MP3(ID3v2.2, v2.3, v2.4) APIC/PIC 프레임 및 FLAC 메타데이터 블록에서 JPEG/PNG 표지를 추출합니다.
   - 태그 부재 시 동일 폴더 내 커버 이미지(`cover.jpg`, `folder.jpg` 등)를 자동 탐색하여 대체 서빙합니다.
@@ -239,9 +242,12 @@ graph TD
 | `POST` | `/api/trash/restore` | 휴지통 항목 원본 위치로 복원 | `{"storage":"...","ids":["..."]}` |
 | `POST` | `/api/trash/delete` | 휴지통 선택 항목 영구 삭제 | `{"storage":"...","ids":["..."]}` |
 | `POST` | `/api/trash/empty` | 특정 스토리지 휴지통 완전 비우기 | `{"storage":"..."}` |
-| `GET` | `/api/photos` | 전 저장소 사진/동영상 타임라인 조회 | `skip_special`, `type` (옵션) |
-| `GET` | `/api/cinema` | 전 저장소 영화/드라마 목록 조회 | `storage` (옵션) |
-| `GET` | `/api/music` | 전 저장소 오디오 라이브러리 조회 | `storage` (옵션) |
+| `GET` | `/api/photos` | 포토 전용 폴더 사진/동영상 앨범 및 타임라인 조회 | `dedicated`, `skip_special`, `type` (옵션) |
+| `GET` | `/api/photos/thumb` | 사진/동영상 경량 캐시 썸네일 서빙 | `storage`, `path`, `v` |
+| `POST` | `/api/photos/thumb` | 클라이언트 캡처 비디오 썸네일 서버 캐시 저장 | `{"storage":"...","path":"...","dataUrl":"..."}` |
+| `GET` | `/api/media/meta` | 사진/동영상 EXIF 및 컨테이너 메타데이터 조회 | `storage`, `path` |
+| `GET` | `/api/cinema` | 시네마 전용 폴더 영화/드라마 목록 조회 | `storage`, `dedicated` (옵션) |
+| `GET` | `/api/music` | 음악 전용 폴더 오디오 라이브러리 조회 | `storage`, `dedicated` (옵션) |
 | `GET` | `/api/music/cover` | 오디오 파일 ID3v2/폴더 앨범 표지 서빙 | `storage`, `path` |
 | `GET` | `/api/sites` | 등록된 쇼케이스 웹사이트 목록 조회 | - |
 | `POST` | `/api/sites/pin` | 특정 HTML 파일/폴더를 사이트 허브에 고정 | `{"storage":"...","path":"..."}` |
@@ -277,8 +283,8 @@ graph TD
 - 빌드된 Mach-O 바이너리(`mininas-intel-mac`)를 대상으로 `nm -u` 심볼 테이블을 전수 조사합니다.
 - macOS 12+ 전용 최신 심볼(예: `_SecTrustCopyCertificateChain`) 포함 여부를 검증합니다. (허용 기준: 0건)
 
-### Stage 4: 15개 실전 런타임 E2E 시나리오 검증
-임시 격리 스토리지 환경에서 핵심 15개 시나리오를 자동 검증합니다:
+### Stage 4: 16개 실전 런타임 E2E 시나리오 검증
+임시 격리 스토리지 환경에서 핵심 16개 시나리오를 자동 검증합니다:
 1. CLI 사전 설정 진단 플래그 검증 (`mininas -config <file> -check`)
 2. 테스트 서버 백그라운드 구동 검증
 3. 멀티 저장소 목록 및 용량 조회 API 검증 (`/api/storages`)
@@ -294,4 +300,5 @@ graph TD
 13. 시네마 허브(`/api/cinema`) 및 포토 허브(`/api/photos?skip_special=true`) 통합 수집 검증
 14. 음악 허브 오디오 수집(`/api/music`) 및 앨범 표지 서빙(`/api/music/cover`) 검증
 15. 휴지통 소프트 삭제, 목록 조회, 원본 복구, 선택 영구 삭제, 비우기 E2E 검증 (`/api/trash/*`)
+16. 전용 폴더 격리(`?dedicated=true`), 미디어 메타데이터 추출(`/api/media/meta`), 경량 썸네일 캐시(`/api/photos/thumb`) 검증
 

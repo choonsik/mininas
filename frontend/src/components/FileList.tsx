@@ -369,9 +369,10 @@ export const FileList: React.FC<FileListProps> = ({
                   <div className="w-12 h-12 sm:w-14 sm:h-14 my-1 flex items-center justify-center relative self-center mx-auto rounded overflow-hidden">
                     {item.mediaType === 'image' ? (
                       <img
-                        src={api.getStreamUrl(item.path, storageId)}
+                        src={api.getPhotoThumbUrl(item.path, storageId, item.size, item.modTime)}
                         alt={item.name}
                         loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-contain"
                       />
                     ) : item.mediaType === 'video' ? (

@@ -178,13 +178,34 @@ export interface CinemaItem {
 export interface PhotoItem {
   id: string;
   name: string;
+  album: string;
   storageId: string;
   storageName: string;
   relPath: string;
   size: number;
   modTime: string;
+  takenAt: string;
+  dateSource?: 'exif' | 'mp4' | 'filename' | 'mtime';
+  width?: number;
+  height?: number;
+  cameraModel?: string;
+  durationSec?: number;
   ext: string;
   mediaType: 'image' | 'video';
+}
+
+export interface MediaMeta {
+  takenAt: string;
+  dateSource: 'exif' | 'mp4' | 'filename' | 'mtime';
+  width?: number;
+  height?: number;
+  cameraMake?: string;
+  cameraModel?: string;
+  fNumber?: string;
+  exposureTime?: string;
+  iso?: number;
+  durationSec?: number;
+  hasGps?: boolean;
 }
 
 

@@ -65,6 +65,8 @@ export const VideoThumbnail: React.FC<VideoThumbnailProps> = ({
       id: taskId,
       url: api.getStreamUrl(relPath, storageId),
       ext: lowerExt,
+      storageId,
+      relPath,
       onSuccess: (url) => setThumbUrl(url),
       onError: () => {},
     });

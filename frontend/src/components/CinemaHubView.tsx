@@ -127,6 +127,8 @@ const CinemaPosterCard: React.FC<{
       id: taskId,
       url: api.getStreamUrl(movie.relPath, movie.storageId),
       ext,
+      storageId: movie.storageId,
+      relPath: movie.relPath,
       onSuccess: (url) => setThumbUrl(url),
       onError: () => {},
     });
@@ -251,7 +253,9 @@ export const CinemaHubView: React.FC<CinemaHubViewProps> = ({
   const fetchMovies = async () => {
     setIsLoading(true);
     try {
-      const data = await api.getCinemaVideos(selectedStorage === 'all' ? undefined : selectedStorage);
+      const data = await api.getCinemaVideos(
+        selectedStorage === 'all' ? undefined : selectedStorage
+      );
       setMovies(data);
     } catch (err: any) {
       onShowToast(`영화 라이브러리 로드 실패: ${err.message}`, 'error');
@@ -439,8 +443,13 @@ export const CinemaHubView: React.FC<CinemaHubViewProps> = ({
         <div className="flex flex-col items-center justify-center p-12 space-y-2 text-center text-content-muted">
           <Film className="w-8 h-8 opacity-40 mb-1" />
           <h4 className="text-xs font-medium text-content-secondary">
-            {searchQuery ? '검색된 작품이 없습니다' : '보관된 비디오가 없습니다'}
+            {searchQuery ? '검색된 작품이 없습니다' : '시네마 전용 폴더에 보관된 영상이 없습니다'}
           </h4>
+          {!searchQuery && (
+            <p className="text-[11px] text-content-muted max-w-md">
+              저장소 최상위에 '영화', '드라마', 'movies', 'cinema' 폴더를 만들어 영상을 넣으면 이곳에 자동 표시됩니다.
+            </p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">

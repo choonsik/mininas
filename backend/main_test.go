@@ -880,3 +880,79 @@ func TestMusicAndCoverAPI(t *testing.T) {
 	}
 }
 
+func TestDedicatedMediaFoldersIsolation(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "mininas_isolation_test_*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	oldStorages := activeStorages
+	defer func() { activeStorages = oldStorages }()
+
+	activeStorages = []StorageEntry{
+		{ID: "main", Name: "기본 저장소", Path: tempDir},
+	}
+
+	// 1. 일반 업로드 폴더 (시네마, 포토, 음악 어느 허브에서도 dedicated=true 일 때 노출되면 안 됨)
+	uploadDir := filepath.Join(tempDir, "특정업로드폴더")
+	_ = os.MkdirAll(uploadDir, 0755)
+	_ = os.WriteFile(filepath.Join(uploadDir, "work_photo.jpg"), []byte("work-img"), 0644)
+	_ = os.WriteFile(filepath.Join(uploadDir, "work_video.mp4"), make([]byte, 1500000), 0644)
+	_ = os.WriteFile(filepath.Join(uploadDir, "voice_memo.mp3"), []byte("voice-audio"), 0644)
+
+	// 2. 시네마 전용 폴더 (영화)
+	cinemaDir := filepath.Join(tempDir, "영화")
+	_ = os.MkdirAll(cinemaDir, 0755)
+	_ = os.WriteFile(filepath.Join(cinemaDir, "Interstellar.mp4"), make([]byte, 2000000), 0644)
+	_ = os.WriteFile(filepath.Join(cinemaDir, "poster.jpg"), []byte("movie-poster"), 0644)
+
+	// 3. 포토 전용 폴더 (사진)
+	photosDir := filepath.Join(tempDir, "사진")
+	_ = os.MkdirAll(photosDir, 0755)
+	_ = os.WriteFile(filepath.Join(photosDir, "family_trip.jpg"), []byte("family-jpg"), 0644)
+	_ = os.WriteFile(filepath.Join(photosDir, "family_clip.mp4"), make([]byte, 1800000), 0644)
+
+	// 4. 음악 전용 폴더 (음악)
+	musicDir := filepath.Join(tempDir, "음악")
+	_ = os.MkdirAll(musicDir, 0755)
+	_ = os.WriteFile(filepath.Join(musicDir, "IU - Through the Night.mp3"), []byte("music-data"), 0644)
+
+	// A. 시네마 허브 dedicated=true 검증 -> 오직 '영화/Interstellar.mp4' 1개만 반환해야 함
+	reqCinema := httptest.NewRequest(http.MethodGet, "/api/cinema?dedicated=true", nil)
+	rrCinema := httptest.NewRecorder()
+	handleCinemaList(rrCinema, reqCinema)
+	var cinemaItems []CinemaItem
+	if err := json.NewDecoder(rrCinema.Body).Decode(&cinemaItems); err != nil {
+		t.Fatalf("Failed to decode cinema items: %v", err)
+	}
+	if len(cinemaItems) != 1 || cinemaItems[0].Name != "Interstellar.mp4" {
+		t.Fatalf("Expected only Interstellar.mp4 in dedicated cinema list, got %+v", cinemaItems)
+	}
+
+	// B. 포토 허브 dedicated=true 검증 -> 오직 '사진/family_trip.jpg', '사진/family_clip.mp4' 2개만 반환해야 함
+	reqPhotos := httptest.NewRequest(http.MethodGet, "/api/photos?dedicated=true", nil)
+	rrPhotos := httptest.NewRecorder()
+	handlePhotosList(rrPhotos, reqPhotos)
+	var photoItems []PhotoItem
+	if err := json.NewDecoder(rrPhotos.Body).Decode(&photoItems); err != nil {
+		t.Fatalf("Failed to decode photo items: %v", err)
+	}
+	if len(photoItems) != 2 {
+		t.Fatalf("Expected 2 items in dedicated photos list, got %d: %+v", len(photoItems), photoItems)
+	}
+
+	// C. 음악 허브 dedicated=true 검증 -> 오직 '음악/IU - Through the Night.mp3' 1개만 반환해야 함
+	reqMusic := httptest.NewRequest(http.MethodGet, "/api/music?dedicated=true", nil)
+	rrMusic := httptest.NewRecorder()
+	handleMusicList(rrMusic, reqMusic)
+	var musicItems []MusicItem
+	if err := json.NewDecoder(rrMusic.Body).Decode(&musicItems); err != nil {
+		t.Fatalf("Failed to decode music items: %v", err)
+	}
+	if len(musicItems) != 1 || musicItems[0].Title != "Through the Night" {
+		t.Fatalf("Expected only Through the Night in dedicated music list, got %+v", musicItems)
+	}
+}
+
+

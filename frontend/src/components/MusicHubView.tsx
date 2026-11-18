@@ -69,7 +69,9 @@ export const MusicHubView: React.FC<MusicHubViewProps> = ({
   const fetchMusic = async () => {
     setIsLoading(true);
     try {
-      const data = await api.getMusicLibrary(selectedStorage === 'all' ? undefined : selectedStorage);
+      const data = await api.getMusicLibrary(
+        selectedStorage === 'all' ? undefined : selectedStorage
+      );
       setMusicList(data);
     } catch (err: any) {
       onShowToast(`음악 라이브러리 로드 실패: ${err.message}`, 'error');
@@ -266,14 +268,16 @@ export const MusicHubView: React.FC<MusicHubViewProps> = ({
 
       {/* Content Area */}
       {filteredTracks.length === 0 ? (
-        <div className="h-64 flex flex-col items-center justify-center text-content-muted gap-2 border border-dashed border-surface-border rounded-xl">
+        <div className="h-64 flex flex-col items-center justify-center text-content-muted gap-2 border border-dashed border-surface-border rounded-xl p-4">
           <Disc className="w-10 h-10 opacity-30 stroke-[1.25]" />
           <h4 className="text-xs font-medium text-content-secondary">
-            {searchQuery ? '검색된 음악이 없습니다' : '저장소에 보관된 음악 파일이 없습니다'}
+            {searchQuery ? '검색된 음악이 없습니다' : '음악 전용 폴더에 보관된 오디오 파일이 없습니다'}
           </h4>
-          <p className="text-[11px] text-content-muted max-w-sm text-center">
-            MP3, FLAC, M4A, WAV, AAC 음악 파일을 저장소에 업로드하면 이곳에 자동으로 라이브러리가 구축됩니다.
-          </p>
+          {!searchQuery && (
+            <p className="text-[11px] text-content-muted max-w-md text-center">
+              저장소 최상위에 '음악', '노래', 'music', 'audio' 폴더를 만들어 오디오 파일을 넣으면 이곳에 자동 표시됩니다.
+            </p>
+          )}
         </div>
       ) : viewMode === 'tracks' ? (
         /* Tracks Table View */

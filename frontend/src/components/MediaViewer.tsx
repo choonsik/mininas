@@ -14,11 +14,17 @@ import {
   ChevronLeft, 
   ChevronRight,
   ListOrdered,
-  FolderSync
+  FolderSync,
+  Info,
+  Calendar,
+  Camera,
+  Maximize2,
+  Clock,
+  MapPin
 } from 'lucide-react';
-import { FileItem, SubtitleTrack, MediaInspection, MediaCapabilities, BatchConvertJob } from '../types';
+import { FileItem, SubtitleTrack, MediaInspection, MediaCapabilities, BatchConvertJob, MediaMeta } from '../types';
 import { api } from '../api';
-import { formatBytes, truncateMiddle } from '../utils/format';
+import { formatBytes, formatDate, truncateMiddle } from '../utils/format';
 
 interface MediaViewerProps {
   item: FileItem | null;
@@ -41,6 +47,9 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
   const [selectedSubtitleUrl, setSelectedSubtitleUrl] = useState<string | null>(null);
   const [inspection, setInspection] = useState<MediaInspection | null>(null);
   const [capabilities, setCapabilities] = useState<MediaCapabilities | null>(null);
+  const [showInfo, setShowInfo] = useState<boolean>(false);
+  const [mediaMeta, setMediaMeta] = useState<MediaMeta | null>(null);
+  const [useThumbFallback, setUseThumbFallback] = useState<boolean>(false);
 
   // Auto-play next episode/video setting
   const [autoPlayNext, setAutoPlayNext] = useState<boolean>(true);
@@ -96,6 +105,15 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
 
   useEffect(() => {
     if (!item) return;
+    setUseThumbFallback(false);
+
+    if (item.mediaType === 'image' || item.mediaType === 'video') {
+      api.getMediaMeta(item.path, storageId)
+        .then(setMediaMeta)
+        .catch(() => setMediaMeta(null));
+    } else {
+      setMediaMeta(null);
+    }
 
     if (item.mediaType === 'video') {
       // 1. Get subtitles
@@ -168,6 +186,9 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
         e.preventDefault();
         e.stopPropagation();
         handleNext();
+      } else if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        setShowInfo((prev) => !prev);
       } else if (e.key === ' ' && item?.mediaType === 'video' && videoRef.current) {
         // Spacebar toggles Play / Pause for video
         e.preventDefault();
@@ -460,6 +481,21 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
             </button>
           )}
 
+          {(item.mediaType === 'image' || item.mediaType === 'video') && (
+            <button
+              onClick={() => setShowInfo((prev) => !prev)}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg border text-xs font-medium transition ${
+                showInfo
+                  ? 'bg-accent-subtle border-accent text-accent'
+                  : 'bg-surface-card hover:bg-surface-cardHover border-surface-border text-content-primary'
+              }`}
+              title="상세 메타 정보 보기 (단축키: I)"
+            >
+              <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">정보</span>
+            </button>
+          )}
+
           <a
             href={api.getDownloadUrl(item.path, storageId)}
             download
@@ -540,10 +576,108 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
 
       {/* Media Center Content */}
       <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-hidden relative">
+        {showInfo && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="fixed sm:absolute bottom-20 sm:bottom-auto sm:top-4 right-3 sm:right-6 z-40 w-[calc(100vw-1.5rem)] max-w-xs bg-surface-card/95 backdrop-blur-md border border-surface-border rounded-xl p-3.5 shadow-2xl space-y-2.5 text-xs text-content-primary animate-fadeIn"
+          >
+            <div className="flex items-center justify-between border-b border-surface-border pb-2">
+              <span className="font-semibold text-xs flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 text-accent" />
+                <span>상세 메타 정보</span>
+              </span>
+              <button
+                onClick={() => setShowInfo(false)}
+                className="p-0.5 rounded text-content-muted hover:text-content-primary transition"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-[11px]">
+              {mediaMeta?.takenAt && (
+                <div className="flex items-start gap-2">
+                  <Calendar className="w-3.5 h-3.5 text-accent shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] text-content-muted">촬영/생성일시</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-surface-base border border-surface-border text-content-secondary">
+                        {mediaMeta.dateSource === 'exif'
+                          ? 'EXIF 촬영일'
+                          : mediaMeta.dateSource === 'mp4'
+                            ? 'MP4 생성일'
+                            : mediaMeta.dateSource === 'filename'
+                              ? '파일/폴더 날짜'
+                              : '파일 수정일'}
+                      </span>
+                    </div>
+                    <p className="font-medium text-content-primary">{formatDate(mediaMeta.takenAt)}</p>
+                  </div>
+                </div>
+              )}
+
+              {(mediaMeta?.width && mediaMeta?.height) ? (
+                <div className="flex items-start gap-2">
+                  <Maximize2 className="w-3.5 h-3.5 text-content-muted shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-[10px] text-content-muted block">해상도</span>
+                    <span className="font-mono">{mediaMeta.width} × {mediaMeta.height}</span>
+                  </div>
+                </div>
+              ) : null}
+
+              {mediaMeta?.durationSec ? (
+                <div className="flex items-start gap-2">
+                  <Clock className="w-3.5 h-3.5 text-content-muted shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-[10px] text-content-muted block">재생 시간</span>
+                    <span className="font-mono">{Math.round(mediaMeta.durationSec)}초</span>
+                  </div>
+                </div>
+              ) : null}
+
+              {(mediaMeta?.cameraMake || mediaMeta?.cameraModel || mediaMeta?.fNumber || mediaMeta?.exposureTime || mediaMeta?.iso) && (
+                <div className="flex items-start gap-2">
+                  <Camera className="w-3.5 h-3.5 text-content-muted shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-[10px] text-content-muted block">카메라 및 노출 정보</span>
+                    {(mediaMeta.cameraMake || mediaMeta.cameraModel) && (
+                      <p className="font-medium">
+                        {[mediaMeta.cameraMake, mediaMeta.cameraModel].filter(Boolean).join(' ')}
+                      </p>
+                    )}
+                    <p className="font-mono text-content-secondary">
+                      {[
+                        mediaMeta.fNumber,
+                        mediaMeta.exposureTime,
+                        mediaMeta.iso ? `ISO ${mediaMeta.iso}` : undefined,
+                      ].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {mediaMeta?.hasGps && (
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <MapPin className="w-3.5 h-3.5 shrink-0" />
+                  <span>EXIF GPS 위치 좌표 포함됨</span>
+                </div>
+              )}
+
+              <div className="pt-1.5 border-t border-surface-borderSubtle text-[10px] text-content-muted font-mono break-all">
+                {item.path} ({formatBytes(item.size)})
+              </div>
+            </div>
+          </div>
+        )}
+
         {item.mediaType === 'image' && (
           <img
-            src={streamUrl}
+            src={useThumbFallback ? api.getPhotoThumbUrl(item.path, storageId, item.size, item.modTime) : streamUrl}
             alt={item.name}
+            onError={() => {
+              if (!useThumbFallback) setUseThumbFallback(true);
+            }}
             className="max-h-[82vh] max-w-[90vw] object-contain rounded-lg shadow-2xl animate-scaleUp"
           />
         )}
