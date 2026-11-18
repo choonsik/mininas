@@ -29,8 +29,8 @@ MiniNAS 프로젝트의 아키텍처, 검증 하네스, 성능 벤치마크, 버
 
 - [HARNESS_VERIFICATION_REPORT.md (무결성 검증 하네스 설계 및 점검 보고서)](./HARNESS_VERIFICATION_REPORT.md)
   - 프로젝트 지침(`GEMINI.md`) 및 기술 규격서(`SPEC.md`) 정합성 점검 결과.
-  - 테스트 커버리지 보완 내역(음악 허브, 앨범 표지, 파일 조작, 휴지통 선택 삭제, CLI 사전 진단).
-  - 4단계 자동화 검증 파이프라인(`make test`), 19개 유닛 테스트, 15개 런타임 E2E 시나리오 명세.
+  - 테스트 커버리지 보완 내역(전용 폴더 격리, EXIF/MP4 메타데이터 파싱, 회전 보정 썸네일 캐시, 고아 캐시 청소, 음악 허브, 파일 조작, 휴지통).
+  - 4단계 자동화 검증 파이프라인(`make test`), 21개 유닛 테스트, 16개 런타임 E2E 시나리오 명세.
 
 - [VIDEO_STREAMING_OPTIMIZATION.md (무손실 스트리밍 최적화 보고서)](./VIDEO_STREAMING_OPTIMIZATION.md)
   - 버퍼링의 역설: 느린 네트워크와 빠른 네트워크의 엔지니어링 전략 차이 분석.

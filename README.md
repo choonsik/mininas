@@ -141,8 +141,10 @@ make build-local
 
 - [시스템 기술 규격서 (SPEC.md)](SPEC.md)
 - [문서 색인 (docs/README.md)](docs/README.md)
+- [무결성 검증 하네스 설계 및 점검 보고서](docs/HARNESS_VERIFICATION_REPORT.md)
 - [동영상 스트리밍 최적화 분석 보고서](docs/VIDEO_STREAMING_OPTIMIZATION.md)
 - [스트리밍 성능 벤치마크 보고서](docs/BENCHMARK_STREAMING_OPTIMIZATION.md)
+- [v0.8 릴리즈 노트](docs/RELEASE_NOTES_v0.8.md)
 - [v0.7 릴리즈 노트](docs/RELEASE_NOTES_v0.7.md)
 - [v0.6 릴리즈 노트](docs/RELEASE_NOTES_v0.6.md)
 - [v0.5 릴리즈 노트](docs/RELEASE_NOTES_v0.5.md)

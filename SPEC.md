@@ -275,7 +275,7 @@ graph TD
 - 경로 탈출(`../`) 차단 보안 검증을 수행합니다.
 - 스토리지 설정 파싱 및 사전 설정 진단(`validateConfig`) 검증을 수행합니다.
 - 파일 조작(`mkdir`, `rename`, `copy`, `move`, `download`, `download-zip`, `stream`) 유닛 테스트를 수행합니다.
-- 4대 미디어 허브(`/api/cinema`, `/api/photos`, `/api/music`, `/api/sites`) 및 ID3v2/폴더 앨범 표지 추출(`/api/music/cover`) 유닛 테스트를 수행합니다.
+- 4대 미디어 허브(`/api/cinema`, `/api/photos`, `/api/music`, `/api/sites`), 전용 폴더 격리(`dedicated=true`), EXIF/MP4 메타데이터 파싱(`/api/media/meta`), 경량 썸네일 캐시 및 자동 청소(`/api/photos/thumb`), ID3v2/폴더 앨범 표지 추출(`/api/music/cover`) 유닛 테스트를 수행합니다.
 - 자막 파서(SRT, SMI, VTT, ASS) 및 UTF-8/EUC-KR 디코더 유닛 테스트를 수행합니다.
 - 휴지통(`.trash`) 소프트 삭제, 메타데이터 기록, 복원, 선택 영구 삭제, 비우기 유닛 테스트를 수행합니다.
 

@@ -1,7 +1,7 @@
 # MiniNAS 무결성 검증 하네스 설계 및 점검 보고서
 
-> 기준 버전: v0.7  
-> 작성일: 2026-11-17  
+> 기준 버전: v0.8  
+> 작성일: 2026-11-18  
 > 대상: `GEMINI.md`, `SPEC.md`, `harness/*.sh`, `backend/*_test.go`
 
 ---
@@ -10,7 +10,7 @@
 
 MiniNAS는 2011 Mac mini(macOS 10.13 High Sierra, Intel x86_64) 환경에서 단일 바이너리로 동작합니다. 코드 변경 시 레거시 OS 호환성 깨짐, 경로 탈출 보안 취약점, 미디어 스트리밍 결함을 사전에 차단하기 위해 4단계 자동화 검증 하네스(`make test`)를 운영합니다.
 
-본 문서는 v0.7 릴리즈 이후 수행한 하네스 전체 점검 결과와 규격 동기화 내역을 기록합니다.
+본 문서는 v0.8 릴리즈 기준 하네스 전체 점검 결과와 규격 동기화 내역을 기록합니다.
 
 ---
 
@@ -74,7 +74,7 @@ MiniNAS는 2011 Mac mini(macOS 10.13 High Sierra, Intel x86_64) 환경에서 단
 flowchart LR
     S1["Stage 1<br/>Frontend TypeCheck & Build"] --> S2["Stage 2<br/>Backend Unit & Security Test"]
     S2 --> S3["Stage 3<br/>macOS 10.13 Symbol Check"]
-    S3 --> S4["Stage 4<br/>15 Live E2E Scenarios"]
+    S3 --> S4["Stage 4<br/>16 Live E2E Scenarios"]
 ```
 
 ### Stage 1: Frontend Build and TypeScript Static Check
@@ -83,7 +83,7 @@ flowchart LR
 
 ### Stage 2: Backend Unit and Security Integration Tests
 - 실행 명령: `cd backend && go test -v ./...`
-- 유닛 테스트 스위트 구성 (총 19개 테스트 함수):
+- 유닛 테스트 스위트 구성 (총 21개 테스트 함수):
   - `main_test.go`:
     - `TestStorageSecurityTraversal`: 상위 경로 탈출(`../../etc/passwd`) 차단 검증
     - `TestGetStoragesAPI`: 멀티 저장소 마운트 및 디스크 통계 응답 검증
@@ -98,6 +98,9 @@ flowchart LR
     - `TestPhotosListAPI`: 포토 허브 타임라인, `skip_special=true` 필터, `type=image|video` 필터 검증
     - `TestMkdirRenameAndDownload`: 폴더 생성, 이름 변경, 단일 파일 다운로드 검증
     - `TestMusicAndCoverAPI`: 음악 허브 스캔, ID3v2.3 APIC 커버 추출, 폴더 `cover.jpg` 폴백 검증
+    - `TestDedicatedMediaFoldersIsolation`: 시네마·포토·음악 허브 전용 폴더(`dedicated=true`) 격리 및 일반 폴더 배제 검증
+  - `media_meta_test.go`:
+    - `TestMediaMetaExtractionAndPhotoThumb`: EXIF 촬영일 및 회전(`Orientation`) 해상도 보정, MP4 `Seek` 기반 `mvhd` 파싱, 라이브 포토(`.mov`) 짝꿍 촬영일 상속, 회전 헤더 주입 썸네일 추출(`/api/photos/thumb`), 파일 삭제 시 고아 썸네일 자동 청소 검증
   - `subtitles_test.go`:
     - `TestConvertSRTToVTT`, `TestConvertSMIToVTT`: SRT/SMI 타임스탬프 및 위치 태그(`{\an8}`) WebVTT 변환 검증
     - `TestDecodeToUTF8`: UTF-8, UTF-8 BOM, EUC-KR 한글 자막 자동 디코딩 검증
@@ -117,7 +120,7 @@ flowchart LR
 
 ### Stage 4: Live Runtime E2E Scenario Verification
 - 실행 스크립트: `harness/e2e_verify.sh`
-- 임시 격리 스토리지(`/tmp/mininas_e2e_XXXXXX`)와 포트 `8999`에서 실제 서버 프로세스를 띄우고 `curl`로 15개 런타임 시나리오를 순차 검증합니다:
+- 임시 격리 스토리지(`/tmp/mininas_e2e_XXXXXX`)와 포트 `8999`에서 실제 서버 프로세스를 띄우고 `curl`로 16개 런타임 시나리오를 순차 검증합니다:
   1. CLI 사전 설정 진단 플래그(`-config ... -check`) 실행
   2. 백그라운드 데몬 기동 및 프로세스 생존 확인
   3. 멀티 저장소 목록 및 용량 조회 (`GET /api/storages`)
@@ -133,3 +136,4 @@ flowchart LR
   13. 시네마 허브(`GET /api/cinema`) 및 포토 허브(`GET /api/photos?skip_special=true`) 통합 수집
   14. 음악 허브(`GET /api/music`) 및 앨범 표지 서빙(`GET /api/music/cover`)
   15. 휴지통 소프트 삭제, 목록 조회, 원본 복원, 선택 영구 삭제, 비우기 전 주기 (`/api/trash/*`)
+  16. 전용 폴더 격리(`?dedicated=true`), 미디어 메타데이터 추출(`/api/media/meta`), 경량 썸네일 캐시(`/api/photos/thumb`) 검증
